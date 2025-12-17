@@ -102,38 +102,29 @@ export default function RecordScreen() {
       setProcessingStep('Transcribing...');
 
       // Call V1 API to transcribe and extract
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://v1ops.com';
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
       
       try {
-        const transcribeResponse = await fetch(`${apiUrl}/api/voice/transcribe`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            audio_base64: audioBase64,
-            entry_id: entry.id,
-          }),
-        });
+        // Get session for auth token
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session && audioUrl) {
+          const transcribeResponse = await fetch(`${apiUrl}/api/voice/transcribe`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              audio_url: audioUrl,
+              entry_id: entry.id,
+            }),
+          });
 
-        if (transcribeResponse.ok) {
-          const { transcript } = await transcribeResponse.json();
-
-          if (transcript) {
-            setProcessingStep('Analyzing...');
-
-            // Extract todos, dates, etc.
-            const extractResponse = await fetch(`${apiUrl}/api/voice/extract`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                transcript,
-                entry_id: entry.id,
-                hint_type: selectedType,
-              }),
-            });
-
-            if (extractResponse.ok) {
-              setProcessingStep('Done!');
-            }
+          if (transcribeResponse.ok) {
+            setProcessingStep('Done!');
+          } else {
+            console.log('Transcription failed:', await transcribeResponse.text());
           }
         }
       } catch (apiError) {
