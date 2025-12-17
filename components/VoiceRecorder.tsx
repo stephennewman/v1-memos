@@ -14,21 +14,24 @@ interface VoiceRecorderProps {
   onRecordingComplete: (uri: string, durationMs: number) => void;
   onCancel?: () => void;
   maxDuration?: number; // seconds
+  autoStart?: boolean; // Start recording automatically
 }
 
 export function VoiceRecorder({ 
   onRecordingComplete, 
   onCancel,
   maxDuration = 300, // 5 minutes default
+  autoStart = false,
 }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [hasAutoStarted, setHasAutoStarted] = useState(false);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Request permissions on mount
+  // Request permissions on mount and auto-start if requested
   useEffect(() => {
     (async () => {
       const { status } = await Audio.requestPermissionsAsync();
@@ -42,6 +45,17 @@ export function VoiceRecorder({
       }
     })();
   }, []);
+
+  // Auto-start recording after permissions are granted
+  useEffect(() => {
+    if (autoStart && permissionGranted && !hasAutoStarted && !isRecording) {
+      setHasAutoStarted(true);
+      // Small delay to ensure everything is ready
+      setTimeout(() => {
+        startRecording();
+      }, 300);
+    }
+  }, [autoStart, permissionGranted, hasAutoStarted, isRecording]);
 
   // Pulse animation while recording
   useEffect(() => {

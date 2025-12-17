@@ -223,6 +223,7 @@ export default function RecordScreen() {
           onRecordingComplete={handleRecordingComplete}
           onCancel={handleCancel}
           maxDuration={300}
+          autoStart={shouldAutoStart}
         />
       </View>
     );
