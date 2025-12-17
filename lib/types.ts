@@ -120,6 +120,16 @@ export interface VoiceTodo {
   completed_at?: string;
 }
 
+export interface VoiceNote {
+  id: string;
+  user_id: string;
+  entry_id?: string;
+  text: string;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // ============================================================================
 // Voice Calendar
 // ============================================================================

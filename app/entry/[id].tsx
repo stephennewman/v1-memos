@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import type { VoiceEntry, ExtractedTodo } from '@/lib/types';
+import type { VoiceEntry, VoiceTodo, VoiceNote as VoiceNoteType } from '@/lib/types';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
 
@@ -40,12 +40,17 @@ export default function EntryDetailScreen() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   
+  // Tasks and Notes from database
+  const [tasks, setTasks] = useState<VoiceTodo[]>([]);
+  const [notes, setNotes] = useState<VoiceNoteType[]>([]);
+  
   // Editing states
   const [isEditingSummary, setIsEditingSummary] = useState(false);
   const [isEditingTranscript, setIsEditingTranscript] = useState(false);
   const [editedSummary, setEditedSummary] = useState('');
   const [editedTranscript, setEditedTranscript] = useState('');
   const [newTaskText, setNewTaskText] = useState('');
+  const [newNoteText, setNewNoteText] = useState('');
   
   // Related notes
   const [relatedNotes, setRelatedNotes] = useState<RelatedNote[]>([]);
@@ -77,6 +82,7 @@ export default function EntryDetailScreen() {
 
   useEffect(() => {
     loadEntry();
+    loadTasksAndNotes();
     return () => {
       if (sound) sound.unloadAsync();
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -87,18 +93,49 @@ export default function EntryDetailScreen() {
   useEffect(() => {
     if (entry?.is_processed) {
       loadRelatedNotes();
+      loadTasksAndNotes();
     }
   }, [entry?.is_processed, loadRelatedNotes]);
 
   // Start polling if entry is not processed
   useEffect(() => {
     if (entry && !entry.is_processed) {
-      pollIntervalRef.current = setInterval(loadEntry, 2000);
+      pollIntervalRef.current = setInterval(() => {
+        loadEntry();
+        loadTasksAndNotes();
+      }, 2000);
     } else if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
   }, [entry?.is_processed]);
+
+  const loadTasksAndNotes = async () => {
+    if (!id) return;
+    
+    try {
+      // Load tasks from voice_todos
+      const { data: tasksData } = await supabase
+        .from('voice_todos')
+        .select('*')
+        .eq('entry_id', id)
+        .order('created_at', { ascending: true });
+      
+      if (tasksData) setTasks(tasksData);
+
+      // Load notes from voice_notes
+      const { data: notesData } = await supabase
+        .from('voice_notes')
+        .select('*')
+        .eq('entry_id', id)
+        .eq('is_archived', false)
+        .order('created_at', { ascending: true });
+      
+      if (notesData) setNotes(notesData);
+    } catch (error) {
+      console.error('Error loading tasks/notes:', error);
+    }
+  };
 
   const loadEntry = async () => {
     if (!id) return;
@@ -128,6 +165,7 @@ export default function EntryDetailScreen() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await loadEntry();
+    await loadTasksAndNotes();
     await loadRelatedNotes();
     setIsRefreshing(false);
   };
@@ -277,55 +315,76 @@ export default function EntryDetailScreen() {
   };
 
   const addTask = async () => {
-    if (!entry || !newTaskText.trim()) return;
-    
-    const newTodo: ExtractedTodo = { text: newTaskText.trim() };
-    const updatedTodos = [...(entry.extracted_todos || []), newTodo];
+    if (!entry || !user || !newTaskText.trim()) return;
     
     try {
-      // Update entry
-      await supabase
-        .from('voice_entries')
-        .update({ extracted_todos: updatedTodos })
-        .eq('id', entry.id);
+      const { data, error } = await supabase
+        .from('voice_todos')
+        .insert({
+          user_id: user.id,
+          entry_id: entry.id,
+          text: newTaskText.trim(),
+          status: 'pending',
+        })
+        .select()
+        .single();
       
-      // Also add to voice_todos table
-      await supabase.from('voice_todos').insert({
-        user_id: entry.user_id,
-        entry_id: entry.id,
-        text: newTaskText.trim(),
-        status: 'pending',
-      });
-      
-      setEntry({ ...entry, extracted_todos: updatedTodos });
+      if (error) throw error;
+      if (data) setTasks([...tasks, data]);
       setNewTaskText('');
     } catch (error) {
       console.error('Error adding task:', error);
     }
   };
 
-  const deleteTask = async (index: number) => {
-    if (!entry) return;
-    
-    const todoToDelete = entry.extracted_todos[index];
-    const updatedTodos = entry.extracted_todos.filter((_, i) => i !== index);
-    
+  const deleteTask = async (taskId: string) => {
     try {
-      await supabase
-        .from('voice_entries')
-        .update({ extracted_todos: updatedTodos })
-        .eq('id', entry.id);
-      
-      // Also delete from voice_todos table
-      await supabase
+      const { error } = await supabase
         .from('voice_todos')
         .delete()
-        .eq('entry_id', entry.id)
-        .eq('text', todoToDelete.text);
+        .eq('id', taskId);
       
-      setEntry({ ...entry, extracted_todos: updatedTodos });
+      if (error) throw error;
+      setTasks(tasks.filter(t => t.id !== taskId));
     } catch (error) {
       console.error('Error deleting task:', error);
+    }
+  };
+
+  const addNote = async () => {
+    if (!entry || !user || !newNoteText.trim()) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('voice_notes')
+        .insert({
+          user_id: user.id,
+          entry_id: entry.id,
+          text: newNoteText.trim(),
+          is_archived: false,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      if (data) setNotes([...notes, data]);
+      setNewNoteText('');
+    } catch (error) {
+      console.error('Error adding note:', error);
+    }
+  };
+
+  const deleteNote = async (noteId: string) => {
+    try {
+      const { error } = await supabase
+        .from('voice_notes')
+        .delete()
+        .eq('id', noteId);
+      
+      if (error) throw error;
+      setNotes(notes.filter(n => n.id !== noteId));
+    } catch (error) {
+      console.error('Error deleting note:', error);
     }
   };
 
@@ -364,7 +423,8 @@ export default function EntryDetailScreen() {
   }
 
   const isProcessing = !entry.is_processed;
-  const todoCount = entry.extracted_todos?.length || 0;
+  const todoCount = tasks.length;
+  const noteCount = notes.length;
   const peopleList = entry.extracted_people || [];
 
   return (
@@ -523,19 +583,37 @@ export default function EntryDetailScreen() {
             </>
           ) : (
             <>
-              {entry.extracted_todos?.map((todo, idx) => (
-                <View key={idx} style={styles.taskItem}>
-                  <Ionicons name="checkbox-outline" size={20} color="#c4dfc4" />
+              {tasks.map((task) => (
+                <TouchableOpacity 
+                  key={task.id} 
+                  style={styles.taskItem}
+                  onPress={() => router.push(`/task/${task.id}`)}
+                >
+                  <Ionicons 
+                    name={task.status === 'completed' ? "checkbox" : "checkbox-outline"} 
+                    size={20} 
+                    color={task.status === 'completed' ? '#666' : '#c4dfc4'} 
+                  />
                   <View style={styles.taskContent}>
-                    <Text style={styles.taskText}>{todo.text}</Text>
-                    {todo.due_date && (
-                      <Text style={styles.taskDue}>Due: {todo.due_date}</Text>
+                    <Text style={[
+                      styles.taskText,
+                      task.status === 'completed' && styles.taskTextCompleted
+                    ]}>{task.text}</Text>
+                    {task.due_date && (
+                      <Text style={styles.taskDue}>
+                        Due: {new Date(task.due_date).toLocaleDateString('en-US', { 
+                          month: 'short', day: 'numeric' 
+                        })}
+                      </Text>
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => deleteTask(idx)} style={styles.deleteTaskBtn}>
+                  <TouchableOpacity 
+                    onPress={(e) => { e.stopPropagation(); deleteTask(task.id); }} 
+                    style={styles.deleteTaskBtn}
+                  >
                     <Ionicons name="close" size={18} color="#666" />
                   </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               ))}
               
               {/* Add Task Input */}
@@ -564,7 +642,7 @@ export default function EntryDetailScreen() {
         {/* Notes Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>NOTES ({isProcessing ? '...' : (entry.extracted_notes?.length || 0)})</Text>
+            <Text style={styles.sectionTitle}>NOTES ({isProcessing ? '...' : noteCount})</Text>
           </View>
           
           {isProcessing ? (
@@ -572,15 +650,45 @@ export default function EntryDetailScreen() {
               <View style={styles.skeletonNote} />
               <View style={styles.skeletonNote} />
             </>
-          ) : (entry.extracted_notes?.length || 0) > 0 ? (
-            entry.extracted_notes.map((note, idx) => (
-              <View key={idx} style={styles.noteItem}>
-                <Ionicons name="document-text-outline" size={16} color="#93c5fd" />
-                <Text style={styles.noteText}>{note}</Text>
-              </View>
-            ))
           ) : (
-            <Text style={styles.noNotesText}>No notes extracted</Text>
+            <>
+              {notes.map((note) => (
+                <TouchableOpacity 
+                  key={note.id} 
+                  style={styles.noteItem}
+                  onPress={() => router.push(`/note/${note.id}`)}
+                >
+                  <Ionicons name="document-text-outline" size={16} color="#93c5fd" />
+                  <Text style={styles.noteText} numberOfLines={2}>{note.text}</Text>
+                  <TouchableOpacity 
+                    onPress={(e) => { e.stopPropagation(); deleteNote(note.id); }} 
+                    style={styles.deleteTaskBtn}
+                  >
+                    <Ionicons name="close" size={18} color="#666" />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+              
+              {/* Add Note Input */}
+              <View style={styles.addTaskContainer}>
+                <TextInput
+                  style={styles.addTaskInput}
+                  value={newNoteText}
+                  onChangeText={setNewNoteText}
+                  placeholder="Add a note..."
+                  placeholderTextColor="#444"
+                  onSubmitEditing={addNote}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity 
+                  onPress={addNote} 
+                  style={[styles.addTaskBtn, !newNoteText.trim() && styles.addTaskBtnDisabled]}
+                  disabled={!newNoteText.trim()}
+                >
+                  <Ionicons name="add" size={20} color={newNoteText.trim() ? '#0a0a0a' : '#666'} />
+                </TouchableOpacity>
+              </View>
+            </>
           )}
         </View>
 
@@ -869,6 +977,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#fff',
     lineHeight: 20,
+  },
+  taskTextCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#666',
   },
   taskDue: {
     fontSize: 12,

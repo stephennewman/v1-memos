@@ -35,9 +35,8 @@ interface VoiceNote {
 
 interface NoteItem {
   id: string;
-  entry_id: string;
+  entry_id?: string;
   text: string;
-  entry_title: string;
 }
 
 interface PendingFollowup {
@@ -91,27 +90,16 @@ export default function HomeScreen() {
 
       setRecentVoiceNotes(voiceNotes || []);
 
-      // Get recent extracted notes (bullet points)
-      const { data: entries } = await (supabase as any)
-        .from('voice_entries')
-        .select('id, summary, extracted_notes')
+      // Get recent notes from voice_notes table
+      const { data: notesData } = await (supabase as any)
+        .from('voice_notes')
+        .select('id, text, entry_id')
         .eq('user_id', user.id)
-        .not('extracted_notes', 'is', null)
+        .eq('is_archived', false)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(5);
 
-      const notes: NoteItem[] = [];
-      (entries || []).forEach((entry: any) => {
-        (entry.extracted_notes || []).slice(0, 2).forEach((note: string, idx: number) => {
-          notes.push({
-            id: `${entry.id}_n${idx}`,
-            entry_id: entry.id,
-            text: note,
-            entry_title: entry.summary || 'Voice Note',
-          });
-        });
-      });
-      setRecentNotes(notes.slice(0, 5));
+      setRecentNotes(notesData || []);
 
       // Load follow-ups
       try {
@@ -324,7 +312,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={note.id}
                 style={styles.noteItem}
-                onPress={() => router.push(`/entry/${note.entry_id}`)}
+                onPress={() => router.push(`/note/${note.id}`)}
               >
                 <Text style={styles.noteBullet}>•</Text>
                 <Text style={styles.noteText} numberOfLines={2}>{note.text}</Text>
