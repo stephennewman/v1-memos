@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,16 +8,11 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
-  Animated,
-  Alert,
   TextInput,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system/legacy';
-import { decode } from 'base64-arraybuffer';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import EmptyState from '@/components/EmptyState';
@@ -30,14 +25,6 @@ export default function VoiceScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isLoading: authLoading } = useAuth();
-  
-  // Recording state
-  const [isRecording, setIsRecording] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
   
   // Entries state
   const [entries, setEntries] = useState<VoiceEntry[]>([]);
@@ -128,45 +115,6 @@ export default function VoiceScreen() {
     return () => clearTimeout(timer);
   }, [searchQuery, performSearch]);
 
-  // Request permissions on mount
-  useEffect(() => {
-    (async () => {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(
-          'Microphone Access',
-          'Please enable microphone access to record voice notes.',
-          [{ text: 'OK' }]
-        );
-      }
-    })();
-  }, []);
-
-  // Pulse animation while recording
-  useEffect(() => {
-    if (isRecording) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.2, duration: 500, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-        ])
-      ).start();
-    } else {
-      pulseAnim.stopAnimation();
-      pulseAnim.setValue(1);
-    }
-  }, [isRecording]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
-      }
-    };
-  }, []);
-
   const loadEntries = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -202,208 +150,6 @@ export default function VoiceScreen() {
       }
     }, [user, authLoading, loadEntries])
   );
-
-  const startRecording = async () => {
-    try {
-      // Request permission if needed
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Microphone access is needed.');
-        return;
-      }
-
-      // Configure audio
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      // Start recording
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      
-      recordingRef.current = recording;
-      setIsRecording(true);
-      setDuration(0);
-
-      // Start timer
-      timerRef.current = setInterval(() => {
-        setDuration(d => d + 1);
-      }, 1000);
-
-      console.log('Recording started');
-    } catch (err) {
-      console.error('Failed to start recording:', err);
-      Alert.alert('Error', 'Could not start recording. Please try again.');
-    }
-  };
-
-  const stopRecording = async () => {
-    if (!recordingRef.current || !user) return;
-
-    try {
-      // Stop timer
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-
-      setIsRecording(false);
-      setIsSaving(true);
-
-      // Stop recording
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
-      const recordingDuration = duration;
-      
-      recordingRef.current = null;
-
-      // Reset audio mode
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-      });
-
-      console.log('Recording stopped, URI:', uri);
-
-      if (!uri || recordingDuration < 1) {
-        setIsSaving(false);
-        Alert.alert('Too Short', 'Please record for at least 1 second.');
-        return;
-      }
-
-      // Upload audio to Supabase Storage
-      const fileName = `${user.id}/${Date.now()}.m4a`;
-      
-      // Read file as base64
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: 'base64',
-      });
-      
-      // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('voice-recordings')
-        .upload(fileName, decode(base64), {
-          contentType: 'audio/m4a',
-        });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        // Continue without audio URL - still save entry
-      }
-
-      // Get public URL
-      let audioUrl: string | undefined;
-      if (uploadData?.path) {
-        const { data: urlData } = supabase.storage
-          .from('voice-recordings')
-          .getPublicUrl(uploadData.path);
-        audioUrl = urlData?.publicUrl;
-      }
-
-      // Save entry to database
-      const { data: entry, error: dbError } = await supabase
-        .from('voice_entries')
-        .insert({
-          user_id: user.id,
-          audio_url: audioUrl,
-          audio_duration_seconds: recordingDuration,
-          entry_type: 'freeform',
-          summary: null, // Will be set by AI extraction
-          is_processed: false,
-        })
-        .select()
-        .single();
-
-      if (dbError) {
-        console.error('Error saving entry:', dbError);
-        Alert.alert('Error', 'Could not save to database.');
-        setIsSaving(false);
-        return;
-      }
-
-      console.log('Entry saved:', entry.id);
-
-      setDuration(0);
-      setIsSaving(false);
-
-      // Navigate to detail page immediately
-      router.push(`/entry/${entry.id}`);
-
-      // Process in background (transcribe + extract)
-      if (audioUrl && entry.id) {
-        processEntry(audioUrl, entry.id);
-      }
-
-    } catch (err) {
-      console.error('Failed to stop recording:', err);
-      setIsSaving(false);
-      Alert.alert('Error', 'Could not save recording.');
-    }
-  };
-
-  const processEntry = async (audioUrl: string, entryId: string) => {
-    try {
-      console.log('[Voice] Starting processing for entry:', entryId);
-      
-      // Get session token
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.error('[Voice] No session found');
-        return;
-      }
-
-      console.log('[Voice] Calling transcribe API:', `${API_URL}/api/voice/transcribe`);
-      
-      const response = await fetch(`${API_URL}/api/voice/transcribe`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          audio_url: audioUrl,
-          entry_id: entryId,
-        }),
-      });
-
-      const responseText = await response.text();
-      console.log('[Voice] API Response status:', response.status);
-      console.log('[Voice] API Response:', responseText.slice(0, 200));
-
-      if (!response.ok) {
-        console.error('[Voice] Transcription failed:', response.status, responseText);
-        return;
-      }
-
-      const result = JSON.parse(responseText);
-      console.log('[Voice] Processing complete!');
-      console.log('[Voice] - Transcript:', result.transcript?.slice(0, 50) + '...');
-      console.log('[Voice] - Extraction:', result.extraction);
-      
-      // Reload entries to show updated title, transcript, people
-      if (user) {
-        loadEntries(user.id);
-      }
-    } catch (err) {
-      console.error('[Voice] Processing error:', err);
-    }
-  };
-
-  const toggleRecording = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -559,47 +305,6 @@ export default function VoiceScreen() {
             <ActivityIndicator size="small" color="#c4dfc4" style={{ marginLeft: 8 }} />
           )}
         </View>
-      </View>
-
-      {/* Recording UI */}
-      <View style={styles.recordSection}>
-        {isSaving ? (
-          <View style={styles.savingContainer}>
-            <ActivityIndicator size="small" color="#c4dfc4" />
-            <Text style={styles.savingText}>Saving...</Text>
-          </View>
-        ) : (
-          <>
-            {isRecording && (
-              <Text style={styles.timer}>{formatTime(duration)}</Text>
-            )}
-            
-            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-              <TouchableOpacity
-                style={[styles.recordButton, isRecording && styles.recordButtonActive]}
-                onPress={toggleRecording}
-                activeOpacity={0.8}
-              >
-                <Ionicons 
-                  name={isRecording ? 'stop' : 'mic'} 
-                  size={32} 
-                  color={isRecording ? '#fff' : '#0a0a0a'} 
-                />
-              </TouchableOpacity>
-            </Animated.View>
-
-            <Text style={styles.hint}>
-              {isRecording ? 'Tap to stop' : 'Tap to record'}
-            </Text>
-
-            {isRecording && (
-              <View style={styles.recordingIndicator}>
-                <View style={styles.recordingDot} />
-                <Text style={styles.recordingLabel}>Recording</Text>
-              </View>
-            )}
-          </>
-        )}
       </View>
 
       {/* People Filter */}
@@ -769,62 +474,6 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: '#0a0a0a',
-  },
-  recordSection: {
-    alignItems: 'center',
-    paddingVertical: 32,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
-  },
-  timer: {
-    fontSize: 48,
-    fontWeight: '200',
-    color: '#fff',
-    fontVariant: ['tabular-nums'],
-    marginBottom: 20,
-  },
-  recordButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#c4dfc4',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  recordButtonActive: {
-    backgroundColor: '#ef4444',
-  },
-  hint: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 12,
-  },
-  recordingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ef4444',
-    marginRight: 6,
-  },
-  recordingLabel: {
-    fontSize: 13,
-    color: '#ef4444',
-    fontWeight: '500',
-  },
-  savingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 30,
-  },
-  savingText: {
-    fontSize: 16,
-    color: '#888',
   },
   listSection: {
     flex: 1,
