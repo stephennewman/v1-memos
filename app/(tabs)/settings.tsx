@@ -9,11 +9,21 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAuth, MAX_FREE_TOPICS } from '@/lib/auth-context';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { user, topicCount, signOut } = useAuth();
+
+  const navigationItems = [
+    { icon: 'home', label: 'Home', route: '/home' },
+    { icon: 'mic', label: 'Voice Notes', route: '/voice' },
+    { icon: 'checkbox-outline', label: 'Tasks', route: '/tasks' },
+    { icon: 'document-text', label: 'Notes', route: '/notes' },
+    { icon: 'analytics', label: 'Insights', route: '/insights' },
+  ];
 
   const handleSignOut = () => {
     Alert.alert(
@@ -37,6 +47,27 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* Navigation Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Navigation</Text>
+          <View style={styles.card}>
+            {navigationItems.map((item, index) => (
+              <TouchableOpacity
+                key={item.route}
+                style={[
+                  styles.navRow,
+                  index < navigationItems.length - 1 && styles.navRowBorder,
+                ]}
+                onPress={() => router.push(item.route as any)}
+              >
+                <Ionicons name={item.icon as any} size={20} color="#c4dfc4" />
+                <Text style={styles.navLabel}>{item.label}</Text>
+                <Ionicons name="chevron-forward" size={18} color="#444" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
@@ -154,6 +185,21 @@ const styles = StyleSheet.create({
   rowValue: {
     fontSize: 16,
     color: '#666',
+  },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  navRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  navLabel: {
+    flex: 1,
+    fontSize: 16,
+    color: '#fff',
   },
   progressBar: {
     height: 4,
