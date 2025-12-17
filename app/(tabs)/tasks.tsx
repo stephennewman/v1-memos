@@ -17,7 +17,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import type { VoiceTodo, TodoStatus } from '@/lib/types';
 
-type FilterType = 'pending' | 'completed' | 'all';
+type FilterType = 'today' | 'overdue' | 'upcoming' | 'completed' | 'all';
+type SortType = 'due' | 'created';
 
 // Toast component
 const Toast = ({ 
@@ -209,24 +210,64 @@ export default function TasksScreen() {
   const [todos, setTodos] = useState<VoiceTodo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [filter, setFilter] = useState<FilterType>('pending');
+  const [filter, setFilter] = useState<FilterType>('today');
+  const [sort, setSort] = useState<SortType>('due');
   
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
   const [lastCompletedTodo, setLastCompletedTodo] = useState<VoiceTodo | null>(null);
 
+  // Get date boundaries
+  const getDateBounds = () => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return { today, tomorrow, now };
+  };
+
   const loadTodos = useCallback(async (userId: string) => {
     try {
+      const { today, tomorrow } = getDateBounds();
+      const todayISO = today.toISOString();
+      const tomorrowISO = tomorrow.toISOString();
+
       let query = supabase
         .from('voice_todos')
         .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .eq('user_id', userId);
 
-      if (filter === 'pending') {
-        query = query.eq('status', 'pending');
-      } else if (filter === 'completed') {
-        query = query.eq('status', 'completed');
+      // Apply filter
+      switch (filter) {
+        case 'today':
+          query = query
+            .eq('status', 'pending')
+            .or(`due_date.gte.${todayISO},due_date.lt.${tomorrowISO},due_date.is.null`);
+          break;
+        case 'overdue':
+          query = query
+            .eq('status', 'pending')
+            .lt('due_date', todayISO)
+            .not('due_date', 'is', null);
+          break;
+        case 'upcoming':
+          query = query
+            .eq('status', 'pending')
+            .gte('due_date', tomorrowISO);
+          break;
+        case 'completed':
+          query = query.eq('status', 'completed');
+          break;
+        case 'all':
+          // No filter
+          break;
+      }
+
+      // Apply sort
+      if (sort === 'due') {
+        query = query.order('due_date', { ascending: true, nullsFirst: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
       }
 
       const { data, error } = await query.limit(100);
@@ -244,7 +285,7 @@ export default function TasksScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [filter]);
+  }, [filter, sort]);
 
   useFocusEffect(
     useCallback(() => {
@@ -276,7 +317,8 @@ export default function TasksScreen() {
 
       if (error) throw error;
 
-      if (newStatus === 'completed' && filter === 'pending') {
+      const isPendingView = ['today', 'overdue', 'upcoming'].includes(filter);
+      if (newStatus === 'completed' && isPendingView) {
         // Remove from list when completing in pending view
         setTodos(prev => prev.filter(t => t.id !== todo.id));
         setLastCompletedTodo({ ...todo, status: newStatus });
@@ -348,9 +390,10 @@ export default function TasksScreen() {
     );
   };
 
+  const isPendingFilter = ['today', 'overdue', 'upcoming'].includes(filter);
   const pendingCount = filter === 'all' 
     ? todos.filter(t => t.status === 'pending').length 
-    : filter === 'pending' ? todos.length : 0;
+    : isPendingFilter ? todos.length : 0;
   const completedCount = filter === 'all'
     ? todos.filter(t => t.status === 'completed').length
     : filter === 'completed' ? todos.length : 0;
@@ -382,18 +425,42 @@ export default function TasksScreen() {
       </View>
 
       {/* Filter Tabs */}
+      {/* Filter Tabs */}
       <View style={styles.filterTabs}>
-        {(['pending', 'completed', 'all'] as FilterType[]).map((f) => (
+        {([
+          { key: 'today', label: 'Today' },
+          { key: 'overdue', label: 'Overdue' },
+          { key: 'upcoming', label: 'Upcoming' },
+          { key: 'completed', label: 'Done' },
+          { key: 'all', label: 'All' },
+        ] as { key: FilterType; label: string }[]).map((f) => (
           <TouchableOpacity
-            key={f}
-            style={[styles.filterTab, filter === f && styles.filterTabActive]}
-            onPress={() => setFilter(f)}
+            key={f.key}
+            style={[styles.filterTab, filter === f.key && styles.filterTabActive]}
+            onPress={() => setFilter(f.key)}
           >
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
+            <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>
+              {f.label}
             </Text>
           </TouchableOpacity>
         ))}
+      </View>
+
+      {/* Sort Toggle */}
+      <View style={styles.sortRow}>
+        <Text style={styles.sortLabel}>Sort by:</Text>
+        <TouchableOpacity 
+          style={[styles.sortBtn, sort === 'due' && styles.sortBtnActive]}
+          onPress={() => setSort('due')}
+        >
+          <Text style={[styles.sortBtnText, sort === 'due' && styles.sortBtnTextActive]}>Due</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.sortBtn, sort === 'created' && styles.sortBtnActive]}
+          onPress={() => setSort('created')}
+        >
+          <Text style={[styles.sortBtnText, sort === 'created' && styles.sortBtnTextActive]}>Created</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Todos List */}
@@ -403,7 +470,9 @@ export default function TasksScreen() {
             <Ionicons name="checkbox-outline" size={48} color="#333" />
           </View>
           <Text style={styles.emptyTitle}>
-            {filter === 'pending' ? 'No pending tasks' : 
+            {filter === 'today' ? 'No tasks due today' :
+             filter === 'overdue' ? 'Nothing overdue!' :
+             filter === 'upcoming' ? 'No upcoming tasks' : 
              filter === 'completed' ? 'No completed tasks' : 'No tasks yet'}
           </Text>
           <Text style={styles.emptySubtitle}>
@@ -482,13 +551,15 @@ const styles = StyleSheet.create({
   filterTabs: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
+    paddingTop: 12,
+    paddingBottom: 8,
+    gap: 6,
+    flexWrap: 'wrap',
   },
   filterTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
     backgroundColor: '#111',
     borderWidth: 1,
     borderColor: '#1a1a1a',
@@ -498,8 +569,35 @@ const styles = StyleSheet.create({
     borderColor: '#c4dfc4',
   },
   filterText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
+  },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  sortLabel: {
+    fontSize: 12,
+    color: '#555',
+  },
+  sortBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: '#111',
+  },
+  sortBtnActive: {
+    backgroundColor: '#222',
+  },
+  sortBtnText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  sortBtnTextActive: {
+    color: '#c4dfc4',
   },
   filterTextActive: {
     color: '#0a0a0a',

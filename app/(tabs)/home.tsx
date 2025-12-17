@@ -3,11 +3,10 @@ import {
   StyleSheet,
   View,
   Text,
-  SectionList,
+  ScrollView,
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
-  ScrollView,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,216 +16,133 @@ import { supabase } from '@/lib/supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
 
-// Follow-up type
+// Types
+interface TaskItem {
+  id: string;
+  text: string;
+  status: 'pending' | 'completed';
+  due_date?: string;
+  entry_id?: string;
+}
+
+interface VoiceNote {
+  id: string;
+  summary: string;
+  created_at: string;
+}
+
+interface NoteItem {
+  id: string;
+  entry_id: string;
+  text: string;
+  entry_title: string;
+}
+
 interface PendingFollowup {
   id: string;
   entry_id: string;
   text: string;
-  timeframe?: string;
   days_ago: number;
-  entry_title: string;
 }
-
-// Activity item types
-type ActivityType = 'voice_note' | 'task_created' | 'task_completed';
-
-interface ActivityItem {
-  id: string;
-  type: ActivityType;
-  title: string;
-  subtitle?: string;
-  time: Date;
-  data?: {
-    entry_id?: string;
-    task_id?: string;
-    sentiment_label?: string;
-    word_count?: number;
-  };
-}
-
-interface DaySection {
-  title: string;
-  date: Date;
-  data: ActivityItem[];
-}
-
-// Format date for section headers
-function formatSectionTitle(date: Date): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const itemDate = new Date(date);
-  itemDate.setHours(0, 0, 0, 0);
-
-  if (itemDate.getTime() === today.getTime()) {
-    return 'TODAY';
-  }
-  if (itemDate.getTime() === yesterday.getTime()) {
-    return 'YESTERDAY';
-  }
-  
-  return date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  }).toUpperCase();
-}
-
-// Format time for activity items
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-}
-
-// Activity type config
-const ACTIVITY_CONFIG: Record<ActivityType, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  voice_note: { icon: 'mic', color: '#c4dfc4' },
-  task_created: { icon: 'add-circle', color: '#a78bfa' },
-  task_completed: { icon: 'checkmark-circle', color: '#4ade80' },
-};
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [sections, setSections] = useState<DaySection[]>([]);
-  const [todayStats, setTodayStats] = useState({
-    voiceNotes: 0,
-    tasksCreated: 0,
-    tasksCompleted: 0,
-  });
+  
+  // Data organized by type
+  const [todayTasks, setTodayTasks] = useState<TaskItem[]>([]);
+  const [recentVoiceNotes, setRecentVoiceNotes] = useState<VoiceNote[]>([]);
+  const [recentNotes, setRecentNotes] = useState<NoteItem[]>([]);
   const [followups, setFollowups] = useState<PendingFollowup[]>([]);
+  const [todayStats, setTodayStats] = useState({ tasks: 0, completed: 0, voiceNotes: 0 });
 
-  const loadFollowups = useCallback(async () => {
-    if (!user) return;
-    
-    try {
-      const response = await fetch(
-        `${API_URL}/api/voice/followups?user_id=${user.id}&min_days=3`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setFollowups(data.followups || []);
-      }
-    } catch (error) {
-      console.error('Error loading followups:', error);
-    }
-  }, [user]);
-
-  const loadActivity = useCallback(async () => {
+  const loadData = useCallback(async () => {
     if (!user) return;
 
     try {
-      // Get voice entries from last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
-      const { data: voiceEntries } = await (supabase as any)
-        .from('voice_entries')
-        .select('id, summary, created_at, sentiment_label, word_count')
-        .eq('user_id', user.id)
-        .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: false });
-
-      // Get tasks from last 30 days
-      const { data: tasks } = await (supabase as any)
-        .from('voice_todos')
-        .select('id, text, created_at, completed_at, status, entry_id')
-        .eq('user_id', user.id)
-        .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: false });
-
-      // Build activity items
-      const activities: ActivityItem[] = [];
-
-      // Add voice notes
-      (voiceEntries || []).forEach((entry: any) => {
-        activities.push({
-          id: `voice_${entry.id}`,
-          type: 'voice_note',
-          title: entry.summary || 'Voice Note',
-          subtitle: entry.word_count ? `${entry.word_count} words` : undefined,
-          time: new Date(entry.created_at),
-          data: {
-            entry_id: entry.id,
-            sentiment_label: entry.sentiment_label,
-            word_count: entry.word_count,
-          },
-        });
-      });
-
-      // Add task creations
-      (tasks || []).forEach((task: any) => {
-        activities.push({
-          id: `task_created_${task.id}`,
-          type: 'task_created',
-          title: task.text,
-          time: new Date(task.created_at),
-          data: { task_id: task.id, entry_id: task.entry_id },
-        });
-
-        // Add task completions if completed
-        if (task.status === 'completed' && task.completed_at) {
-          activities.push({
-            id: `task_completed_${task.id}`,
-            type: 'task_completed',
-            title: task.text,
-            time: new Date(task.completed_at),
-            data: { task_id: task.id },
-          });
-        }
-      });
-
-      // Sort by time descending
-      activities.sort((a, b) => b.time.getTime() - a.time.getTime());
-
-      // Group by day
-      const dayMap = new Map<string, ActivityItem[]>();
-      activities.forEach((activity) => {
-        const dateKey = activity.time.toISOString().split('T')[0];
-        if (!dayMap.has(dateKey)) {
-          dayMap.set(dateKey, []);
-        }
-        dayMap.get(dateKey)!.push(activity);
-      });
-
-      // Convert to sections
-      const newSections: DaySection[] = [];
-      dayMap.forEach((items, dateKey) => {
-        const date = new Date(dateKey);
-        newSections.push({
-          title: formatSectionTitle(date),
-          date,
-          data: items,
-        });
-      });
-
-      // Sort sections by date descending
-      newSections.sort((a, b) => b.date.getTime() - a.date.getTime());
-      setSections(newSections);
-
-      // Calculate today's stats
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const todayActivities = activities.filter(a => {
-        const actDate = new Date(a.time);
-        actDate.setHours(0, 0, 0, 0);
-        return actDate.getTime() === today.getTime();
+      const todayISO = today.toISOString();
+
+      // Get tasks due today or pending
+      const { data: tasks } = await (supabase as any)
+        .from('voice_todos')
+        .select('id, text, status, due_date, entry_id')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .limit(10);
+
+      setTodayTasks(tasks || []);
+
+      // Get recent voice notes (today)
+      const { data: voiceNotes } = await (supabase as any)
+        .from('voice_entries')
+        .select('id, summary, created_at')
+        .eq('user_id', user.id)
+        .gte('created_at', todayISO)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      setRecentVoiceNotes(voiceNotes || []);
+
+      // Get recent extracted notes (bullet points)
+      const { data: entries } = await (supabase as any)
+        .from('voice_entries')
+        .select('id, summary, extracted_notes')
+        .eq('user_id', user.id)
+        .not('extracted_notes', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const notes: NoteItem[] = [];
+      (entries || []).forEach((entry: any) => {
+        (entry.extracted_notes || []).slice(0, 2).forEach((note: string, idx: number) => {
+          notes.push({
+            id: `${entry.id}_n${idx}`,
+            entry_id: entry.id,
+            text: note,
+            entry_title: entry.summary || 'Voice Note',
+          });
+        });
       });
+      setRecentNotes(notes.slice(0, 5));
+
+      // Load follow-ups
+      try {
+        const response = await fetch(
+          `${API_URL}/api/voice/followups?user_id=${user.id}&min_days=3`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setFollowups((data.followups || []).slice(0, 3));
+        }
+      } catch {}
+
+      // Stats
+      const { count: taskCount } = await (supabase as any)
+        .from('voice_todos')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'pending');
+
+      const { count: completedToday } = await (supabase as any)
+        .from('voice_todos')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .gte('completed_at', todayISO);
 
       setTodayStats({
-        voiceNotes: todayActivities.filter(a => a.type === 'voice_note').length,
-        tasksCreated: todayActivities.filter(a => a.type === 'task_created').length,
-        tasksCompleted: todayActivities.filter(a => a.type === 'task_completed').length,
+        tasks: taskCount || 0,
+        completed: completedToday || 0,
+        voiceNotes: (voiceNotes || []).length,
       });
 
     } catch (error) {
-      console.error('Error loading activity:', error);
+      console.error('Error loading data:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -236,66 +152,51 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       if (user && !authLoading) {
-        loadActivity();
-        loadFollowups();
+        loadData();
       } else if (!authLoading && !user) {
         setIsLoading(false);
       }
-    }, [user, authLoading, loadActivity, loadFollowups])
+    }, [user, authLoading, loadData])
   );
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
-    loadActivity();
-  }, [loadActivity]);
+    loadData();
+  }, [loadData]);
+
+  const toggleTask = useCallback(async (task: TaskItem) => {
+    const newStatus = task.status === 'pending' ? 'completed' : 'pending';
+    
+    // Optimistic update
+    setTodayTasks(prev => prev.filter(t => t.id !== task.id));
+    
+    try {
+      await (supabase as any)
+        .from('voice_todos')
+        .update({ 
+          status: newStatus, 
+          completed_at: newStatus === 'completed' ? new Date().toISOString() : null 
+        })
+        .eq('id', task.id);
+      
+      // Update stats
+      if (newStatus === 'completed') {
+        setTodayStats(prev => ({ ...prev, tasks: prev.tasks - 1, completed: prev.completed + 1 }));
+      }
+    } catch (error) {
+      // Revert on error
+      setTodayTasks(prev => [...prev, task]);
+      console.error('Error toggling task:', error);
+    }
+  }, []);
 
   const formatDate = () => {
     return new Date().toLocaleDateString('en-US', {
       weekday: 'long',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
     });
   };
-
-  const handleActivityPress = (item: ActivityItem) => {
-    if (item.type === 'voice_note' && item.data?.entry_id) {
-      router.push(`/entry/${item.data.entry_id}`);
-    } else if ((item.type === 'task_created' || item.type === 'task_completed') && item.data?.task_id) {
-      router.push(`/task/${item.data.task_id}`);
-    }
-  };
-
-  const renderActivity = ({ item }: { item: ActivityItem }) => {
-    const config = ACTIVITY_CONFIG[item.type];
-    
-    return (
-      <TouchableOpacity 
-        style={styles.activityItem}
-        onPress={() => handleActivityPress(item)}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.activityIcon, { backgroundColor: `${config.color}15` }]}>
-          <Ionicons name={config.icon} size={18} color={config.color} />
-        </View>
-        <View style={styles.activityContent}>
-          <Text style={styles.activityTitle} numberOfLines={1}>
-            {item.type === 'task_completed' ? '✓ ' : ''}{item.title}
-          </Text>
-          {item.subtitle && (
-            <Text style={styles.activitySubtitle}>{item.subtitle}</Text>
-          )}
-        </View>
-        <Text style={styles.activityTime}>{formatTime(item.time)}</Text>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderSectionHeader = ({ section }: { section: DaySection }) => (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{section.title}</Text>
-      <Text style={styles.sectionCount}>{section.data.length} items</Text>
-    </View>
-  );
 
   if (isLoading || authLoading) {
     return (
@@ -309,13 +210,9 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <TabHeader title="Home" subtitle={formatDate()} />
       
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item.id}
-        renderItem={renderActivity}
-        renderSectionHeader={renderSectionHeader}
-        stickySectionHeadersEnabled={false}
-        contentContainerStyle={styles.listContent}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -324,82 +221,126 @@ export default function HomeScreen() {
             tintColor="#c4dfc4"
           />
         }
-        ListHeaderComponent={() => (
-          <>
-            {/* Today's Stats */}
-            <View style={styles.statsSection}>
-              <Text style={styles.statsTitle}>TODAY'S ACTIVITY</Text>
-              <View style={styles.statsGrid}>
-                <View style={styles.statCard}>
-                  <View style={[styles.statIcon, { backgroundColor: '#c4dfc420' }]}>
-                    <Ionicons name="mic" size={20} color="#c4dfc4" />
-                  </View>
-                  <Text style={styles.statNumber}>{todayStats.voiceNotes}</Text>
-                  <Text style={styles.statLabel}>Notes</Text>
-                </View>
-                
-                <View style={styles.statCard}>
-                  <View style={[styles.statIcon, { backgroundColor: '#a78bfa20' }]}>
-                    <Ionicons name="add-circle" size={20} color="#a78bfa" />
-                  </View>
-                  <Text style={styles.statNumber}>{todayStats.tasksCreated}</Text>
-                  <Text style={styles.statLabel}>Created</Text>
-                </View>
-                
-                <View style={styles.statCard}>
-                  <View style={[styles.statIcon, { backgroundColor: '#4ade8020' }]}>
-                    <Ionicons name="checkmark-circle" size={20} color="#4ade80" />
-                  </View>
-                  <Text style={styles.statNumber}>{todayStats.tasksCompleted}</Text>
-                  <Text style={styles.statLabel}>Done</Text>
-                </View>
-              </View>
-            </View>
+      >
+        {/* Quick Stats Row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statPill}>
+            <Text style={styles.statPillNumber}>{todayStats.tasks}</Text>
+            <Text style={styles.statPillLabel}>pending</Text>
+          </View>
+          <View style={styles.statPill}>
+            <Text style={[styles.statPillNumber, { color: '#4ade80' }]}>{todayStats.completed}</Text>
+            <Text style={styles.statPillLabel}>done today</Text>
+          </View>
+          <View style={styles.statPill}>
+            <Text style={[styles.statPillNumber, { color: '#c4dfc4' }]}>{todayStats.voiceNotes}</Text>
+            <Text style={styles.statPillLabel}>notes today</Text>
+          </View>
+        </View>
 
-            {/* Pending Follow-ups */}
-            {followups.length > 0 && (
-              <View style={styles.followupsSection}>
-                <Text style={styles.statsTitle}>PENDING FOLLOW-UPS</Text>
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.followupsScroll}
-                >
-                  {followups.slice(0, 5).map((followup) => (
-                    <TouchableOpacity
-                      key={followup.id}
-                      style={styles.followupCard}
-                      onPress={() => router.push(`/entry/${followup.entry_id}`)}
-                    >
-                      <View style={styles.followupHeader}>
-                        <Ionicons name="alert-circle" size={16} color="#fb923c" />
-                        <Text style={styles.followupDays}>{followup.days_ago}d ago</Text>
-                      </View>
-                      <Text style={styles.followupText} numberOfLines={2}>
-                        {followup.text}
-                      </Text>
-                      {followup.timeframe && (
-                        <Text style={styles.followupTimeframe}>
-                          Original: "{followup.timeframe}"
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          </>
-        )}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Ionicons name="time-outline" size={48} color="#333" />
-            <Text style={styles.emptyTitle}>No Activity Yet</Text>
-            <Text style={styles.emptyText}>
-              Record a voice note or create a task to get started
+        {/* Pending Follow-ups */}
+        {followups.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Ionicons name="alert-circle" size={12} color="#fb923c" /> FOLLOW UP
             </Text>
+            {followups.map((f) => (
+              <TouchableOpacity
+                key={f.id}
+                style={styles.followupItem}
+                onPress={() => router.push(`/entry/${f.entry_id}`)}
+              >
+                <Text style={styles.followupText} numberOfLines={1}>{f.text}</Text>
+                <Text style={styles.followupAge}>{f.days_ago}d</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
-      />
+
+        {/* Tasks Section */}
+        {todayTasks.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>TASKS</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/tasks')}>
+                <Text style={styles.seeAll}>See all</Text>
+              </TouchableOpacity>
+            </View>
+            {todayTasks.map((task) => (
+              <View key={task.id} style={styles.taskItem}>
+                <TouchableOpacity
+                  style={styles.taskCheckbox}
+                  onPress={() => toggleTask(task)}
+                >
+                  <Ionicons
+                    name={task.status === 'completed' ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={20}
+                    color={task.status === 'completed' ? '#4ade80' : '#444'}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.taskContent}
+                  onPress={() => router.push(`/task/${task.id}`)}
+                >
+                  <Text style={styles.taskText} numberOfLines={1}>{task.text}</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Voice Notes Section */}
+        {recentVoiceNotes.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>VOICE NOTES</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/voice')}>
+                <Text style={styles.seeAll}>See all</Text>
+              </TouchableOpacity>
+            </View>
+            {recentVoiceNotes.map((note) => (
+              <TouchableOpacity
+                key={note.id}
+                style={styles.voiceItem}
+                onPress={() => router.push(`/entry/${note.id}`)}
+              >
+                <Ionicons name="mic" size={14} color="#c4dfc4" />
+                <Text style={styles.voiceText} numberOfLines={1}>
+                  {note.summary || 'Voice Note'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Notes (Bullet Points) Section */}
+        {recentNotes.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>RECENT NOTES</Text>
+            {recentNotes.map((note) => (
+              <TouchableOpacity
+                key={note.id}
+                style={styles.noteItem}
+                onPress={() => router.push(`/entry/${note.entry_id}`)}
+              >
+                <Text style={styles.noteBullet}>•</Text>
+                <Text style={styles.noteText} numberOfLines={2}>{note.text}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Empty State */}
+        {todayTasks.length === 0 && recentVoiceNotes.length === 0 && recentNotes.length === 0 && (
+          <View style={styles.emptyState}>
+            <Ionicons name="sunny-outline" size={40} color="#333" />
+            <Text style={styles.emptyTitle}>Ready to start</Text>
+            <Text style={styles.emptyText}>Tap + to record a voice note or add a task</Text>
+          </View>
+        )}
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
     </View>
   );
 }
@@ -413,142 +354,134 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
+  content: {
+    flex: 1,
   },
-  statsSection: {
-    marginTop: 16,
-    marginBottom: 24,
+  contentContainer: {
+    padding: 16,
   },
-  statsTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-  statsGrid: {
+  statsRow: {
     flexDirection: 'row',
     gap: 10,
+    marginBottom: 20,
   },
-  followupsSection: {
-    marginBottom: 24,
-  },
-  followupsScroll: {
-    gap: 12,
-  },
-  followupCard: {
-    width: 200,
-    backgroundColor: '#111',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#fb923c30',
-  },
-  followupHeader: {
+  statPill: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  followupDays: {
-    fontSize: 12,
-    color: '#fb923c',
-    fontWeight: '600',
-  },
-  followupText: {
-    fontSize: 14,
-    color: '#fff',
-    lineHeight: 20,
-  },
-  followupTimeframe: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 8,
-    fontStyle: 'italic',
-  },
-  statCard: {
-    flex: 1,
     backgroundColor: '#111',
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
   },
-  statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statNumber: {
-    fontSize: 22,
+  statPillNumber: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#fff',
   },
-  statLabel: {
+  statPillLabel: {
     fontSize: 11,
     color: '#666',
-    marginTop: 2,
   },
-  sectionHeader: {
+  section: {
+    marginBottom: 20,
+  },
+  sectionHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    backgroundColor: '#0a0a0a',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#666',
-    letterSpacing: 1,
-  },
-  sectionCount: {
     fontSize: 11,
-    color: '#444',
+    fontWeight: '700',
+    color: '#555',
+    letterSpacing: 0.5,
+    marginBottom: 8,
   },
-  activityItem: {
+  seeAll: {
+    fontSize: 12,
+    color: '#c4dfc4',
+    fontWeight: '500',
+  },
+  // Follow-up items - compact
+  followupItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
+    backgroundColor: '#1a1511',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 4,
+    borderLeftWidth: 2,
+    borderLeftColor: '#fb923c',
   },
-  activityIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 9,
+  followupText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#ccc',
+  },
+  followupAge: {
+    fontSize: 11,
+    color: '#fb923c',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  // Task items - compact with checkbox
+  taskItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#151515',
+  },
+  taskCheckbox: {
+    width: 32,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  activityContent: {
+  taskContent: {
     flex: 1,
-    marginRight: 8,
   },
-  activityTitle: {
+  taskText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#fff',
+    color: '#ddd',
   },
-  activitySubtitle: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
+  // Voice items - compact
+  voiceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#151515',
   },
-  activityTime: {
-    fontSize: 12,
-    color: '#555',
+  voiceText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#ddd',
   },
+  // Note items - compact
+  noteItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 5,
+    gap: 8,
+  },
+  noteBullet: {
+    fontSize: 14,
+    color: '#93c5fd',
+    marginTop: 1,
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#aaa',
+    lineHeight: 18,
+  },
+  // Empty state
   emptyState: {
     alignItems: 'center',
     paddingVertical: 48,
@@ -557,12 +490,11 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: '#444',
-    marginTop: 16,
+    marginTop: 12,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#333',
     marginTop: 4,
-    textAlign: 'center',
   },
 });

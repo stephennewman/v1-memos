@@ -24,13 +24,16 @@ export default function RecordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const params = useLocalSearchParams<{ type?: VoiceEntryType }>();
+  const params = useLocalSearchParams<{ type?: VoiceEntryType; autoStart?: string }>();
   
-  const [state, setState] = useState<RecordingState>('idle');
+  // Auto-start recording if param is passed
+  const shouldAutoStart = params.autoStart === 'true';
+  const [state, setState] = useState<RecordingState>(shouldAutoStart ? 'recording' : 'idle');
   const [selectedType, setSelectedType] = useState<VoiceEntryType>(
     params.type || 'freeform'
   );
   const [processingStep, setProcessingStep] = useState('');
+  const [createdEntryId, setCreatedEntryId] = useState<string | null>(null);
 
   const handleRecordingComplete = async (uri: string, durationMs: number) => {
     if (!user) {
@@ -87,7 +90,8 @@ export default function RecordScreen() {
         .single();
 
       if (entryError) throw entryError;
-
+      
+      setCreatedEntryId(entry.id);
       setProcessingStep('Transcribing...');
 
       // Call V1 API to transcribe and extract
@@ -141,9 +145,13 @@ export default function RecordScreen() {
 
       setState('done');
 
-      // Navigate back after short delay
+      // Navigate to entry detail page after short delay
       setTimeout(() => {
-        router.back();
+        if (entry?.id) {
+          router.replace(`/entry/${entry.id}`);
+        } else {
+          router.back();
+        }
       }, 500);
 
     } catch (error) {

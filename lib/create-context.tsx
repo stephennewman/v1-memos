@@ -48,8 +48,8 @@ export function CreateProvider({ children }: CreateProviderProps) {
     
     switch (type) {
       case 'voice':
-        // Navigate to voice tab which has the recorder
-        router.push('/(tabs)/voice');
+        // Navigate to record screen with auto-start
+        router.push('/record?autoStart=true');
         break;
       case 'task':
         setIsTaskModalOpen(true);
@@ -63,35 +63,47 @@ export function CreateProvider({ children }: CreateProviderProps) {
   const handleSaveTask = useCallback(async (text: string) => {
     if (!user) return;
     
-    const { error } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from('voice_todos')
       .insert({
         user_id: user.id,
         text,
         status: 'pending',
-      });
+      })
+      .select()
+      .single();
 
     if (error) throw error;
     
-    // Navigate to tasks tab
-    router.push('/(tabs)/tasks');
+    // Navigate to task detail page
+    if (data?.id) {
+      router.push(`/task/${data.id}`);
+    } else {
+      router.push('/(tabs)/tasks');
+    }
   }, [user, router]);
 
   const handleSaveTopic = useCallback(async (title: string, description: string) => {
     if (!user) return;
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('memo_topics')
       .insert({
         user_id: user.id,
         title,
         description: description || null,
-      });
+      })
+      .select()
+      .single();
 
     if (error) throw error;
     
-    // Navigate to topics tab
-    router.push('/(tabs)');
+    // Navigate to topic detail page
+    if (data?.id) {
+      router.push(`/topic/${data.id}`);
+    } else {
+      router.push('/(tabs)');
+    }
   }, [user, router]);
 
   return (
