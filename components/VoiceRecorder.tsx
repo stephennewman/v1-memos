@@ -23,7 +23,9 @@ export function VoiceRecorder({
   maxDuration = 300, // 5 minutes default
   autoStart = false,
 }: VoiceRecorderProps) {
-  const [isRecording, setIsRecording] = useState(false);
+  // When autoStart is true, assume we're recording to prevent flash of green button
+  const [isRecording, setIsRecording] = useState(autoStart);
+  const [isInitializing, setIsInitializing] = useState(autoStart);
   const [duration, setDuration] = useState(0);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const recordingRef = useRef<Audio.Recording | null>(null);
@@ -43,6 +45,8 @@ export function VoiceRecorder({
       setPermissionGranted(granted);
       
       if (!granted) {
+        setIsRecording(false);
+        setIsInitializing(false);
         Alert.alert(
           'Microphone Permission Required',
           'Please enable microphone access in your device settings to record voice notes.',
@@ -73,6 +77,7 @@ export function VoiceRecorder({
           
           recordingRef.current = recording;
           setIsRecording(true);
+          setIsInitializing(false);
           setDuration(0);
 
           timerRef.current = setInterval(() => {
@@ -80,6 +85,8 @@ export function VoiceRecorder({
           }, 1000);
         } catch (err) {
           console.error('Auto-start recording failed:', err);
+          setIsRecording(false);
+          setIsInitializing(false);
         }
       }
     })();
@@ -274,7 +281,7 @@ export function VoiceRecorder({
 
       {/* Hint Text */}
       <Text style={styles.hint}>
-        {isRecording ? 'Tap to stop' : 'Tap to record'}
+        {isInitializing ? 'Starting...' : isRecording ? 'Tap to stop' : 'Tap to record'}
       </Text>
 
       {/* Recording indicator */}

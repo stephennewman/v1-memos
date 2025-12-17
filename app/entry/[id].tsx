@@ -706,10 +706,15 @@ export default function EntryDetailScreen() {
           ) : peopleList.length > 0 ? (
             <View style={styles.peopleContainer}>
               {peopleList.map((person, idx) => (
-                <View key={idx} style={styles.personTag}>
-                  <Ionicons name="person" size={12} color="#888" />
+                <TouchableOpacity 
+                  key={idx} 
+                  style={styles.personTag}
+                  onPress={() => router.push(`/person/${encodeURIComponent(person)}`)}
+                >
+                  <Ionicons name="person" size={12} color="#c4dfc4" />
                   <Text style={styles.personTagText}>{person}</Text>
-                </View>
+                  <Ionicons name="chevron-forward" size={12} color="#666" />
+                </TouchableOpacity>
               ))}
             </View>
           ) : (

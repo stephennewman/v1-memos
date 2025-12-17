@@ -489,9 +489,16 @@ export default function VoiceScreen() {
             ) : peopleList.length > 0 ? (
               <View style={styles.peopleBadges}>
                 {peopleList.slice(0, 2).map((person, idx) => (
-                  <View key={idx} style={styles.personBadge}>
+                  <TouchableOpacity 
+                    key={idx} 
+                    style={styles.personBadge}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      router.push(`/person/${encodeURIComponent(person)}`);
+                    }}
+                  >
                     <Text style={styles.personBadgeText}>{person}</Text>
-                  </View>
+                  </TouchableOpacity>
                 ))}
                 {peopleList.length > 2 && (
                   <Text style={styles.morepeople}>+{peopleList.length - 2}</Text>
