@@ -11,7 +11,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
@@ -28,12 +28,19 @@ export default function RecordScreen() {
   
   // Auto-start recording if param is passed
   const shouldAutoStart = params.autoStart === 'true';
-  const [state, setState] = useState<RecordingState>(shouldAutoStart ? 'recording' : 'idle');
+  const [state, setState] = useState<RecordingState>('idle');
   const [selectedType, setSelectedType] = useState<VoiceEntryType>(
     params.type || 'freeform'
   );
   const [processingStep, setProcessingStep] = useState('');
   const [createdEntryId, setCreatedEntryId] = useState<string | null>(null);
+
+  // Handle autoStart param - skip type picker and go straight to recording
+  React.useEffect(() => {
+    if (shouldAutoStart && state === 'idle') {
+      setState('recording');
+    }
+  }, [shouldAutoStart]);
 
   const handleRecordingComplete = async (uri: string, durationMs: number) => {
     if (!user) {
