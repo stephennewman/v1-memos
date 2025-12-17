@@ -187,7 +187,7 @@ export default function RecordScreen() {
         <VoiceRecorder
           onRecordingComplete={handleRecordingComplete}
           onCancel={handleCancel}
-          maxDuration={300}
+          maxDuration={1800}
           autoStart={shouldAutoStart}
         />
       </View>

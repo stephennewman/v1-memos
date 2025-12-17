@@ -20,7 +20,7 @@ interface VoiceRecorderProps {
 export function VoiceRecorder({ 
   onRecordingComplete, 
   onCancel,
-  maxDuration = 300, // 5 minutes default
+  maxDuration = 1800, // 30 minutes default
   autoStart = false,
 }: VoiceRecorderProps) {
   // When autoStart is true, assume we're recording to prevent flash of green button
