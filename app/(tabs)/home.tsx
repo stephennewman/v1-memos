@@ -545,27 +545,23 @@ const styles = StyleSheet.create({
   feedItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: ITEM_HEIGHT,
+    minHeight: ITEM_HEIGHT,
+    gap: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
   },
   itemIconWrapper: {
     width: 28,
-    height: ITEM_HEIGHT,
     justifyContent: 'center',
     alignItems: 'flex-start',
-    marginRight: 8,
   },
   taskCheckArea: {
     width: 28,
-    height: ITEM_HEIGHT,
     justifyContent: 'center',
     alignItems: 'flex-start',
-    marginRight: 8,
   },
   taskTextArea: {
     flex: 1,
-    height: ITEM_HEIGHT,
     justifyContent: 'center',
   },
   itemText: {
