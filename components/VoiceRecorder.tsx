@@ -26,36 +26,66 @@ export function VoiceRecorder({
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const [hasAutoStarted, setHasAutoStarted] = useState(false);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const hasAutoStartedRef = useRef(false);
 
   // Request permissions on mount and auto-start if requested
   useEffect(() => {
+    let mounted = true;
+    
     (async () => {
       const { status } = await Audio.requestPermissionsAsync();
-      setPermissionGranted(status === 'granted');
-      if (status !== 'granted') {
+      if (!mounted) return;
+      
+      const granted = status === 'granted';
+      setPermissionGranted(granted);
+      
+      if (!granted) {
         Alert.alert(
           'Microphone Permission Required',
           'Please enable microphone access in your device settings to record voice notes.',
           [{ text: 'OK' }]
         );
+        return;
+      }
+      
+      // Auto-start recording immediately after permission granted
+      if (autoStart && !hasAutoStartedRef.current) {
+        hasAutoStartedRef.current = true;
+        // Configure audio and start recording
+        try {
+          await Audio.setAudioModeAsync({
+            allowsRecordingIOS: true,
+            playsInSilentModeIOS: true,
+            staysActiveInBackground: false,
+          });
+
+          const { recording } = await Audio.Recording.createAsync(
+            Audio.RecordingOptionsPresets.HIGH_QUALITY
+          );
+          
+          if (!mounted) {
+            await recording.stopAndUnloadAsync();
+            return;
+          }
+          
+          recordingRef.current = recording;
+          setIsRecording(true);
+          setDuration(0);
+
+          timerRef.current = setInterval(() => {
+            setDuration(d => d + 1);
+          }, 1000);
+        } catch (err) {
+          console.error('Auto-start recording failed:', err);
+        }
       }
     })();
-  }, []);
-
-  // Auto-start recording after permissions are granted
-  useEffect(() => {
-    if (autoStart && permissionGranted && !hasAutoStarted && !isRecording) {
-      setHasAutoStarted(true);
-      // Small delay to ensure everything is ready
-      setTimeout(() => {
-        startRecording();
-      }, 300);
-    }
-  }, [autoStart, permissionGranted, hasAutoStarted, isRecording]);
+    
+    return () => { mounted = false; };
+  }, [autoStart]);
 
   // Pulse animation while recording
   useEffect(() => {
