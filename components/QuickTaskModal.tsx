@@ -1,0 +1,219 @@
+import React, { useState } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Pressable,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+interface QuickTaskModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSave: (text: string) => Promise<void>;
+}
+
+export function QuickTaskModal({ visible, onClose, onSave }: QuickTaskModalProps) {
+  const insets = useSafeAreaInsets();
+  const [text, setText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const slideAnim = React.useRef(new Animated.Value(300)).current;
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (visible) {
+      setText('');
+      Animated.parallel([
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 80,
+          friction: 10,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 300,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const handleSave = async () => {
+    if (!text.trim() || isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      await onSave(text.trim());
+      setText('');
+      onClose();
+    } catch (error) {
+      console.error('Error saving task:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <Pressable style={styles.overlay} onPress={onClose}>
+          <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
+        </Pressable>
+
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              paddingBottom: insets.bottom + 20,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.handle} />
+          <Text style={styles.title}>New Task</Text>
+
+          <TextInput
+            style={styles.input}
+            value={text}
+            onChangeText={setText}
+            placeholder="What needs to be done?"
+            placeholderTextColor="#555"
+            autoFocus
+            multiline
+            returnKeyType="done"
+            blurOnSubmit
+            onSubmitEditing={handleSave}
+          />
+
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.saveBtn, !text.trim() && styles.saveBtnDisabled]}
+              onPress={handleSave}
+              disabled={!text.trim() || isSaving}
+            >
+              <Ionicons name="add" size={20} color={text.trim() ? '#0a0a0a' : '#666'} />
+              <Text style={[styles.saveBtnText, !text.trim() && styles.saveBtnTextDisabled]}>
+                {isSaving ? 'Saving...' : 'Add Task'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  sheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#111',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#333',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 16,
+  },
+  input: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: '#fff',
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#1a1a1a',
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    color: '#888',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  saveBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#c4dfc4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  saveBtnDisabled: {
+    backgroundColor: '#222',
+  },
+  saveBtnText: {
+    color: '#0a0a0a',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  saveBtnTextDisabled: {
+    color: '#666',
+  },
+});
+
