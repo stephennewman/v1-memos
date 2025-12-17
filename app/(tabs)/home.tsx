@@ -7,7 +7,15 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TabHeader } from '@/components/TabHeader';
@@ -53,6 +61,29 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dayData, setDayData] = useState<DayData[]>([]);
   const [todayStats, setTodayStats] = useState({ tasks: 0, completed: 0, voiceNotes: 0 });
+  const [expandedVoice, setExpandedVoice] = useState<Set<string>>(new Set());
+
+  const toggleVoiceExpanded = (dateKey: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedVoice(prev => {
+      const next = new Set(prev);
+      if (next.has(dateKey)) {
+        next.delete(dateKey);
+      } else {
+        next.add(dateKey);
+      }
+      return next;
+    });
+  };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
 
   const getDateLabel = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -316,14 +347,24 @@ export default function HomeScreen() {
             <View key={day.date} style={styles.daySection}>
               <Text style={styles.dayLabel}>{day.label}</Text>
               
-              {/* Voice Notes */}
+              {/* Voice Notes - Collapsible */}
               {hasVoice && (
                 <View style={styles.typeSection}>
-                  <View style={styles.typeLabelRow}>
+                  <TouchableOpacity 
+                    style={styles.collapsibleHeader}
+                    onPress={() => toggleVoiceExpanded(day.date)}
+                  >
+                    <Ionicons 
+                      name={expandedVoice.has(day.date) ? "chevron-down" : "chevron-forward"} 
+                      size={16} 
+                      color="#666" 
+                    />
                     <Ionicons name="mic" size={14} color="#c4dfc4" />
-                    <Text style={styles.typeLabel}>Voice Notes</Text>
-                  </View>
-                  {day.voice.map((item) => (
+                    <Text style={styles.collapsibleLabel}>
+                      {day.voice.length} voice note{day.voice.length !== 1 ? 's' : ''}
+                    </Text>
+                  </TouchableOpacity>
+                  {expandedVoice.has(day.date) && day.voice.map((item) => (
                     <TouchableOpacity
                       key={item.id}
                       style={styles.feedItem}
@@ -333,7 +374,7 @@ export default function HomeScreen() {
                         <Ionicons name="mic" size={18} color="#c4dfc4" />
                       </View>
                       <Text style={styles.itemText} numberOfLines={1}>
-                        {item.summary || 'Voice Note'}
+                        {item.summary || formatTime(item.created_at)}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -344,7 +385,7 @@ export default function HomeScreen() {
               {hasTasks && (
                 <View style={styles.typeSection}>
                   <View style={styles.typeLabelRow}>
-                    <Ionicons name="checkbox-outline" size={14} color="#888" />
+                    <Ionicons name="square-outline" size={14} color="#888" />
                     <Text style={styles.typeLabel}>Tasks</Text>
                   </View>
                   {day.tasks.map((task) => (
@@ -354,7 +395,7 @@ export default function HomeScreen() {
                         onPress={() => toggleTask(task)}
                       >
                         <Ionicons
-                          name={task.status === 'completed' ? 'checkmark-circle' : 'ellipse-outline'}
+                          name={task.status === 'completed' ? 'checkbox' : 'square-outline'}
                           size={18}
                           color={task.status === 'completed' ? '#4ade80' : '#555'}
                         />
@@ -488,6 +529,18 @@ const styles = StyleSheet.create({
     color: '#555',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  collapsibleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    marginBottom: 2,
+  },
+  collapsibleLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#888',
   },
   feedItem: {
     flexDirection: 'row',
