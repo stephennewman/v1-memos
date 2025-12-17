@@ -224,7 +224,9 @@ export default function InsightsScreen() {
                 <Ionicons name="sparkles" size={24} color="#fcd34d" />
               </View>
               <View style={styles.digestTitleContainer}>
-                <Text style={styles.digestTitle}>Your Week</Text>
+                <Text style={styles.digestTitle}>
+                  {selectedPeriod <= 7 ? 'Your Week' : selectedPeriod <= 30 ? 'Your Month' : 'Your Quarter'}
+                </Text>
                 <Text style={styles.digestPeriod}>{digest.period}</Text>
               </View>
             </View>

@@ -20,6 +20,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import EmptyState from '@/components/EmptyState';
 import type { VoiceEntry } from '@/lib/types';
 import { ENTRY_TYPE_CONFIG } from '@/lib/types';
 
@@ -638,11 +639,17 @@ export default function VoiceScreen() {
         </Text>
         
         {filteredEntries.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>
-              {selectedPerson ? `No recordings mentioning ${selectedPerson}` : 'No recordings yet'}
-            </Text>
-          </View>
+          <EmptyState
+            icon={selectedPerson ? 'person-outline' : 'mic-outline'}
+            title={selectedPerson ? `No recordings with ${selectedPerson}` : 'Start your voice journal'}
+            description={
+              selectedPerson 
+                ? `Record a note mentioning ${selectedPerson} and it will appear here`
+                : 'Capture your thoughts, ideas, and tasks with voice. AI will transcribe and extract key information.'
+            }
+            actionLabel={!selectedPerson ? 'Record First Note' : undefined}
+            onAction={!selectedPerson ? () => router.push('/record') : undefined}
+          />
         ) : (
           <FlatList
             data={filteredEntries}

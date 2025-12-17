@@ -10,6 +10,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,6 +50,8 @@ export default function EntryDetailScreen() {
   // Related notes
   const [relatedNotes, setRelatedNotes] = useState<RelatedNote[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isReprocessing, setIsReprocessing] = useState(false);
   
   // Polling for processing updates
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -122,6 +125,13 @@ export default function EntryDetailScreen() {
     }
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadEntry();
+    await loadRelatedNotes();
+    setIsRefreshing(false);
+  };
+
   const playAudio = async () => {
     if (!entry?.audio_url) return;
 
@@ -174,6 +184,63 @@ export default function EntryDetailScreen() {
               router.back();
             } catch (error) {
               console.error('Error deleting entry:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const reprocessEntry = async () => {
+    if (!entry || !user || isReprocessing) return;
+    
+    Alert.alert(
+      'Reprocess Entry',
+      'This will re-analyze your recording with the latest AI models to extract updated insights, tasks, and analytics.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reprocess',
+          onPress: async () => {
+            setIsReprocessing(true);
+            try {
+              // Mark as not processed to show loading states
+              await supabase
+                .from('voice_entries')
+                .update({ is_processed: false })
+                .eq('id', entry.id);
+              
+              // Get session for auth
+              const { data: { session } } = await supabase.auth.getSession();
+              if (!session) throw new Error('No session');
+              
+              // Call transcribe endpoint which will re-run extraction
+              const response = await fetch(`${API_URL}/api/voice/transcribe`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  entry_id: entry.id,
+                  audio_url: entry.audio_url,
+                }),
+              });
+              
+              if (!response.ok) {
+                throw new Error('Failed to reprocess');
+              }
+              
+              // Reload entry to get updated data
+              await loadEntry();
+              await loadRelatedNotes();
+              
+              Alert.alert('Success', 'Entry has been reprocessed with latest AI models');
+            } catch (error) {
+              console.error('Error reprocessing:', error);
+              Alert.alert('Error', 'Failed to reprocess entry');
+            } finally {
+              setIsReprocessing(false);
             }
           },
         },
@@ -310,12 +377,35 @@ export default function EntryDetailScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={deleteEntry} style={styles.actionButton}>
-          <Ionicons name="trash-outline" size={22} color="#666" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            onPress={reprocessEntry} 
+            style={styles.actionButton}
+            disabled={isReprocessing}
+          >
+            {isReprocessing ? (
+              <ActivityIndicator size="small" color="#4ade80" />
+            ) : (
+              <Ionicons name="refresh-outline" size={22} color="#4ade80" />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={deleteEntry} style={styles.actionButton}>
+            <Ionicons name="trash-outline" size={22} color="#666" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#666"
+          />
+        }
+      >
         {/* Date */}
         <Text style={styles.date}>{formatDate(entry.created_at)}</Text>
 
@@ -603,6 +693,11 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   actionButton: {
     width: 44,

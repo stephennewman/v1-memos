@@ -91,10 +91,9 @@ export interface VoiceEntry {
   extracted_dates: ExtractedDate[];
   extracted_questions: ExtractedQuestion[];
   extracted_people: string[];  // Simple array of names
+  tags: string[];  // Auto-generated tags
   questions_asked: string[];   // Questions the speaker asked
   commitments: ExtractedCommitment[];  // Things committed to do
-  
-  tags: string[];
   
   is_processed: boolean;
   is_pinned: boolean;

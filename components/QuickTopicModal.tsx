@@ -84,78 +84,84 @@ export function QuickTopicModal({ visible, onClose, onSave }: QuickTopicModalPro
       animationType="none"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View style={styles.container}>
         <Pressable style={styles.overlay} onPress={onClose}>
           <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
         </Pressable>
 
-        <Animated.View
-          style={[
-            styles.sheet,
-            {
-              paddingBottom: insets.bottom + 20,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+          keyboardVerticalOffset={0}
         >
-          <View style={styles.handle} />
-          <Text style={styles.title}>New Topic</Text>
+          <Animated.View
+            style={[
+              styles.sheet,
+              {
+                paddingBottom: insets.bottom + 20,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <View style={styles.handle} />
+            <Text style={styles.title}>New Topic</Text>
 
-          <TextInput
-            style={styles.input}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Topic title"
-            placeholderTextColor="#555"
-            autoFocus
-          />
+            <TextInput
+              style={styles.input}
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Topic title"
+              placeholderTextColor="#555"
+              autoFocus
+            />
 
-          <TextInput
-            style={[styles.input, styles.descriptionInput]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="What do you want to learn? (optional)"
-            placeholderTextColor="#555"
-            multiline
-          />
+            <TextInput
+              style={[styles.input, styles.descriptionInput]}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="What do you want to learn? (optional)"
+              placeholderTextColor="#555"
+              multiline
+            />
 
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.saveBtn, !title.trim() && styles.saveBtnDisabled]}
-              onPress={handleSave}
-              disabled={!title.trim() || isSaving}
-            >
-              <Ionicons name="bookmark" size={18} color={title.trim() ? '#0a0a0a' : '#666'} />
-              <Text style={[styles.saveBtnText, !title.trim() && styles.saveBtnTextDisabled]}>
-                {isSaving ? 'Creating...' : 'Create Topic'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </KeyboardAvoidingView>
+            <View style={styles.actions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.saveBtn, !title.trim() && styles.saveBtnDisabled]}
+                onPress={handleSave}
+                disabled={!title.trim() || isSaving}
+              >
+                <Ionicons name="bookmark" size={18} color={title.trim() ? '#0a0a0a' : '#666'} />
+                <Text style={[styles.saveBtnText, !title.trim() && styles.saveBtnTextDisabled]}>
+                  {isSaving ? 'Creating...' : 'Create Topic'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  container: {
     flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
+  keyboardView: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   sheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#111',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,

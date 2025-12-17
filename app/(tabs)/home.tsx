@@ -12,6 +12,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TabHeader } from '@/components/TabHeader';
 import { useAuth } from '@/lib/auth-context';
+import { useCreate } from '@/lib/create-context';
+import EmptyState from '@/components/EmptyState';
 import { supabase } from '@/lib/supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
@@ -48,6 +50,7 @@ interface PendingFollowup {
 export default function HomeScreen() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
+  const { openCreateMenu } = useCreate();
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
@@ -332,11 +335,15 @@ export default function HomeScreen() {
 
         {/* Empty State */}
         {todayTasks.length === 0 && recentVoiceNotes.length === 0 && recentNotes.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="sunny-outline" size={40} color="#333" />
-            <Text style={styles.emptyTitle}>Ready to start</Text>
-            <Text style={styles.emptyText}>Tap + to record a voice note or add a task</Text>
-          </View>
+          <EmptyState
+            icon="sunny-outline"
+            title="Good morning!"
+            description="Start your day by recording a voice note or adding a task"
+            actionLabel="Record Voice Note"
+            onAction={() => router.push('/record')}
+            secondaryActionLabel="Add Task"
+            onSecondaryAction={openCreateMenu}
+          />
         )}
 
         <View style={{ height: 100 }} />

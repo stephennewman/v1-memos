@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { CreateButton } from '@/components/CreateButton';
-import { CreateModal, CreateType } from '@/components/CreateModal';
+import { QuickActions } from '@/components/CreateButton';
 import { QuickTaskModal } from '@/components/QuickTaskModal';
 import { QuickTopicModal } from '@/components/QuickTopicModal';
 import { supabase } from '@/lib/supabase';
@@ -30,35 +29,31 @@ export function CreateProvider({ children }: CreateProviderProps) {
   const router = useRouter();
   const { user } = useAuth();
   
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
 
   const openCreateMenu = useCallback(() => {
-    setIsMenuOpen(true);
+    // Open task modal as default action
+    setIsTaskModalOpen(true);
   }, []);
 
   const startVoiceRecording = useCallback(() => {
-    // Navigate to voice tab to start recording
-    router.push('/(tabs)/voice');
+    // Go directly to recording
+    router.push('/record?autoStart=true');
   }, [router]);
 
-  const handleCreateSelect = useCallback((type: CreateType) => {
-    setIsMenuOpen(false);
-    
-    switch (type) {
-      case 'voice':
-        // Navigate to record screen with auto-start
-        router.push('/record?autoStart=true');
-        break;
-      case 'task':
-        setIsTaskModalOpen(true);
-        break;
-      case 'topic':
-        setIsTopicModalOpen(true);
-        break;
-    }
+  const handleVoicePress = useCallback(() => {
+    // Start recording immediately
+    router.push('/record?autoStart=true');
   }, [router]);
+
+  const handleTaskPress = useCallback(() => {
+    setIsTaskModalOpen(true);
+  }, []);
+
+  const handleTopicPress = useCallback(() => {
+    setIsTopicModalOpen(true);
+  }, []);
 
   const handleSaveTask = useCallback(async (text: string) => {
     if (!user) return;
@@ -110,17 +105,11 @@ export function CreateProvider({ children }: CreateProviderProps) {
     <CreateContext.Provider value={{ openCreateMenu, startVoiceRecording }}>
       {children}
       
-      {/* FAB - Always visible */}
-      <CreateButton 
-        onPress={openCreateMenu} 
-        isOpen={isMenuOpen} 
-      />
-      
-      {/* Create Menu Modal */}
-      <CreateModal
-        visible={isMenuOpen}
-        onClose={() => setIsMenuOpen(false)}
-        onSelect={handleCreateSelect}
+      {/* Quick Actions - 3 buttons for Voice, Task, Topic */}
+      <QuickActions
+        onVoice={handleVoicePress}
+        onTask={handleTaskPress}
+        onTopic={handleTopicPress}
       />
       
       {/* Quick Task Modal */}

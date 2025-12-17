@@ -9,12 +9,19 @@ import {
   RefreshControl,
   Alert,
   Animated,
+  PanResponder,
+  Dimensions,
 } from 'react-native';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const SWIPE_THRESHOLD = 80;
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import { useCreate } from '@/lib/create-context';
+import EmptyState from '@/components/EmptyState';
 import type { VoiceTodo, TodoStatus } from '@/lib/types';
 
 type FilterType = 'today' | 'overdue' | 'upcoming' | 'completed' | 'all';
@@ -74,7 +81,7 @@ const Toast = ({
   );
 };
 
-// Animated task item
+// Swipeable task item with complete action
 const TaskItem = ({ 
   item, 
   onComplete, 
@@ -90,6 +97,56 @@ const TaskItem = ({
   const strikeWidth = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
   const scale = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only respond to horizontal swipes
+        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < 10;
+      },
+      onPanResponderGrant: () => {
+        setShowSwipeHint(true);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Only allow right swipe (positive dx) and cap it
+        if (gestureState.dx > 0) {
+          translateX.setValue(Math.min(gestureState.dx, SWIPE_THRESHOLD + 20));
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        setShowSwipeHint(false);
+        if (gestureState.dx > SWIPE_THRESHOLD && item.status !== 'completed') {
+          // Swipe complete!
+          Animated.timing(translateX, {
+            toValue: SCREEN_WIDTH,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            onComplete(item);
+            translateX.setValue(0);
+          });
+        } else {
+          // Snap back
+          Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 100,
+            friction: 10,
+          }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        setShowSwipeHint(false);
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      },
+    })
+  ).current;
 
   const formatDueDate = (dateStr?: string) => {
     if (!dateStr) return null;
@@ -150,8 +207,22 @@ const TaskItem = ({
   const isCompleted = item.status === 'completed';
 
   return (
-    <Animated.View style={{ opacity, transform: [{ scale }] }}>
-      <TouchableOpacity
+    <View style={styles.swipeContainer}>
+      {/* Swipe background */}
+      <View style={styles.swipeBackground}>
+        <Ionicons name="checkmark-circle" size={24} color="#fff" />
+        <Text style={styles.swipeText}>Done</Text>
+      </View>
+      
+      <Animated.View 
+        style={{ 
+          opacity, 
+          transform: [{ scale }, { translateX }],
+          backgroundColor: '#0a0a0a',
+        }} 
+        {...panResponder.panHandlers}
+      >
+        <TouchableOpacity
         style={[styles.todoCard, isCompleted && styles.todoCardCompleted]}
         onPress={() => onPress(item)}
         onLongPress={() => onLongPress(item)}
@@ -198,7 +269,8 @@ const TaskItem = ({
         </View>
         <Ionicons name="chevron-forward" size={16} color="#444" />
       </TouchableOpacity>
-    </Animated.View>
+      </Animated.View>
+    </View>
   );
 };
 
@@ -206,6 +278,7 @@ export default function TasksScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
+  const { openCreateMenu } = useCreate();
   
   const [todos, setTodos] = useState<VoiceTodo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -465,20 +538,24 @@ export default function TasksScreen() {
 
       {/* Todos List */}
       {todos.length === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Ionicons name="checkbox-outline" size={48} color="#333" />
-          </View>
-          <Text style={styles.emptyTitle}>
-            {filter === 'today' ? 'No tasks due today' :
-             filter === 'overdue' ? 'Nothing overdue!' :
-             filter === 'upcoming' ? 'No upcoming tasks' : 
-             filter === 'completed' ? 'No completed tasks' : 'No tasks yet'}
-          </Text>
-          <Text style={styles.emptySubtitle}>
-            Tasks are automatically extracted from your voice notes
-          </Text>
-        </View>
+        <EmptyState
+          icon={filter === 'overdue' ? 'checkmark-circle' : 'checkbox-outline'}
+          title={
+            filter === 'today' ? 'No tasks due today' :
+            filter === 'overdue' ? 'You\'re all caught up!' :
+            filter === 'upcoming' ? 'No upcoming tasks' : 
+            filter === 'completed' ? 'No completed tasks yet' : 'No tasks yet'
+          }
+          description={
+            filter === 'overdue' 
+              ? 'Great job staying on top of things'
+              : 'Tasks are automatically extracted from your voice notes, or create them manually'
+          }
+          actionLabel={filter !== 'overdue' && filter !== 'completed' ? 'Record a Voice Note' : undefined}
+          onAction={filter !== 'overdue' && filter !== 'completed' ? () => router.push('/record') : undefined}
+          secondaryActionLabel={filter !== 'overdue' && filter !== 'completed' ? 'Add Task Manually' : undefined}
+          onSecondaryAction={filter !== 'overdue' && filter !== 'completed' ? openCreateMenu : undefined}
+        />
       ) : (
         <FlatList
           data={todos}
@@ -606,6 +683,29 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     gap: 10,
+  },
+  swipeContainer: {
+    overflow: 'hidden',
+    borderRadius: 12,
+    marginBottom: 0,
+  },
+  swipeBackground: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: '#4ade80',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 20,
+    gap: 8,
+    borderRadius: 12,
+  },
+  swipeText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
   },
   todoCard: {
     flexDirection: 'row',

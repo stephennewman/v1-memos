@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
+  RefreshControl,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +24,7 @@ export default function TaskDetailScreen() {
   
   const [task, setTask] = useState<VoiceTodo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState('');
   const [editedDueDate, setEditedDueDate] = useState('');
@@ -30,6 +32,12 @@ export default function TaskDetailScreen() {
   useEffect(() => {
     loadTask();
   }, [id]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadTask();
+    setIsRefreshing(false);
+  };
 
   const loadTask = async () => {
     if (!id) return;
@@ -212,7 +220,17 @@ export default function TaskDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#666"
+          />
+        }
+      >
         {/* Status Toggle */}
         <TouchableOpacity style={styles.statusRow} onPress={toggleStatus}>
           <View style={[styles.checkbox, isCompleted && styles.checkboxChecked]}>

@@ -81,73 +81,79 @@ export function QuickTaskModal({ visible, onClose, onSave }: QuickTaskModalProps
       animationType="none"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View style={styles.container}>
         <Pressable style={styles.overlay} onPress={onClose}>
           <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
         </Pressable>
 
-        <Animated.View
-          style={[
-            styles.sheet,
-            {
-              paddingBottom: insets.bottom + 20,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+          keyboardVerticalOffset={0}
         >
-          <View style={styles.handle} />
-          <Text style={styles.title}>New Task</Text>
+          <Animated.View
+            style={[
+              styles.sheet,
+              {
+                paddingBottom: insets.bottom + 20,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <View style={styles.handle} />
+            <Text style={styles.title}>New Task</Text>
 
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={setText}
-            placeholder="What needs to be done?"
-            placeholderTextColor="#555"
-            autoFocus
-            multiline
-            returnKeyType="done"
-            blurOnSubmit
-            onSubmitEditing={handleSave}
-          />
+            <TextInput
+              style={styles.input}
+              value={text}
+              onChangeText={setText}
+              placeholder="What needs to be done?"
+              placeholderTextColor="#555"
+              autoFocus
+              multiline
+              returnKeyType="done"
+              blurOnSubmit
+              onSubmitEditing={handleSave}
+            />
 
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.saveBtn, !text.trim() && styles.saveBtnDisabled]}
-              onPress={handleSave}
-              disabled={!text.trim() || isSaving}
-            >
-              <Ionicons name="add" size={20} color={text.trim() ? '#0a0a0a' : '#666'} />
-              <Text style={[styles.saveBtnText, !text.trim() && styles.saveBtnTextDisabled]}>
-                {isSaving ? 'Saving...' : 'Add Task'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </KeyboardAvoidingView>
+            <View style={styles.actions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.saveBtn, !text.trim() && styles.saveBtnDisabled]}
+                onPress={handleSave}
+                disabled={!text.trim() || isSaving}
+              >
+                <Ionicons name="add" size={20} color={text.trim() ? '#0a0a0a' : '#666'} />
+                <Text style={[styles.saveBtnText, !text.trim() && styles.saveBtnTextDisabled]}>
+                  {isSaving ? 'Saving...' : 'Add Task'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  container: {
     flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
+  keyboardView: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   sheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#111',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,

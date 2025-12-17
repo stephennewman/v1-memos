@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth, MAX_FREE_TOPICS } from '@/lib/auth-context';
 import { generateMemos } from '@/lib/api';
+import EmptyState from '@/components/EmptyState';
 import type { MemoTopic } from '@/lib/types';
 
 export default function LibraryScreen() {
@@ -233,19 +234,13 @@ export default function LibraryScreen() {
 
       {/* Topics List */}
       {topics.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="bookmark-outline" size={64} color="#333" />
-          <Text style={styles.emptyTitle}>No topics yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Create your first topic to start learning
-          </Text>
-          <TouchableOpacity
-            style={styles.emptyButton}
-            onPress={() => setShowCreate(true)}
-          >
-            <Text style={styles.emptyButtonText}>Create Topic</Text>
-          </TouchableOpacity>
-        </View>
+        <EmptyState
+          icon="bookmark-outline"
+          title="No topics yet"
+          description="Topics help you organize and review key information using spaced repetition"
+          actionLabel="Create Your First Topic"
+          onAction={() => setShowCreate(true)}
+        />
       ) : (
         <FlatList
           data={topics}
