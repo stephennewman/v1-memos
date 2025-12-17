@@ -165,6 +165,8 @@ export default function RecordScreen() {
 
 
   if (state === 'recording') {
+    const isPersonal = selectedType !== 'meeting';
+    
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         {/* Header */}
@@ -172,15 +174,34 @@ export default function RecordScreen() {
           <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
             <Ionicons name="close" size={24} color="#fff" />
           </TouchableOpacity>
-          <View style={styles.typeBadge}>
-            <Ionicons 
-              name={ENTRY_TYPE_CONFIG[selectedType].icon as any} 
-              size={16} 
-              color={ENTRY_TYPE_CONFIG[selectedType].color} 
-            />
-            <Text style={[styles.typeText, { color: ENTRY_TYPE_CONFIG[selectedType].color }]}>
-              {ENTRY_TYPE_CONFIG[selectedType].label}
-            </Text>
+          
+          {/* Type Toggle */}
+          <View style={styles.typeToggle}>
+            <TouchableOpacity
+              style={[
+                styles.toggleOption,
+                isPersonal && styles.toggleOptionActive,
+              ]}
+              onPress={() => setSelectedType('freeform')}
+            >
+              <Ionicons name="mic" size={14} color={isPersonal ? '#0a0a0a' : '#666'} />
+              <Text style={[styles.toggleText, isPersonal && styles.toggleTextActive]}>
+                Personal
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.toggleOption,
+                !isPersonal && styles.toggleOptionActive,
+                !isPersonal && { backgroundColor: '#60a5fa' },
+              ]}
+              onPress={() => setSelectedType('meeting')}
+            >
+              <Ionicons name="people" size={14} color={!isPersonal ? '#0a0a0a' : '#666'} />
+              <Text style={[styles.toggleText, !isPersonal && styles.toggleTextActive]}>
+                Session
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -295,6 +316,31 @@ const styles = StyleSheet.create({
   typeText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  typeToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 3,
+  },
+  toggleOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 17,
+  },
+  toggleOptionActive: {
+    backgroundColor: '#c4dfc4',
+  },
+  toggleText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#666',
+  },
+  toggleTextActive: {
+    color: '#0a0a0a',
   },
   content: {
     flex: 1,
