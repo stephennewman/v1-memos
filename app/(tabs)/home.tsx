@@ -429,13 +429,13 @@ export default function HomeScreen() {
                   {day.notes.map((note) => (
                     <TouchableOpacity
                       key={note.id}
-                      style={styles.feedItem}
+                      style={styles.noteItem}
                       onPress={() => router.push(`/note/${note.id}`)}
                     >
-                      <View style={styles.itemIconWrapper}>
+                      <View style={styles.noteIconWrapper}>
                         <Ionicons name="document-text-outline" size={18} color="#93c5fd" />
                       </View>
-                      <Text style={styles.itemText} numberOfLines={1}>{note.text}</Text>
+                      <Text style={styles.noteText}>{note.text}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -569,11 +569,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   itemText: {
+    flex: 1,
     fontSize: 15,
     color: '#ddd',
   },
   itemTextCompleted: {
     textDecorationLine: 'line-through',
     color: '#555',
+  },
+  noteItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  noteIconWrapper: {
+    width: 28,
+    paddingTop: 2,
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#ddd',
+    lineHeight: 22,
   },
 });
