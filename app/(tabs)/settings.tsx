@@ -6,23 +6,26 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth, MAX_FREE_TOPICS } from '@/lib/auth-context';
+import { useSettings, TabSettings } from '@/lib/settings-context';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, topicCount, signOut } = useAuth();
+  const { tabs, toggleTab } = useSettings();
 
-  const navigationItems = [
-    { icon: 'home', label: 'Home', route: '/home' },
-    { icon: 'mic', label: 'Voice Notes', route: '/voice' },
-    { icon: 'checkbox-outline', label: 'Tasks', route: '/tasks' },
-    { icon: 'document-text', label: 'Notes', route: '/notes' },
-    { icon: 'analytics', label: 'Insights', route: '/insights' },
+  const navigationItems: { icon: string; label: string; key: keyof TabSettings }[] = [
+    { icon: 'home', label: 'Home', key: 'home' },
+    { icon: 'mic', label: 'Voice Notes', key: 'voice' },
+    { icon: 'checkbox-outline', label: 'Tasks', key: 'tasks' },
+    { icon: 'document-text', label: 'Notes', key: 'notes' },
+    { icon: 'analytics', label: 'Insights', key: 'insights' },
   ];
 
   const handleSignOut = () => {
@@ -50,20 +53,35 @@ export default function SettingsScreen() {
         {/* Navigation Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Navigation</Text>
+          <Text style={styles.sectionHint}>Toggle tabs on/off in the bottom navigation</Text>
           <View style={styles.card}>
             {navigationItems.map((item, index) => (
-              <TouchableOpacity
-                key={item.route}
+              <View
+                key={item.key}
                 style={[
                   styles.navRow,
                   index < navigationItems.length - 1 && styles.navRowBorder,
                 ]}
-                onPress={() => router.push(item.route as any)}
               >
-                <Ionicons name={item.icon as any} size={20} color="#c4dfc4" />
-                <Text style={styles.navLabel}>{item.label}</Text>
-                <Ionicons name="chevron-forward" size={18} color="#444" />
-              </TouchableOpacity>
+                <Ionicons 
+                  name={item.icon as any} 
+                  size={20} 
+                  color={tabs[item.key] ? '#c4dfc4' : '#444'} 
+                />
+                <Text style={[
+                  styles.navLabel,
+                  !tabs[item.key] && styles.navLabelDisabled
+                ]}>
+                  {item.label}
+                </Text>
+                <Switch
+                  value={tabs[item.key]}
+                  onValueChange={() => toggleTab(item.key)}
+                  trackColor={{ false: '#333', true: '#4a6b4a' }}
+                  thumbColor={tabs[item.key] ? '#c4dfc4' : '#666'}
+                  ios_backgroundColor="#333"
+                />
+              </View>
             ))}
           </View>
         </View>
@@ -161,6 +179,12 @@ const styles = StyleSheet.create({
     color: '#666',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    marginBottom: 4,
+    marginLeft: 4,
+  },
+  sectionHint: {
+    fontSize: 12,
+    color: '#555',
     marginBottom: 8,
     marginLeft: 4,
   },
@@ -200,6 +224,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#fff',
+  },
+  navLabelDisabled: {
+    color: '#555',
   },
   progressBar: {
     height: 4,

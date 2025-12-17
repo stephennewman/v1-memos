@@ -4,9 +4,11 @@ import { View, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth-context';
 import { CreateProvider } from '@/lib/create-context';
+import { SettingsProvider, useSettings } from '@/lib/settings-context';
 
-export default function TabLayout() {
+function TabsContent() {
   const { user, isLoading } = useAuth();
+  const { tabs, isLoading: settingsLoading } = useSettings();
   const router = useRouter();
 
   useEffect(() => {
@@ -15,7 +17,7 @@ export default function TabLayout() {
     }
   }, [user, isLoading]);
 
-  if (isLoading) {
+  if (isLoading || settingsLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0a0a' }}>
         <ActivityIndicator size="large" color="#c4dfc4" />
@@ -52,6 +54,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="home"
           options={{
+            href: tabs.home ? '/home' : null,
             title: 'Home',
             tabBarIcon: ({ color }) => (
               <Ionicons name="home" size={22} color={color} />
@@ -63,6 +66,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="voice"
           options={{
+            href: tabs.voice ? '/voice' : null,
             title: 'Voice',
             tabBarIcon: ({ color }) => (
               <Ionicons name="mic" size={22} color={color} />
@@ -74,6 +78,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="tasks"
           options={{
+            href: tabs.tasks ? '/tasks' : null,
             title: 'Tasks',
             tabBarIcon: ({ color }) => (
               <Ionicons name="checkbox" size={22} color={color} />
@@ -85,6 +90,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="notes"
           options={{
+            href: tabs.notes ? '/notes' : null,
             title: 'Notes',
             tabBarIcon: ({ color }) => (
               <Ionicons name="document-text" size={22} color={color} />
@@ -108,6 +114,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="insights"
           options={{
+            href: tabs.insights ? '/insights' : null,
             title: 'Insights',
             tabBarIcon: ({ color }) => (
               <Ionicons name="analytics" size={22} color={color} />
@@ -130,5 +137,13 @@ export default function TabLayout() {
         />
       </Tabs>
     </CreateProvider>
+  );
+}
+
+export default function TabLayout() {
+  return (
+    <SettingsProvider>
+      <TabsContent />
+    </SettingsProvider>
   );
 }
