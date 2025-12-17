@@ -18,7 +18,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, topicCount, signOut } = useAuth();
-  const { tabs, toggleTab } = useSettings();
+  const { tabs, toggleTab, isLoading } = useSettings();
 
   const navigationItems: { icon: string; label: string; key: keyof TabSettings }[] = [
     { icon: 'home', label: 'Home', key: 'home' },
@@ -27,6 +27,9 @@ export default function SettingsScreen() {
     { icon: 'document-text', label: 'Notes', key: 'notes' },
     { icon: 'analytics', label: 'Insights', key: 'insights' },
   ];
+
+  // Debug log
+  console.log('Settings tabs:', tabs, 'isLoading:', isLoading);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -55,34 +58,37 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>Navigation</Text>
           <Text style={styles.sectionHint}>Toggle tabs on/off in the bottom navigation</Text>
           <View style={styles.card}>
-            {navigationItems.map((item, index) => (
-              <View
-                key={item.key}
-                style={[
-                  styles.navRow,
-                  index < navigationItems.length - 1 && styles.navRowBorder,
-                ]}
-              >
-                <Ionicons 
-                  name={item.icon as any} 
-                  size={20} 
-                  color={tabs[item.key] ? '#c4dfc4' : '#444'} 
-                />
-                <Text style={[
-                  styles.navLabel,
-                  !tabs[item.key] && styles.navLabelDisabled
-                ]}>
-                  {item.label}
-                </Text>
-                <Switch
-                  value={tabs[item.key]}
-                  onValueChange={() => toggleTab(item.key)}
-                  trackColor={{ false: '#333', true: '#4a6b4a' }}
-                  thumbColor={tabs[item.key] ? '#c4dfc4' : '#666'}
-                  ios_backgroundColor="#333"
-                />
-              </View>
-            ))}
+            {navigationItems.map((item, index) => {
+              const isEnabled = tabs?.[item.key] ?? true;
+              return (
+                <View
+                  key={item.key}
+                  style={[
+                    styles.navRow,
+                    index < navigationItems.length - 1 && styles.navRowBorder,
+                  ]}
+                >
+                  <Ionicons 
+                    name={item.icon as any} 
+                    size={20} 
+                    color={isEnabled ? '#c4dfc4' : '#444'} 
+                  />
+                  <Text style={[
+                    styles.navLabel,
+                    !isEnabled && styles.navLabelDisabled
+                  ]}>
+                    {item.label}
+                  </Text>
+                  <Switch
+                    value={isEnabled}
+                    onValueChange={() => toggleTab(item.key)}
+                    trackColor={{ false: '#333', true: '#4a6b4a' }}
+                    thumbColor={isEnabled ? '#c4dfc4' : '#666'}
+                    ios_backgroundColor="#333"
+                  />
+                </View>
+              );
+            })}
           </View>
         </View>
 
