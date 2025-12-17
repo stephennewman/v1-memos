@@ -16,20 +16,33 @@ import { useCreate } from '@/lib/create-context';
 import EmptyState from '@/components/EmptyState';
 import { supabase } from '@/lib/supabase';
 
-// Unified item type for the feed
-interface FeedItem {
+interface TaskItem {
   id: string;
-  type: 'task' | 'voice' | 'note';
   text: string;
-  status?: 'pending' | 'completed';
+  status: 'pending' | 'completed';
   created_at: string;
   entry_id?: string;
 }
 
-interface DayGroup {
+interface VoiceItem {
+  id: string;
+  summary: string;
+  created_at: string;
+}
+
+interface NoteItem {
+  id: string;
+  text: string;
+  created_at: string;
+  entry_id?: string;
+}
+
+interface DayData {
   date: string;
   label: string;
-  items: FeedItem[];
+  voice: VoiceItem[];
+  tasks: TaskItem[];
+  notes: NoteItem[];
 }
 
 export default function HomeScreen() {
@@ -38,7 +51,7 @@ export default function HomeScreen() {
   const { openCreateMenu } = useCreate();
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [dayGroups, setDayGroups] = useState<DayGroup[]>([]);
+  const [dayData, setDayData] = useState<DayData[]>([]);
   const [todayStats, setTodayStats] = useState({ tasks: 0, completed: 0, voiceNotes: 0 });
 
   const getDateLabel = (dateStr: string) => {
@@ -58,7 +71,7 @@ export default function HomeScreen() {
 
   const getDateKey = (dateStr: string) => {
     const date = new Date(dateStr);
-    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    return `${date.getFullYear()}-${String(date.getMonth()).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   };
 
   const loadData = useCallback(async () => {
@@ -69,7 +82,7 @@ export default function HomeScreen() {
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
 
-      // Get all items from last 14 days
+      // Get items from last 14 days
       const fourteenDaysAgo = new Date();
       fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
       const fourteenDaysAgoISO = fourteenDaysAgo.toISOString();
@@ -92,7 +105,7 @@ export default function HomeScreen() {
         .order('created_at', { ascending: false })
         .limit(30);
 
-      // Get notes
+      // Get notes (bullet points)
       const { data: notes } = await supabase
         .from('voice_notes')
         .select('id, text, created_at, entry_id')
@@ -102,57 +115,60 @@ export default function HomeScreen() {
         .order('created_at', { ascending: false })
         .limit(30);
 
-      // Combine all items into a unified feed
-      const allItems: FeedItem[] = [
-        ...(tasks || []).map(t => ({
-          id: t.id,
-          type: 'task' as const,
-          text: t.text,
-          status: t.status,
-          created_at: t.created_at,
-          entry_id: t.entry_id,
-        })),
-        ...(voiceNotes || []).map(v => ({
-          id: v.id,
-          type: 'voice' as const,
-          text: v.summary || 'Voice Note',
-          created_at: v.created_at,
-        })),
-        ...(notes || []).map(n => ({
-          id: n.id,
-          type: 'note' as const,
-          text: n.text,
-          created_at: n.created_at,
-          entry_id: n.entry_id,
-        })),
-      ];
-
-      // Sort by created_at descending
-      allItems.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
       // Group by date
-      const groupMap = new Map<string, FeedItem[]>();
-      allItems.forEach(item => {
-        const key = getDateKey(item.created_at);
-        if (!groupMap.has(key)) {
-          groupMap.set(key, []);
-        }
-        groupMap.get(key)!.push(item);
-      });
+      const dayMap = new Map<string, DayData>();
 
-      // Convert to array of day groups
-      const groups: DayGroup[] = [];
-      groupMap.forEach((items, dateKey) => {
-        if (items.length > 0) {
-          groups.push({
-            date: dateKey,
-            label: getDateLabel(items[0].created_at),
-            items,
+      // Add voice notes
+      (voiceNotes || []).forEach(v => {
+        const key = getDateKey(v.created_at);
+        if (!dayMap.has(key)) {
+          dayMap.set(key, { 
+            date: key, 
+            label: getDateLabel(v.created_at), 
+            voice: [], 
+            tasks: [], 
+            notes: [] 
           });
         }
+        dayMap.get(key)!.voice.push(v);
       });
 
-      setDayGroups(groups);
+      // Add tasks
+      (tasks || []).forEach(t => {
+        const key = getDateKey(t.created_at);
+        if (!dayMap.has(key)) {
+          dayMap.set(key, { 
+            date: key, 
+            label: getDateLabel(t.created_at), 
+            voice: [], 
+            tasks: [], 
+            notes: [] 
+          });
+        }
+        dayMap.get(key)!.tasks.push(t);
+      });
+
+      // Add notes
+      (notes || []).forEach(n => {
+        const key = getDateKey(n.created_at);
+        if (!dayMap.has(key)) {
+          dayMap.set(key, { 
+            date: key, 
+            label: getDateLabel(n.created_at), 
+            voice: [], 
+            tasks: [], 
+            notes: [] 
+          });
+        }
+        dayMap.get(key)!.notes.push(n);
+      });
+
+      // Sort days descending
+      const sortedDays = Array.from(dayMap.values()).sort((a, b) => 
+        b.date.localeCompare(a.date)
+      );
+
+      setDayData(sortedDays);
 
       // Stats for today
       const { count: pendingCount } = await supabase
@@ -201,16 +217,14 @@ export default function HomeScreen() {
     loadData();
   }, [loadData]);
 
-  const toggleTask = useCallback(async (item: FeedItem) => {
-    if (item.type !== 'task') return;
-    
-    const newStatus = item.status === 'pending' ? 'completed' : 'pending';
+  const toggleTask = useCallback(async (task: TaskItem) => {
+    const newStatus = task.status === 'pending' ? 'completed' : 'pending';
     
     // Optimistic update
-    setDayGroups(prev => prev.map(group => ({
-      ...group,
-      items: group.items.map(i => 
-        i.id === item.id ? { ...i, status: newStatus } : i
+    setDayData(prev => prev.map(day => ({
+      ...day,
+      tasks: day.tasks.map(t => 
+        t.id === task.id ? { ...t, status: newStatus } : t
       ),
     })));
     
@@ -221,9 +235,8 @@ export default function HomeScreen() {
           status: newStatus, 
           completed_at: newStatus === 'completed' ? new Date().toISOString() : null 
         })
-        .eq('id', item.id);
+        .eq('id', task.id);
       
-      // Update stats
       if (newStatus === 'completed') {
         setTodayStats(prev => ({ ...prev, tasks: prev.tasks - 1, completed: prev.completed + 1 }));
       } else {
@@ -231,51 +244,15 @@ export default function HomeScreen() {
       }
     } catch (error) {
       // Revert on error
-      setDayGroups(prev => prev.map(group => ({
-        ...group,
-        items: group.items.map(i => 
-          i.id === item.id ? { ...i, status: item.status } : i
+      setDayData(prev => prev.map(day => ({
+        ...day,
+        tasks: day.tasks.map(t => 
+          t.id === task.id ? { ...t, status: task.status } : t
         ),
       })));
       console.error('Error toggling task:', error);
     }
   }, []);
-
-  const navigateToItem = (item: FeedItem) => {
-    switch (item.type) {
-      case 'task':
-        router.push(`/task/${item.id}`);
-        break;
-      case 'voice':
-        router.push(`/entry/${item.id}`);
-        break;
-      case 'note':
-        router.push(`/note/${item.id}`);
-        break;
-    }
-  };
-
-  const getItemIcon = (type: FeedItem['type'], status?: string) => {
-    switch (type) {
-      case 'task':
-        return status === 'completed' ? 'checkmark-circle' : 'ellipse-outline';
-      case 'voice':
-        return 'mic';
-      case 'note':
-        return 'document-text-outline';
-    }
-  };
-
-  const getItemColor = (type: FeedItem['type'], status?: string) => {
-    switch (type) {
-      case 'task':
-        return status === 'completed' ? '#4ade80' : '#888';
-      case 'voice':
-        return '#c4dfc4';
-      case 'note':
-        return '#93c5fd';
-    }
-  };
 
   const formatDate = () => {
     return new Date().toLocaleDateString('en-US', {
@@ -293,7 +270,7 @@ export default function HomeScreen() {
     );
   }
 
-  const hasContent = dayGroups.some(g => g.items.length > 0);
+  const hasContent = dayData.some(d => d.voice.length > 0 || d.tasks.length > 0 || d.notes.length > 0);
 
   return (
     <View style={styles.container}>
@@ -327,44 +304,100 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Day Groups */}
-        {dayGroups.map((group) => (
-          <View key={group.date} style={styles.dayGroup}>
-            <Text style={styles.dayLabel}>{group.label}</Text>
-            
-            {group.items.map((item) => (
-              <View key={`${item.type}-${item.id}`} style={styles.feedItem}>
-                {/* Icon - left aligned, consistent size */}
-                <TouchableOpacity
-                  style={styles.itemIcon}
-                  onPress={() => item.type === 'task' ? toggleTask(item) : navigateToItem(item)}
-                >
-                  <Ionicons
-                    name={getItemIcon(item.type, item.status) as any}
-                    size={18}
-                    color={getItemColor(item.type, item.status)}
-                  />
-                </TouchableOpacity>
-                
-                {/* Content */}
-                <TouchableOpacity
-                  style={styles.itemContent}
-                  onPress={() => navigateToItem(item)}
-                >
-                  <Text 
-                    style={[
-                      styles.itemText,
-                      item.type === 'task' && item.status === 'completed' && styles.itemTextCompleted
-                    ]} 
-                    numberOfLines={1}
-                  >
-                    {item.text}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        ))}
+        {/* Day Sections */}
+        {dayData.map((day) => {
+          const hasVoice = day.voice.length > 0;
+          const hasTasks = day.tasks.length > 0;
+          const hasNotes = day.notes.length > 0;
+          
+          if (!hasVoice && !hasTasks && !hasNotes) return null;
+
+          return (
+            <View key={day.date} style={styles.daySection}>
+              <Text style={styles.dayLabel}>{day.label}</Text>
+              
+              {/* Voice Notes */}
+              {hasVoice && (
+                <View style={styles.typeSection}>
+                  <View style={styles.typeLabelRow}>
+                    <Ionicons name="mic" size={14} color="#c4dfc4" />
+                    <Text style={styles.typeLabel}>Voice Notes</Text>
+                  </View>
+                  {day.voice.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.feedItem}
+                      onPress={() => router.push(`/entry/${item.id}`)}
+                    >
+                      <Ionicons name="mic" size={18} color="#c4dfc4" style={styles.itemIcon} />
+                      <Text style={styles.itemText} numberOfLines={1}>
+                        {item.summary || 'Voice Note'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Tasks */}
+              {hasTasks && (
+                <View style={styles.typeSection}>
+                  <View style={styles.typeLabelRow}>
+                    <Ionicons name="checkbox-outline" size={14} color="#888" />
+                    <Text style={styles.typeLabel}>Tasks</Text>
+                  </View>
+                  {day.tasks.map((task) => (
+                    <View key={task.id} style={styles.feedItem}>
+                      <TouchableOpacity
+                        style={styles.taskCheckArea}
+                        onPress={() => toggleTask(task)}
+                      >
+                        <Ionicons
+                          name={task.status === 'completed' ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={18}
+                          color={task.status === 'completed' ? '#4ade80' : '#555'}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.taskTextArea}
+                        onPress={() => router.push(`/task/${task.id}`)}
+                      >
+                        <Text 
+                          style={[
+                            styles.itemText,
+                            task.status === 'completed' && styles.itemTextCompleted
+                          ]} 
+                          numberOfLines={1}
+                        >
+                          {task.text}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Notes */}
+              {hasNotes && (
+                <View style={styles.typeSection}>
+                  <View style={styles.typeLabelRow}>
+                    <Ionicons name="document-text-outline" size={14} color="#93c5fd" />
+                    <Text style={styles.typeLabel}>Notes</Text>
+                  </View>
+                  {day.notes.map((note) => (
+                    <TouchableOpacity
+                      key={note.id}
+                      style={styles.feedItem}
+                      onPress={() => router.push(`/note/${note.id}`)}
+                    >
+                      <Ionicons name="document-text-outline" size={18} color="#93c5fd" style={styles.itemIcon} />
+                      <Text style={styles.itemText} numberOfLines={1}>{note.text}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          );
+        })}
 
         {/* Empty State */}
         {!hasContent && (
@@ -426,14 +459,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#666',
   },
-  dayGroup: {
-    marginBottom: 20,
+  daySection: {
+    marginBottom: 24,
   },
   dayLabel: {
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 12,
+  },
+  typeSection: {
+    marginBottom: 12,
+  },
+  typeLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+    paddingLeft: 2,
+  },
+  typeLabel: {
+    fontSize: 11,
     fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
+    color: '#555',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -445,12 +493,16 @@ const styles = StyleSheet.create({
     borderBottomColor: '#1a1a1a',
   },
   itemIcon: {
-    width: 36,
+    width: 28,
+    marginRight: 8,
+  },
+  taskCheckArea: {
+    width: 28,
     height: ITEM_HEIGHT,
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    marginRight: 8,
   },
-  itemContent: {
+  taskTextArea: {
     flex: 1,
     height: ITEM_HEIGHT,
     justifyContent: 'center',
@@ -458,6 +510,7 @@ const styles = StyleSheet.create({
   itemText: {
     fontSize: 15,
     color: '#ddd',
+    flex: 1,
   },
   itemTextCompleted: {
     textDecorationLine: 'line-through',

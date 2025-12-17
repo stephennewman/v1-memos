@@ -81,10 +81,22 @@ export default function TabLayout() {
           }}
         />
         
-        {/* Topics (Memos) */}
+        {/* Notes (bullet points) */}
+        <Tabs.Screen
+          name="notes"
+          options={{
+            title: 'Notes',
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="document-text" size={22} color={color} />
+            ),
+          }}
+        />
+        
+        {/* Topics (Memos) - Hidden for now */}
         <Tabs.Screen
           name="index"
           options={{
+            href: null, // Hidden - Topics feature
             title: 'Topics',
             tabBarIcon: ({ color }) => (
               <Ionicons name="bookmark" size={22} color={color} />
