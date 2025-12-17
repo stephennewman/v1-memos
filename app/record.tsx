@@ -186,7 +186,7 @@ export default function RecordScreen() {
             >
               <Ionicons name="mic" size={14} color={isPersonal ? '#0a0a0a' : '#666'} />
               <Text style={[styles.toggleText, isPersonal && styles.toggleTextActive]}>
-                Personal
+                Individual
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -199,7 +199,7 @@ export default function RecordScreen() {
             >
               <Ionicons name="people" size={14} color={!isPersonal ? '#0a0a0a' : '#666'} />
               <Text style={[styles.toggleText, !isPersonal && styles.toggleTextActive]}>
-                Session
+                Group
               </Text>
             </TouchableOpacity>
           </View>

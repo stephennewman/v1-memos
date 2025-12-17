@@ -202,7 +202,7 @@ export const ENTRY_TYPE_CONFIG: Record<VoiceEntryType, { icon: string; color: st
   task: { icon: 'checkbox', color: '#a78bfa', label: 'Task' },
   memory: { icon: 'camera', color: '#fdba74', label: 'Memory' },
   freeform: { icon: 'mic', color: '#9ca3af', label: 'Note' },
-  meeting: { icon: 'people', color: '#60a5fa', label: 'Session' },
+  meeting: { icon: 'people', color: '#60a5fa', label: 'Group' },
 };
 
 export const PRIORITY_CONFIG: Record<TodoPriority, { color: string; label: string }> = {
