@@ -18,7 +18,7 @@ import { VoiceRecorder } from '@/components/VoiceRecorder';
 import type { VoiceEntryType } from '@/lib/types';
 import { ENTRY_TYPE_CONFIG } from '@/lib/types';
 
-type RecordingState = 'idle' | 'recording' | 'processing' | 'done';
+type RecordingState = 'idle' | 'recording' | 'processing';
 
 export default function RecordScreen() {
   const router = useRouter();
@@ -99,17 +99,23 @@ export default function RecordScreen() {
       if (entryError) throw entryError;
       
       setCreatedEntryId(entry.id);
-      setProcessingStep('Transcribing...');
+      setProcessingStep('Processing...');
 
-      // Call V1 API to transcribe and extract
+      // Navigate to entry detail page immediately (1-2 second delay for UX)
+      // The detail page has skeleton loaders and polls for updates
+      setTimeout(() => {
+        router.replace(`/entry/${entry.id}`);
+      }, 1500);
+
+      // Start transcription in background (fire and forget)
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
       
       try {
-        // Get session for auth token
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session && audioUrl) {
-          const transcribeResponse = await fetch(`${apiUrl}/api/voice/transcribe`, {
+          // Don't await - let it run in background
+          fetch(`${apiUrl}/api/voice/transcribe`, {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
@@ -119,38 +125,11 @@ export default function RecordScreen() {
               audio_url: audioUrl,
               entry_id: entry.id,
             }),
-          });
-
-          if (transcribeResponse.ok) {
-            setProcessingStep('Done!');
-          } else {
-            console.log('Transcription failed:', await transcribeResponse.text());
-          }
+          }).catch(err => console.log('Background transcription error:', err));
         }
       } catch (apiError) {
-        // API might not be set up yet - that's OK
         console.log('AI processing skipped:', apiError);
-        
-        // Update entry to mark as processed anyway
-        await supabase
-          .from('voice_entries')
-          .update({ 
-            is_processed: true,
-            summary: 'Voice note recorded (transcription pending)',
-          })
-          .eq('id', entry.id);
       }
-
-      setState('done');
-
-      // Navigate to entry detail page after short delay
-      setTimeout(() => {
-        if (entry?.id) {
-          router.replace(`/entry/${entry.id}`);
-        } else {
-          router.back();
-        }
-      }, 500);
 
     } catch (error) {
       console.error('Error saving recording:', error);
@@ -184,18 +163,6 @@ export default function RecordScreen() {
     );
   }
 
-  if (state === 'done') {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.processingContainer}>
-          <View style={styles.successIcon}>
-            <Ionicons name="checkmark" size={40} color="#0a0a0a" />
-          </View>
-          <Text style={styles.successText}>Saved!</Text>
-        </View>
-      </View>
-    );
-  }
 
   if (state === 'recording') {
     return (
@@ -413,20 +380,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
     marginTop: 16,
-  },
-  successIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#c4dfc4',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  successText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#fff',
   },
 });
 
