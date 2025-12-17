@@ -82,28 +82,28 @@ export default function HomeScreen() {
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
 
-      // Get items from last 14 days
-      const fourteenDaysAgo = new Date();
-      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-      const fourteenDaysAgoISO = fourteenDaysAgo.toISOString();
+      // Get items from last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
 
       // Get tasks
       const { data: tasks } = await supabase
         .from('voice_todos')
         .select('id, text, status, created_at, entry_id')
         .eq('user_id', user.id)
-        .gte('created_at', fourteenDaysAgoISO)
+        .gte('created_at', thirtyDaysAgoISO)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       // Get voice notes
       const { data: voiceNotes } = await supabase
         .from('voice_entries')
         .select('id, summary, created_at')
         .eq('user_id', user.id)
-        .gte('created_at', fourteenDaysAgoISO)
+        .gte('created_at', thirtyDaysAgoISO)
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(50);
 
       // Get notes (bullet points)
       const { data: notes } = await supabase
@@ -111,9 +111,9 @@ export default function HomeScreen() {
         .select('id, text, created_at, entry_id')
         .eq('user_id', user.id)
         .eq('is_archived', false)
-        .gte('created_at', fourteenDaysAgoISO)
+        .gte('created_at', thirtyDaysAgoISO)
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(100);
 
       // Group by date
       const dayMap = new Map<string, DayData>();
@@ -329,7 +329,9 @@ export default function HomeScreen() {
                       style={styles.feedItem}
                       onPress={() => router.push(`/entry/${item.id}`)}
                     >
-                      <Ionicons name="mic" size={18} color="#c4dfc4" style={styles.itemIcon} />
+                      <View style={styles.itemIconWrapper}>
+                        <Ionicons name="mic" size={18} color="#c4dfc4" />
+                      </View>
                       <Text style={styles.itemText} numberOfLines={1}>
                         {item.summary || 'Voice Note'}
                       </Text>
@@ -389,7 +391,9 @@ export default function HomeScreen() {
                       style={styles.feedItem}
                       onPress={() => router.push(`/note/${note.id}`)}
                     >
-                      <Ionicons name="document-text-outline" size={18} color="#93c5fd" style={styles.itemIcon} />
+                      <View style={styles.itemIconWrapper}>
+                        <Ionicons name="document-text-outline" size={18} color="#93c5fd" />
+                      </View>
                       <Text style={styles.itemText} numberOfLines={1}>{note.text}</Text>
                     </TouchableOpacity>
                   ))}
@@ -492,14 +496,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
   },
-  itemIcon: {
+  itemIconWrapper: {
     width: 28,
+    height: ITEM_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
     marginRight: 8,
   },
   taskCheckArea: {
     width: 28,
     height: ITEM_HEIGHT,
     justifyContent: 'center',
+    alignItems: 'flex-start',
     marginRight: 8,
   },
   taskTextArea: {
@@ -510,7 +518,6 @@ const styles = StyleSheet.create({
   itemText: {
     fontSize: 15,
     color: '#ddd',
-    flex: 1,
   },
   itemTextCompleted: {
     textDecorationLine: 'line-through',
