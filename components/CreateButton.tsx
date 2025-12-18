@@ -2,13 +2,90 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+export type QuickActionContext = 'home' | 'topics' | 'voice' | 'tasks' | 'notes' | 'other';
+
 interface QuickActionsProps {
   onVoice: () => void;
   onTask: () => void;
   onTopic: () => void;
+  onNote: () => void;
+  context?: QuickActionContext;
 }
 
-export function QuickActions({ onVoice, onTask, onTopic }: QuickActionsProps) {
+export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home' }: QuickActionsProps) {
+  // Topics page: only show Topic button (full width)
+  if (context === 'topics') {
+    return (
+      <View style={styles.container}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.topicButton, styles.fullWidth]}
+          onPress={onTopic}
+          activeOpacity={0.85}
+        >
+          <View style={styles.iconWrapper}>
+            <Ionicons name="bookmark" size={18} color="#fff" />
+          </View>
+          <Text style={styles.buttonLabel}>New Topic</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Voice page: only show Voice button (full width)
+  if (context === 'voice') {
+    return (
+      <View style={styles.container}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.voiceButton, styles.fullWidth]}
+          onPress={onVoice}
+          activeOpacity={0.85}
+        >
+          <View style={styles.iconWrapper}>
+            <Ionicons name="mic" size={18} color="#fff" />
+          </View>
+          <Text style={styles.buttonLabel}>Record Voice Note</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Tasks page: only show Task button (full width)
+  if (context === 'tasks') {
+    return (
+      <View style={styles.container}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.taskButton, styles.fullWidth]}
+          onPress={onTask}
+          activeOpacity={0.85}
+        >
+          <View style={styles.iconWrapper}>
+            <Ionicons name="add" size={18} color="#fff" />
+          </View>
+          <Text style={styles.buttonLabel}>New Task</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Notes page: only show Note button (full width)
+  if (context === 'notes') {
+    return (
+      <View style={styles.container}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.noteButton, styles.fullWidth]}
+          onPress={onNote}
+          activeOpacity={0.85}
+        >
+          <View style={styles.iconWrapper}>
+            <Ionicons name="document-text" size={18} color="#fff" />
+          </View>
+          <Text style={styles.buttonLabel}>New Note</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Home & other: show all 4 buttons
   return (
     <View style={styles.container}>
       <TouchableOpacity
@@ -17,9 +94,9 @@ export function QuickActions({ onVoice, onTask, onTopic }: QuickActionsProps) {
         activeOpacity={0.85}
       >
         <View style={styles.iconWrapper}>
-          <Ionicons name="bookmark" size={18} color="#fff" />
+          <Ionicons name="bookmark" size={16} color="#fff" />
         </View>
-        <Text style={styles.buttonLabel}>Topic</Text>
+        <Text style={styles.buttonLabelSmall}>Topic</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -28,9 +105,9 @@ export function QuickActions({ onVoice, onTask, onTopic }: QuickActionsProps) {
         activeOpacity={0.85}
       >
         <View style={styles.iconWrapper}>
-          <Ionicons name="mic" size={18} color="#fff" />
+          <Ionicons name="mic" size={16} color="#fff" />
         </View>
-        <Text style={styles.buttonLabel}>Voice</Text>
+        <Text style={styles.buttonLabelSmall}>Voice</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -39,9 +116,20 @@ export function QuickActions({ onVoice, onTask, onTopic }: QuickActionsProps) {
         activeOpacity={0.85}
       >
         <View style={styles.iconWrapper}>
-          <Ionicons name="add" size={18} color="#fff" />
+          <Ionicons name="add" size={16} color="#fff" />
         </View>
-        <Text style={styles.buttonLabel}>Task</Text>
+        <Text style={styles.buttonLabelSmall}>Task</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.actionButton, styles.noteButton]}
+        onPress={onNote}
+        activeOpacity={0.85}
+      >
+        <View style={styles.iconWrapper}>
+          <Ionicons name="document-text" size={16} color="#fff" />
+        </View>
+        <Text style={styles.buttonLabelSmall}>Note</Text>
       </TouchableOpacity>
     </View>
   );
@@ -68,7 +156,7 @@ export function CreateButton({ onPress, isOpen = false }: CreateButtonProps) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 85, // Just above the tab bar
+    bottom: 85,
     left: 0,
     right: 0,
     flexDirection: 'row',
@@ -86,9 +174,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     borderRadius: 10,
     gap: 6,
+  },
+  fullWidth: {
+    paddingVertical: 12,
   },
   iconWrapper: {
     width: 24,
@@ -100,7 +191,13 @@ const styles = StyleSheet.create({
   },
   buttonLabel: {
     color: '#fff',
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  buttonLabelSmall: {
+    color: '#fff',
+    fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.2,
   },
@@ -112,6 +209,9 @@ const styles = StyleSheet.create({
   },
   topicButton: {
     backgroundColor: '#f59e0b',
+  },
+  noteButton: {
+    backgroundColor: '#a78bfa',
   },
   fab: {
     position: 'absolute',
@@ -131,4 +231,3 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
 });
-

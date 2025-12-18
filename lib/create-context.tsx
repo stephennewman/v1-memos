@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { useRouter } from 'expo-router';
-import { QuickActions } from '@/components/CreateButton';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { useRouter, usePathname } from 'expo-router';
+import { QuickActions, QuickActionContext } from '@/components/CreateButton';
 import { QuickTaskModal } from '@/components/QuickTaskModal';
 import { QuickTopicModal } from '@/components/QuickTopicModal';
+import { QuickNoteModal } from '@/components/QuickNoteModal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 
@@ -27,23 +28,34 @@ interface CreateProviderProps {
 
 export function CreateProvider({ children }: CreateProviderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuth();
   
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+
+  // Determine context based on current route
+  const getContext = (): QuickActionContext => {
+    if (pathname === '/topics' || pathname === '/(tabs)/topics') return 'topics';
+    if (pathname === '/voice' || pathname === '/(tabs)/voice') return 'voice';
+    if (pathname === '/tasks' || pathname === '/(tabs)/tasks') return 'tasks';
+    if (pathname === '/notes' || pathname === '/(tabs)/notes') return 'notes';
+    if (pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/index') return 'home';
+    return 'other';
+  };
+
+  const currentContext = getContext();
 
   const openCreateMenu = useCallback(() => {
-    // Open task modal as default action
     setIsTaskModalOpen(true);
   }, []);
 
   const startVoiceRecording = useCallback(() => {
-    // Go directly to recording
     router.push('/record?autoStart=true');
   }, [router]);
 
   const handleVoicePress = useCallback(() => {
-    // Start recording immediately
     router.push('/record?autoStart=true');
   }, [router]);
 
@@ -53,6 +65,10 @@ export function CreateProvider({ children }: CreateProviderProps) {
 
   const handleTopicPress = useCallback(() => {
     setIsTopicModalOpen(true);
+  }, []);
+
+  const handleNotePress = useCallback(() => {
+    setIsNoteModalOpen(true);
   }, []);
 
   const handleSaveTask = useCallback(async (text: string) => {
@@ -70,7 +86,6 @@ export function CreateProvider({ children }: CreateProviderProps) {
 
     if (error) throw error;
     
-    // Navigate to task detail page
     if (data?.id) {
       router.push(`/task/${data.id}`);
     } else {
@@ -93,11 +108,31 @@ export function CreateProvider({ children }: CreateProviderProps) {
 
     if (error) throw error;
     
-    // Navigate to topic detail page
     if (data?.id) {
       router.push(`/topic/${data.id}`);
     } else {
-      router.push('/(tabs)');
+      router.push('/(tabs)/topics');
+    }
+  }, [user, router]);
+
+  const handleSaveNote = useCallback(async (text: string) => {
+    if (!user) return;
+    
+    const { data, error } = await (supabase as any)
+      .from('voice_notes')
+      .insert({
+        user_id: user.id,
+        text,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    if (data?.id) {
+      router.push(`/note/${data.id}`);
+    } else {
+      router.push('/(tabs)/notes');
     }
   }, [user, router]);
 
@@ -105,11 +140,13 @@ export function CreateProvider({ children }: CreateProviderProps) {
     <CreateContext.Provider value={{ openCreateMenu, startVoiceRecording }}>
       {children}
       
-      {/* Quick Actions - 3 buttons for Voice, Task, Topic */}
+      {/* Quick Actions - context-aware buttons */}
       <QuickActions
         onVoice={handleVoicePress}
         onTask={handleTaskPress}
         onTopic={handleTopicPress}
+        onNote={handleNotePress}
+        context={currentContext}
       />
       
       {/* Quick Task Modal */}
@@ -125,7 +162,13 @@ export function CreateProvider({ children }: CreateProviderProps) {
         onClose={() => setIsTopicModalOpen(false)}
         onSave={handleSaveTopic}
       />
+      
+      {/* Quick Note Modal */}
+      <QuickNoteModal
+        visible={isNoteModalOpen}
+        onClose={() => setIsNoteModalOpen(false)}
+        onSave={handleSaveNote}
+      />
     </CreateContext.Provider>
   );
 }
-

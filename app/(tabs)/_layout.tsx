@@ -64,7 +64,7 @@ function TabsContent() {
             ),
           }}
         />
-        
+
         {/* Topics (Memos) */}
         <Tabs.Screen
           name="topics"
@@ -79,7 +79,7 @@ function TabsContent() {
             ),
           }}
         />
-        
+
         {/* Voice Notes */}
         <Tabs.Screen
           name="voice"
@@ -94,7 +94,7 @@ function TabsContent() {
             ),
           }}
         />
-        
+
         {/* Tasks */}
         <Tabs.Screen
           name="tasks"
@@ -109,7 +109,7 @@ function TabsContent() {
             ),
           }}
         />
-        
+
         {/* Notes (bullet points) */}
         <Tabs.Screen
           name="notes"
@@ -124,7 +124,7 @@ function TabsContent() {
             ),
           }}
         />
-        
+
         {/* Insights / Analytics */}
         <Tabs.Screen
           name="insights"
@@ -139,7 +139,7 @@ function TabsContent() {
             ),
           }}
         />
-        
+
         {/* Hidden tabs */}
         <Tabs.Screen
           name="inbox"
