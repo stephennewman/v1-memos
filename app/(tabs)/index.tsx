@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,7 +10,11 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Animated,
+  Dimensions,
 } from 'react-native';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -31,6 +35,116 @@ interface TaskItem {
   created_at: string;
   entry_id?: string;
 }
+
+// Animated task item component for completion animation
+const AnimatedHomeTaskItem = ({ 
+  task, 
+  onComplete, 
+  onPress 
+}: { 
+  task: TaskItem;
+  onComplete: (task: TaskItem) => void;
+  onPress: (task: TaskItem) => void;
+}) => {
+  const [isCompleting, setIsCompleting] = useState(false);
+  const strikeWidth = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+  const fillWidth = useRef(new Animated.Value(0)).current;
+
+  const handleComplete = () => {
+    if (task.status === 'completed' || isCompleting) {
+      onComplete(task);
+      return;
+    }
+
+    setIsCompleting(true);
+    
+    // Animate green fill bar and strikethrough together
+    Animated.parallel([
+      Animated.timing(fillWidth, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: false,
+      }),
+      Animated.timing(strikeWidth, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: false,
+      }),
+    ]).start(() => {
+      // Then fade out
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        onComplete(task);
+      });
+    });
+  };
+
+  const isCompleted = task.status === 'completed';
+
+  return (
+    <Animated.View style={[styles.animatedTaskContainer, { opacity }]}>
+      {/* Green fill background */}
+      <Animated.View 
+        style={[
+          styles.taskFillBar,
+          { 
+            width: fillWidth.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0%', '100%'],
+            }),
+          }
+        ]} 
+      />
+      
+      <View style={styles.feedItem}>
+        <TouchableOpacity
+          style={styles.taskCheckArea}
+          onPress={handleComplete}
+        >
+          <Ionicons
+            name={isCompleted ? 'checkbox' : 'square-outline'}
+            size={18}
+            color={isCompleted ? '#4ade80' : '#555'}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.taskTextArea}
+          onPress={() => onPress(task)}
+        >
+          <View style={styles.taskTextWrapper}>
+            <Text 
+              style={[
+                styles.itemText,
+                isCompleted && styles.itemTextCompleted
+              ]} 
+              numberOfLines={1}
+            >
+              {task.text}
+            </Text>
+            {/* Strikethrough animation */}
+            {!isCompleted && (
+              <Animated.View 
+                style={[
+                  styles.strikethroughLine,
+                  { 
+                    width: strikeWidth.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%'],
+                    }),
+                  }
+                ]} 
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
+  );
+};
 
 interface VoiceItem {
   id: string;
@@ -62,10 +176,25 @@ export default function HomeScreen() {
   const [dayData, setDayData] = useState<DayData[]>([]);
   const [todayStats, setTodayStats] = useState({ tasks: 0, completed: 0, voiceNotes: 0 });
   const [expandedVoice, setExpandedVoice] = useState<Set<string>>(new Set());
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+  const [taskView, setTaskView] = useState<'todo' | 'done'>('todo');
 
   const toggleVoiceExpanded = (dateKey: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedVoice(prev => {
+      const next = new Set(prev);
+      if (next.has(dateKey)) {
+        next.delete(dateKey);
+      } else {
+        next.add(dateKey);
+      }
+      return next;
+    });
+  };
+
+  const toggleNotesExpanded = (dateKey: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedNotes(prev => {
       const next = new Set(prev);
       if (next.has(dateKey)) {
         next.delete(dateKey);
@@ -319,36 +448,96 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Quick Stats Row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statPill}>
-            <Text style={styles.statPillNumber}>{todayStats.tasks}</Text>
-            <Text style={styles.statPillLabel}>pending</Text>
-          </View>
-          <View style={styles.statPill}>
-            <Text style={[styles.statPillNumber, { color: '#4ade80' }]}>{todayStats.completed}</Text>
-            <Text style={styles.statPillLabel}>done today</Text>
-          </View>
-          <View style={styles.statPill}>
-            <Text style={[styles.statPillNumber, { color: '#c4dfc4' }]}>{todayStats.voiceNotes}</Text>
-            <Text style={styles.statPillLabel}>notes today</Text>
-          </View>
-        </View>
-
         {/* Day Sections */}
         {dayData.map((day) => {
           const hasVoice = day.voice.length > 0;
           const hasTasks = day.tasks.length > 0;
           const hasNotes = day.notes.length > 0;
+          const todoTasks = day.tasks.filter(t => t.status === 'pending');
+          const doneTasks = day.tasks.filter(t => t.status === 'completed');
           
           if (!hasVoice && !hasTasks && !hasNotes) return null;
 
           return (
             <View key={day.date} style={styles.daySection}>
-              <Text style={styles.dayLabel}>{day.label}</Text>
+              {/* Day Header with date and task toggles */}
+              <View style={styles.dayHeaderRow}>
+                <Text style={styles.dayLabel}>{day.label}</Text>
+                {hasTasks && (
+                  <View style={styles.taskToggleRow}>
+                    <TouchableOpacity
+                      style={[styles.taskTogglePill, taskView === 'todo' && styles.taskTogglePillActive]}
+                      onPress={() => setTaskView('todo')}
+                    >
+                      <Text style={[styles.taskToggleText, taskView === 'todo' && styles.taskToggleTextActive]}>
+                        {todoTasks.length} to do
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.taskTogglePill, taskView === 'done' && styles.taskTogglePillDone]}
+                      onPress={() => setTaskView('done')}
+                    >
+                      <Text style={[styles.taskToggleText, taskView === 'done' && styles.taskToggleTextActive]}>
+                        {doneTasks.length} done
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
               
-              {/* Voice Notes - Collapsible */}
-              {hasVoice && (
+              {/* Task list - shown in both views */}
+              {hasTasks && (
+                <View style={styles.typeSection}>
+                  {(taskView === 'todo' ? todoTasks : doneTasks).map((task) => (
+                    <AnimatedHomeTaskItem
+                      key={task.id}
+                      task={task}
+                      onComplete={toggleTask}
+                      onPress={(t) => router.push(`/task/${t.id}`)}
+                    />
+                  ))}
+                  {(taskView === 'todo' ? todoTasks : doneTasks).length === 0 && (
+                    <Text style={styles.emptyTaskText}>
+                      {taskView === 'todo' ? 'All done!' : 'No completed tasks yet'}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Notes - Collapsible (only in to-do view) */}
+              {taskView === 'todo' && hasNotes && (
+                <View style={styles.typeSection}>
+                  <TouchableOpacity 
+                    style={styles.collapsibleHeader}
+                    onPress={() => toggleNotesExpanded(day.date)}
+                  >
+                    <Ionicons 
+                      name={expandedNotes.has(day.date) ? "chevron-down" : "chevron-forward"} 
+                      size={16} 
+                      color="#666" 
+                    />
+                    <Ionicons name="document-text-outline" size={14} color="#93c5fd" />
+                    <Text style={styles.collapsibleLabel}>
+                      {day.notes.length} note{day.notes.length !== 1 ? 's' : ''}
+                    </Text>
+                  </TouchableOpacity>
+                  {expandedNotes.has(day.date) && day.notes.map((note) => (
+                    <TouchableOpacity
+                      key={note.id}
+                      style={styles.noteItem}
+                      onPress={() => router.push(`/note/${note.id}`)}
+                    >
+                      <View style={styles.noteIconWrapper}>
+                        <Ionicons name="document-text-outline" size={18} color="#93c5fd" />
+                      </View>
+                      <Text style={styles.noteText}>{note.text}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Voice Notes - Collapsible (only in to-do view) */}
+              {taskView === 'todo' && hasVoice && (
                 <View style={styles.typeSection}>
                   <TouchableOpacity 
                     style={styles.collapsibleHeader}
@@ -376,66 +565,6 @@ export default function HomeScreen() {
                       <Text style={styles.itemText} numberOfLines={1}>
                         {item.summary || formatTime(item.created_at)}
                       </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-
-              {/* Tasks */}
-              {hasTasks && (
-                <View style={styles.typeSection}>
-                  <View style={styles.typeLabelRow}>
-                    <Ionicons name="square-outline" size={14} color="#888" />
-                    <Text style={styles.typeLabel}>Tasks</Text>
-                  </View>
-                  {day.tasks.map((task) => (
-                    <View key={task.id} style={styles.feedItem}>
-                      <TouchableOpacity
-                        style={styles.taskCheckArea}
-                        onPress={() => toggleTask(task)}
-                      >
-                        <Ionicons
-                          name={task.status === 'completed' ? 'checkbox' : 'square-outline'}
-                          size={18}
-                          color={task.status === 'completed' ? '#4ade80' : '#555'}
-                        />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.taskTextArea}
-                        onPress={() => router.push(`/task/${task.id}`)}
-                      >
-                        <Text 
-                          style={[
-                            styles.itemText,
-                            task.status === 'completed' && styles.itemTextCompleted
-                          ]} 
-                          numberOfLines={1}
-                        >
-                          {task.text}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* Notes */}
-              {hasNotes && (
-                <View style={styles.typeSection}>
-                  <View style={styles.typeLabelRow}>
-                    <Ionicons name="document-text-outline" size={14} color="#93c5fd" />
-                    <Text style={styles.typeLabel}>Notes</Text>
-                  </View>
-                  {day.notes.map((note) => (
-                    <TouchableOpacity
-                      key={note.id}
-                      style={styles.noteItem}
-                      onPress={() => router.push(`/note/${note.id}`)}
-                    >
-                      <View style={styles.noteIconWrapper}>
-                        <Ionicons name="document-text-outline" size={18} color="#93c5fd" />
-                      </View>
-                      <Text style={styles.noteText}>{note.text}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -507,11 +636,16 @@ const styles = StyleSheet.create({
   daySection: {
     marginBottom: 24,
   },
+  dayHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   dayLabel: {
     fontSize: 14,
     fontWeight: '700',
     color: '#fff',
-    marginBottom: 12,
   },
   typeSection: {
     marginBottom: 12,
@@ -546,7 +680,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: ITEM_HEIGHT,
-    gap: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
   },
@@ -556,16 +690,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   taskCheckArea: {
-    width: 28,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
+    width: 24,
+    marginRight: 8,
   },
   taskTextArea: {
     flex: 1,
-    justifyContent: 'center',
   },
   itemText: {
-    flex: 1,
     fontSize: 15,
     color: '#ddd',
   },
@@ -589,5 +720,60 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#ddd',
     lineHeight: 22,
+  },
+  taskToggleRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  taskTogglePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#1a1a1a',
+  },
+  taskTogglePillActive: {
+    backgroundColor: '#333',
+  },
+  taskTogglePillDone: {
+    backgroundColor: '#166534',
+  },
+  taskToggleText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  taskToggleTextActive: {
+    color: '#fff',
+  },
+  emptyTaskText: {
+    fontSize: 14,
+    color: '#555',
+    fontStyle: 'italic',
+    paddingVertical: 12,
+  },
+  animatedTaskContainer: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  taskFillBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(74, 222, 128, 0.2)',
+    borderRadius: 4,
+  },
+  taskTextWrapper: {
+    position: 'relative',
+  },
+  strikethroughLine: {
+    position: 'absolute',
+    top: '50%',
+    left: 0,
+    height: 2,
+    backgroundColor: '#4ade80',
   },
 });

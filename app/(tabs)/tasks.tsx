@@ -24,7 +24,7 @@ import { useCreate } from '@/lib/create-context';
 import EmptyState from '@/components/EmptyState';
 import type { VoiceTodo, TodoStatus } from '@/lib/types';
 
-type FilterType = 'today' | 'overdue' | 'upcoming' | 'completed' | 'all';
+type FilterType = 'todo' | 'done';
 type SortType = 'due' | 'created';
 
 // Toast component
@@ -283,7 +283,7 @@ export default function TasksScreen() {
   const [todos, setTodos] = useState<VoiceTodo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [filter, setFilter] = useState<FilterType>('today');
+  const [filter, setFilter] = useState<FilterType>('todo');
   const [sort, setSort] = useState<SortType>('due');
   
   // Toast state
@@ -310,31 +310,7 @@ export default function TasksScreen() {
         .select('*')
         .eq('user_id', userId);
 
-      // Apply filter
-      switch (filter) {
-        case 'today':
-          query = query
-            .eq('status', 'pending')
-            .or(`due_date.gte.${todayISO},due_date.lt.${tomorrowISO},due_date.is.null`);
-          break;
-        case 'overdue':
-          query = query
-            .eq('status', 'pending')
-            .lt('due_date', todayISO)
-            .not('due_date', 'is', null);
-          break;
-        case 'upcoming':
-          query = query
-            .eq('status', 'pending')
-            .gte('due_date', tomorrowISO);
-          break;
-        case 'completed':
-          query = query.eq('status', 'completed');
-          break;
-        case 'all':
-          // No filter
-          break;
-      }
+      // Fetch all tasks - we'll filter client-side for counts
 
       // Apply sort
       if (sort === 'due') {
@@ -463,13 +439,12 @@ export default function TasksScreen() {
     );
   };
 
-  const isPendingFilter = ['today', 'overdue', 'upcoming'].includes(filter);
-  const pendingCount = filter === 'all' 
-    ? todos.filter(t => t.status === 'pending').length 
-    : isPendingFilter ? todos.length : 0;
-  const completedCount = filter === 'all'
-    ? todos.filter(t => t.status === 'completed').length
-    : filter === 'completed' ? todos.length : 0;
+  const isPendingFilter = filter === 'todo';
+  const allPending = todos.filter(t => t.status === 'pending');
+  const allCompleted = todos.filter(t => t.status === 'completed');
+  const pendingCount = allPending.length;
+  const completedCount = allCompleted.length;
+  const displayTodos = filter === 'todo' ? allPending : allCompleted;
 
   if (isLoading || authLoading) {
     return (
@@ -486,7 +461,7 @@ export default function TasksScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Tasks</Text>
           <Text style={styles.headerSubtitle}>
-            {pendingCount} pending • {completedCount} done
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
           </Text>
         </View>
         <TouchableOpacity 
@@ -497,68 +472,44 @@ export default function TasksScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Filter Tabs */}
-      {/* Filter Tabs */}
-      <View style={styles.filterTabs}>
-        {([
-          { key: 'today', label: 'Today' },
-          { key: 'overdue', label: 'Overdue' },
-          { key: 'upcoming', label: 'Upcoming' },
-          { key: 'completed', label: 'Done' },
-          { key: 'all', label: 'All' },
-        ] as { key: FilterType; label: string }[]).map((f) => (
-          <TouchableOpacity
-            key={f.key}
-            style={[styles.filterTab, filter === f.key && styles.filterTabActive]}
-            onPress={() => setFilter(f.key)}
-          >
-            <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Sort Toggle */}
-      <View style={styles.sortRow}>
-        <Text style={styles.sortLabel}>Sort by:</Text>
-        <TouchableOpacity 
-          style={[styles.sortBtn, sort === 'due' && styles.sortBtnActive]}
-          onPress={() => setSort('due')}
+      {/* To Do / Done Toggle */}
+      <View style={styles.toggleRow}>
+        <TouchableOpacity
+          style={[styles.togglePill, filter === 'todo' && styles.togglePillActive]}
+          onPress={() => setFilter('todo')}
         >
-          <Text style={[styles.sortBtnText, sort === 'due' && styles.sortBtnTextActive]}>Due</Text>
+          <Text style={[styles.toggleText, filter === 'todo' && styles.toggleTextActive]}>
+            {pendingCount} to do
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.sortBtn, sort === 'created' && styles.sortBtnActive]}
-          onPress={() => setSort('created')}
+        <TouchableOpacity
+          style={[styles.togglePill, filter === 'done' && styles.togglePillDone]}
+          onPress={() => setFilter('done')}
         >
-          <Text style={[styles.sortBtnText, sort === 'created' && styles.sortBtnTextActive]}>Created</Text>
+          <Text style={[styles.toggleText, filter === 'done' && styles.toggleTextActive]}>
+            {completedCount} done
+          </Text>
         </TouchableOpacity>
       </View>
 
       {/* Todos List */}
-      {todos.length === 0 ? (
+      {displayTodos.length === 0 ? (
         <EmptyState
-          icon={filter === 'overdue' ? 'checkmark-circle' : 'checkbox-outline'}
-          title={
-            filter === 'today' ? 'No tasks due today' :
-            filter === 'overdue' ? 'You\'re all caught up!' :
-            filter === 'upcoming' ? 'No upcoming tasks' : 
-            filter === 'completed' ? 'No completed tasks yet' : 'No tasks yet'
-          }
+          icon={filter === 'todo' ? 'checkbox-outline' : 'checkmark-circle'}
+          title={filter === 'todo' ? 'All done!' : 'No completed tasks yet'}
           description={
-            filter === 'overdue' 
-              ? 'Great job staying on top of things'
-              : 'Tasks are automatically extracted from your voice notes, or create them manually'
+            filter === 'todo' 
+              ? 'Great job! Record a voice note or add a task to get started'
+              : 'Complete some tasks and they\'ll show up here'
           }
-          actionLabel={filter !== 'overdue' && filter !== 'completed' ? 'Record a Voice Note' : undefined}
-          onAction={filter !== 'overdue' && filter !== 'completed' ? () => router.push('/record') : undefined}
-          secondaryActionLabel={filter !== 'overdue' && filter !== 'completed' ? 'Add Task Manually' : undefined}
-          onSecondaryAction={filter !== 'overdue' && filter !== 'completed' ? openCreateMenu : undefined}
+          actionLabel={filter === 'todo' ? 'Record a Voice Note' : undefined}
+          onAction={filter === 'todo' ? () => router.push('/record') : undefined}
+          secondaryActionLabel={filter === 'todo' ? 'Add Task' : undefined}
+          onSecondaryAction={filter === 'todo' ? openCreateMenu : undefined}
         />
       ) : (
         <FlatList
-          data={todos}
+          data={displayTodos}
           renderItem={({ item }) => (
             <TaskItem 
               item={item}
@@ -625,60 +576,33 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
-  filterTabs: {
+  toggleRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  filterTab: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-  },
-  filterTabActive: {
-    backgroundColor: '#c4dfc4',
-    borderColor: '#c4dfc4',
-  },
-  filterText: {
-    fontSize: 13,
-    color: '#666',
-  },
-  sortRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingVertical: 12,
     gap: 8,
   },
-  sortLabel: {
-    fontSize: 12,
-    color: '#555',
+  togglePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: '#1a1a1a',
   },
-  sortBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 4,
-    backgroundColor: '#111',
+  togglePillActive: {
+    backgroundColor: '#333',
   },
-  sortBtnActive: {
-    backgroundColor: '#222',
+  togglePillDone: {
+    backgroundColor: '#166534',
   },
-  sortBtnText: {
-    fontSize: 12,
+  toggleText: {
+    fontSize: 14,
     color: '#666',
   },
-  sortBtnTextActive: {
-    color: '#c4dfc4',
-  },
-  filterTextActive: {
-    color: '#0a0a0a',
-    fontWeight: '600',
+  toggleTextActive: {
+    color: '#fff',
+    fontWeight: '500',
   },
   listContent: {
     padding: 16,

@@ -50,7 +50,7 @@ function TabsContent() {
           },
         }}
       >
-        {/* Home tab - will be the day feed (default route) */}
+        {/* Home - the all things view (default route) */}
         <Tabs.Screen
           name="index"
           options={{
@@ -58,6 +58,18 @@ function TabsContent() {
             title: 'Home',
             tabBarIcon: ({ color }) => (
               <Ionicons name="home" size={22} color={color} />
+            ),
+          }}
+        />
+        
+        {/* Topics (Memos) */}
+        <Tabs.Screen
+          name="topics"
+          options={{
+            href: tabs.topics ? '/topics' : null,
+            title: 'Topics',
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="bookmark" size={22} color={color} />
             ),
           }}
         />
@@ -94,18 +106,6 @@ function TabsContent() {
             title: 'Notes',
             tabBarIcon: ({ color }) => (
               <Ionicons name="document-text" size={22} color={color} />
-            ),
-          }}
-        />
-        
-        {/* Topics (Memos) */}
-        <Tabs.Screen
-          name="topics"
-          options={{
-            href: tabs.topics ? '/topics' : null,
-            title: 'Topics',
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="bookmark" size={22} color={color} />
             ),
           }}
         />
