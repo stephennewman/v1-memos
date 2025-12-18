@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Tabs, useRouter } from 'expo-router';
-import { View, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth-context';
 import { CreateProvider } from '@/lib/create-context';
@@ -37,15 +37,15 @@ function TabsContent() {
           tabBarStyle: {
             backgroundColor: '#0a0a0a',
             borderTopColor: '#1a1a1a',
-            borderTopWidth: 1,
+            borderTopWidth: 0,
             paddingTop: 6,
             height: 85,
           },
-          tabBarActiveTintColor: '#c4dfc4',
-          tabBarInactiveTintColor: '#555',
+          tabBarActiveTintColor: '#fff',
+          tabBarInactiveTintColor: '#666',
           tabBarLabelStyle: {
             fontSize: 10,
-            fontWeight: '500',
+            fontWeight: '600',
             marginTop: 2,
           },
         }}
@@ -56,8 +56,11 @@ function TabsContent() {
           options={{
             href: tabs.home ? '/' : null,
             title: 'Home',
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="home" size={22} color={color} />
+            tabBarIcon: ({ focused }) => (
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name="home" size={22} color={focused ? '#c4dfc4' : '#666'} />
+                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#c4dfc4', marginTop: 2 }} />}
+              </View>
             ),
           }}
         />
@@ -68,8 +71,11 @@ function TabsContent() {
           options={{
             href: tabs.topics ? '/topics' : null,
             title: 'Topics',
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="bookmark" size={22} color={color} />
+            tabBarIcon: ({ focused }) => (
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name="bookmark" size={22} color={focused ? '#f59e0b' : '#666'} />
+                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#f59e0b', marginTop: 2 }} />}
+              </View>
             ),
           }}
         />
@@ -80,8 +86,11 @@ function TabsContent() {
           options={{
             href: tabs.voice ? '/voice' : null,
             title: 'Voice',
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="mic" size={22} color={color} />
+            tabBarIcon: ({ focused }) => (
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name="mic" size={22} color={focused ? '#22c55e' : '#666'} />
+                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#22c55e', marginTop: 2 }} />}
+              </View>
             ),
           }}
         />
@@ -92,8 +101,11 @@ function TabsContent() {
           options={{
             href: tabs.tasks ? '/tasks' : null,
             title: 'Tasks',
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="checkbox" size={22} color={color} />
+            tabBarIcon: ({ focused }) => (
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name="checkbox" size={22} color={focused ? '#3b82f6' : '#666'} />
+                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#3b82f6', marginTop: 2 }} />}
+              </View>
             ),
           }}
         />
@@ -104,8 +116,11 @@ function TabsContent() {
           options={{
             href: tabs.notes ? '/notes' : null,
             title: 'Notes',
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="document-text" size={22} color={color} />
+            tabBarIcon: ({ focused }) => (
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name="document-text" size={22} color={focused ? '#a78bfa' : '#666'} />
+                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#a78bfa', marginTop: 2 }} />}
+              </View>
             ),
           }}
         />
@@ -116,8 +131,11 @@ function TabsContent() {
           options={{
             href: tabs.insights ? '/insights' : null,
             title: 'Insights',
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="analytics" size={22} color={color} />
+            tabBarIcon: ({ focused }) => (
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name="analytics" size={22} color={focused ? '#ec4899' : '#666'} />
+                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#ec4899', marginTop: 2 }} />}
+              </View>
             ),
           }}
         />

@@ -14,25 +14,34 @@ export function QuickActions({ onVoice, onTask, onTopic }: QuickActionsProps) {
       <TouchableOpacity
         style={[styles.actionButton, styles.voiceButton]}
         onPress={onVoice}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
       >
-        <Ionicons name="mic" size={22} color="#fff" />
+        <View style={styles.iconWrapper}>
+          <Ionicons name="mic" size={18} color="#fff" />
+        </View>
+        <Text style={styles.buttonLabel}>Voice</Text>
       </TouchableOpacity>
       
       <TouchableOpacity
         style={[styles.actionButton, styles.taskButton]}
         onPress={onTask}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
       >
-        <Ionicons name="checkbox-outline" size={22} color="#fff" />
+        <View style={styles.iconWrapper}>
+          <Ionicons name="add" size={18} color="#fff" />
+        </View>
+        <Text style={styles.buttonLabel}>Task</Text>
       </TouchableOpacity>
       
       <TouchableOpacity
         style={[styles.actionButton, styles.topicButton]}
         onPress={onTopic}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
       >
-        <Ionicons name="bookmark-outline" size={22} color="#fff" />
+        <View style={styles.iconWrapper}>
+          <Ionicons name="bookmark" size={18} color="#fff" />
+        </View>
+        <Text style={styles.buttonLabel}>Topic</Text>
       </TouchableOpacity>
     </View>
   );
@@ -59,26 +68,44 @@ export function CreateButton({ onPress, isOpen = false }: CreateButtonProps) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 100,
-    right: 16,
-    flexDirection: 'column',
-    gap: 12,
+    bottom: 85, // Just above the tab bar
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    backgroundColor: '#0a0a0a',
+    borderTopWidth: 1,
+    borderTopColor: '#1a1a1a',
     zIndex: 100,
   },
   actionButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    gap: 6,
+  },
+  iconWrapper: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+  },
+  buttonLabel: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   voiceButton: {
-    backgroundColor: '#4ade80',
+    backgroundColor: '#22c55e',
   },
   taskButton: {
     backgroundColor: '#3b82f6',
