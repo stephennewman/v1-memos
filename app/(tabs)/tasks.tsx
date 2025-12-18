@@ -4,7 +4,7 @@ import {
   View,
   Text,
   TouchableOpacity,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
   RefreshControl,
   Alert,
@@ -25,7 +25,7 @@ import EmptyState from '@/components/EmptyState';
 import type { VoiceTodo, TodoStatus } from '@/lib/types';
 
 type FilterType = 'todo' | 'done';
-type SortType = 'due' | 'created';
+type SortType = 'newest' | 'oldest' | 'due_next';
 
 // Toast component
 const Toast = ({ 
@@ -284,7 +284,7 @@ export default function TasksScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('todo');
-  const [sort, setSort] = useState<SortType>('due');
+  const [sort, setSort] = useState<SortType>('newest');
   
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -297,6 +297,46 @@ export default function TasksScreen() {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     return { today, tomorrow, now };
+  };
+
+  // Format date for grouping
+  const getDateLabel = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    const diffMs = today.getTime() - itemDate.getTime();
+    const diffDays = Math.round(diffMs / 86400000);
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return date.toLocaleDateString('en-US', { weekday: 'long' });
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  // Group todos by date
+  const groupTodosByDate = (todos: VoiceTodo[]) => {
+    const groups: { date: string; label: string; todos: VoiceTodo[] }[] = [];
+    const groupMap = new Map<string, VoiceTodo[]>();
+    
+    todos.forEach(todo => {
+      const dateKey = new Date(todo.created_at).toDateString();
+      if (!groupMap.has(dateKey)) {
+        groupMap.set(dateKey, []);
+      }
+      groupMap.get(dateKey)!.push(todo);
+    });
+    
+    groupMap.forEach((todos, dateKey) => {
+      groups.push({
+        date: dateKey,
+        label: getDateLabel(todos[0].created_at),
+        todos,
+      });
+    });
+    
+    return groups;
   };
 
   const loadTodos = useCallback(async (userId: string) => {
@@ -313,10 +353,12 @@ export default function TasksScreen() {
       // Fetch all tasks - we'll filter client-side for counts
 
       // Apply sort
-      if (sort === 'due') {
-        query = query.order('due_date', { ascending: true, nullsFirst: false });
-      } else {
+      if (sort === 'newest') {
         query = query.order('created_at', { ascending: false });
+      } else if (sort === 'oldest') {
+        query = query.order('created_at', { ascending: true });
+      } else {
+        query = query.order('due_date', { ascending: true, nullsFirst: false });
       }
 
       const { data, error } = await query.limit(100);
@@ -492,6 +534,22 @@ export default function TasksScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Sort Options */}
+      <View style={styles.sortRow}>
+        <Text style={styles.sortLabel}>Sort:</Text>
+        {(['newest', 'oldest', 'due_next'] as SortType[]).map((s) => (
+          <TouchableOpacity 
+            key={s}
+            style={[styles.sortBtn, sort === s && styles.sortBtnActive]}
+            onPress={() => setSort(s)}
+          >
+            <Text style={[styles.sortBtnText, sort === s && styles.sortBtnTextActive]}>
+              {s === 'newest' ? 'Newest' : s === 'oldest' ? 'Oldest' : 'Due Next'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {/* Todos List */}
       {displayTodos.length === 0 ? (
         <EmptyState
@@ -508,17 +566,7 @@ export default function TasksScreen() {
           onSecondaryAction={filter === 'todo' ? openCreateMenu : undefined}
         />
       ) : (
-        <FlatList
-          data={displayTodos}
-          renderItem={({ item }) => (
-            <TaskItem 
-              item={item}
-              onComplete={completeTodo}
-              onPress={(todo) => router.push(`/task/${todo.id}`)}
-              onLongPress={deleteTodo}
-            />
-          )}
-          keyExtractor={(item) => item.id}
+        <ScrollView
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -528,7 +576,22 @@ export default function TasksScreen() {
               tintColor="#c4dfc4"
             />
           }
-        />
+        >
+          {groupTodosByDate(displayTodos).map((group) => (
+            <View key={group.date} style={styles.dateGroup}>
+              <Text style={styles.dateGroupLabel}>{group.label}</Text>
+              {group.todos.map((item) => (
+                <TaskItem 
+                  key={item.id}
+                  item={item}
+                  onComplete={completeTodo}
+                  onPress={(todo) => router.push(`/task/${todo.id}`)}
+                  onLongPress={deleteTodo}
+                />
+              ))}
+            </View>
+          ))}
+        </ScrollView>
       )}
 
       {/* Toast */}
@@ -603,6 +666,44 @@ const styles = StyleSheet.create({
   toggleTextActive: {
     color: '#fff',
     fontWeight: '500',
+  },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  sortLabel: {
+    fontSize: 13,
+    color: '#555',
+  },
+  sortBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#1a1a1a',
+  },
+  sortBtnActive: {
+    backgroundColor: '#333',
+  },
+  sortBtnText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  sortBtnTextActive: {
+    color: '#c4dfc4',
+  },
+  dateGroup: {
+    marginBottom: 20,
+  },
+  dateGroupLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#888',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   listContent: {
     padding: 16,
