@@ -8,9 +8,10 @@ interface TabHeaderProps {
   title: string;
   subtitle?: string;
   showProfile?: boolean;
+  titleColor?: string;
 }
 
-export function TabHeader({ title, subtitle, showProfile = true }: TabHeaderProps) {
+export function TabHeader({ title, subtitle, showProfile = true, titleColor = '#fff' }: TabHeaderProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -18,7 +19,7 @@ export function TabHeader({ title, subtitle, showProfile = true }: TabHeaderProp
     <View style={[styles.header, { paddingTop: insets.top }]}>
       <View style={styles.content}>
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>{title}</Text>
+          <Text style={[styles.title, { color: titleColor }]}>{title}</Text>
           {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
         </View>
         

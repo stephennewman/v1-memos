@@ -142,7 +142,8 @@ export default function NotesScreen() {
     <View style={styles.container}>
       <TabHeader 
         title="Notes" 
-        subtitle={`${filteredNotes.length} note${filteredNotes.length !== 1 ? 's' : ''}`} 
+        subtitle={`${filteredNotes.length} note${filteredNotes.length !== 1 ? 's' : ''}`}
+        titleColor="#a78bfa" 
       />
 
       {/* Search */}

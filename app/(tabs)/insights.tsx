@@ -176,7 +176,7 @@ export default function InsightsScreen() {
   if (!analytics || analytics.totalEntries < 3) {
     return (
       <View style={styles.container}>
-        <TabHeader title="Insights" />
+        <TabHeader title="Insights" titleColor="#ec4899" />
         <View style={[styles.container, styles.centered]}>
           <Ionicons name="analytics-outline" size={64} color="#333" />
           <Text style={styles.emptyTitle}>Not Enough Data</Text>
@@ -202,7 +202,7 @@ export default function InsightsScreen() {
 
   return (
     <View style={styles.container}>
-      <TabHeader title="Insights" subtitle={`Last ${selectedPeriod} days`} />
+      <TabHeader title="Insights" subtitle={`Last ${selectedPeriod} days`} titleColor="#ec4899" />
       
       <ScrollView
         style={styles.content}

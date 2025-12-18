@@ -12,6 +12,17 @@ export function QuickActions({ onVoice, onTask, onTopic }: QuickActionsProps) {
   return (
     <View style={styles.container}>
       <TouchableOpacity
+        style={[styles.actionButton, styles.topicButton]}
+        onPress={onTopic}
+        activeOpacity={0.85}
+      >
+        <View style={styles.iconWrapper}>
+          <Ionicons name="bookmark" size={18} color="#fff" />
+        </View>
+        <Text style={styles.buttonLabel}>Topic</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity
         style={[styles.actionButton, styles.voiceButton]}
         onPress={onVoice}
         activeOpacity={0.85}
@@ -31,17 +42,6 @@ export function QuickActions({ onVoice, onTask, onTopic }: QuickActionsProps) {
           <Ionicons name="add" size={18} color="#fff" />
         </View>
         <Text style={styles.buttonLabel}>Task</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        style={[styles.actionButton, styles.topicButton]}
-        onPress={onTopic}
-        activeOpacity={0.85}
-      >
-        <View style={styles.iconWrapper}>
-          <Ionicons name="bookmark" size={18} color="#fff" />
-        </View>
-        <Text style={styles.buttonLabel}>Topic</Text>
       </TouchableOpacity>
     </View>
   );
