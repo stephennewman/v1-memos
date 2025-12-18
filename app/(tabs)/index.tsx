@@ -41,6 +41,7 @@ export default function LibraryScreen() {
         .from('memo_topics')
         .select('*')
         .eq('user_id', userId)
+        .or('is_archived.is.null,is_archived.eq.false')
         .order('created_at', { ascending: false });
 
       console.log('[Library] Topics loaded:', data?.length || 0, 'error:', error?.message || 'none');
@@ -123,22 +124,41 @@ export default function LibraryScreen() {
     }
   };
 
-  const deleteTopic = async (topicId: string) => {
+  const [archivedTopic, setArchivedTopic] = useState<MemoTopic | null>(null);
+  const [showUndoBar, setShowUndoBar] = useState(false);
+
+  const archiveTopic = async (topicId: string) => {
     Alert.alert(
-      'Delete Topic',
-      'Delete this topic and all its memos?',
+      'Archive Topic',
+      'Archive this topic and all its memos? You can restore it later.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Archive',
           style: 'destructive',
           onPress: async () => {
             try {
-              await supabase.from('memo_topics').delete().eq('id', topicId);
+              const topicToArchive = topics.find(t => t.id === topicId);
+              
+              // Soft delete - archive instead of delete
+              await supabase.from('memos')
+                .update({ is_archived: true, archived_at: new Date().toISOString() })
+                .eq('topic_id', topicId);
+              await supabase.from('memo_topics')
+                .update({ is_archived: true, archived_at: new Date().toISOString() })
+                .eq('id', topicId);
+              
               setTopics(topics.filter(t => t.id !== topicId));
               await refreshTopicCount();
+              
+              // Show undo bar
+              if (topicToArchive) {
+                setArchivedTopic(topicToArchive);
+                setShowUndoBar(true);
+                setTimeout(() => setShowUndoBar(false), 5000); // Hide after 5 seconds
+              }
             } catch (error) {
-              console.error('Error deleting topic:', error);
+              console.error('Error archiving topic:', error);
             }
           },
         },
@@ -146,11 +166,30 @@ export default function LibraryScreen() {
     );
   };
 
+  const restoreTopic = async () => {
+    if (!archivedTopic) return;
+    try {
+      await supabase.from('memo_topics')
+        .update({ is_archived: false, archived_at: null })
+        .eq('id', archivedTopic.id);
+      await supabase.from('memos')
+        .update({ is_archived: false, archived_at: null })
+        .eq('topic_id', archivedTopic.id);
+      
+      setTopics([archivedTopic, ...topics]);
+      await refreshTopicCount();
+      setShowUndoBar(false);
+      setArchivedTopic(null);
+    } catch (error) {
+      console.error('Error restoring topic:', error);
+    }
+  };
+
   const renderTopic = ({ item }: { item: MemoTopic }) => (
     <TouchableOpacity
       style={styles.topicCard}
       onPress={() => router.push(`/topic/${item.id}`)}
-      onLongPress={() => deleteTopic(item.id)}
+      onLongPress={() => archiveTopic(item.id)}
       activeOpacity={0.7}
     >
       <View style={styles.topicIcon}>
@@ -255,6 +294,18 @@ export default function LibraryScreen() {
             />
           }
         />
+      )}
+
+      {/* Undo Bar */}
+      {showUndoBar && archivedTopic && (
+        <View style={styles.undoBar}>
+          <Text style={styles.undoText}>
+            "{archivedTopic.title}" archived
+          </Text>
+          <TouchableOpacity onPress={restoreTopic} style={styles.undoButton}>
+            <Text style={styles.undoButtonText}>UNDO</Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
@@ -423,6 +474,38 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     marginTop: 16,
+  },
+  undoBar: {
+    position: 'absolute',
+    bottom: 100,
+    left: 16,
+    right: 16,
+    backgroundColor: '#333',
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  undoText: {
+    color: '#fff',
+    fontSize: 14,
+    flex: 1,
+  },
+  undoButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  undoButtonText: {
+    color: '#c4dfc4',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
 
