@@ -641,16 +641,15 @@ const styles = StyleSheet.create({
   },
   toggleRow: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 8,
   },
   togglePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
     backgroundColor: '#1a1a1a',
   },
   togglePillActive: {
@@ -660,12 +659,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#166534',
   },
   toggleText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
   },
   toggleTextActive: {
     color: '#fff',
-    fontWeight: '500',
   },
   sortRow: {
     flexDirection: 'row',
