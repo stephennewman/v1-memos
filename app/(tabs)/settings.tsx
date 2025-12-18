@@ -25,6 +25,7 @@ export default function SettingsScreen() {
     { icon: 'mic', label: 'Voice Notes', key: 'voice' },
     { icon: 'checkbox-outline', label: 'Tasks', key: 'tasks' },
     { icon: 'document-text', label: 'Notes', key: 'notes' },
+    { icon: 'bookmark', label: 'Topics (Memos)', key: 'topics' },
     { icon: 'analytics', label: 'Insights', key: 'insights' },
   ];
 

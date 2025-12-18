@@ -98,11 +98,11 @@ function TabsContent() {
           }}
         />
         
-        {/* Topics (Memos) - Hidden for now */}
+        {/* Topics (Memos) */}
         <Tabs.Screen
           name="index"
           options={{
-            href: null, // Hidden - Topics feature
+            href: tabs.topics ? '/' : null,
             title: 'Topics',
             tabBarIcon: ({ color }) => (
               <Ionicons name="bookmark" size={22} color={color} />

@@ -9,6 +9,7 @@ export interface TabSettings {
   tasks: boolean;
   notes: boolean;
   insights: boolean;
+  topics: boolean;
 }
 
 interface SettingsContextType {
@@ -23,6 +24,7 @@ const defaultTabs: TabSettings = {
   tasks: true,
   notes: true,
   insights: true,
+  topics: true,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
