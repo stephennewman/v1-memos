@@ -50,11 +50,11 @@ function TabsContent() {
           },
         }}
       >
-        {/* Home tab - will be the day feed */}
+        {/* Home tab - will be the day feed (default route) */}
         <Tabs.Screen
-          name="home"
+          name="index"
           options={{
-            href: tabs.home ? '/home' : null,
+            href: tabs.home ? '/' : null,
             title: 'Home',
             tabBarIcon: ({ color }) => (
               <Ionicons name="home" size={22} color={color} />
@@ -100,9 +100,9 @@ function TabsContent() {
         
         {/* Topics (Memos) */}
         <Tabs.Screen
-          name="index"
+          name="topics"
           options={{
-            href: tabs.topics ? '/' : null,
+            href: tabs.topics ? '/topics' : null,
             title: 'Topics',
             tabBarIcon: ({ color }) => (
               <Ionicons name="bookmark" size={22} color={color} />

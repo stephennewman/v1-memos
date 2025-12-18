@@ -3,207 +3,295 @@ import {
   StyleSheet,
   View,
   Text,
-  TouchableOpacity,
-  FlatList,
-  TextInput,
-  ActivityIndicator,
-  Alert,
+  ScrollView,
   RefreshControl,
+  ActivityIndicator,
+  TouchableOpacity,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
-import { useAuth, MAX_FREE_TOPICS } from '@/lib/auth-context';
-import { generateMemos } from '@/lib/api';
-import EmptyState from '@/components/EmptyState';
-import type { MemoTopic } from '@/lib/types';
 
-export default function LibraryScreen() {
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { TabHeader } from '@/components/TabHeader';
+import { useAuth } from '@/lib/auth-context';
+import { useCreate } from '@/lib/create-context';
+import EmptyState from '@/components/EmptyState';
+import { supabase } from '@/lib/supabase';
+
+interface TaskItem {
+  id: string;
+  text: string;
+  status: 'pending' | 'completed';
+  created_at: string;
+  entry_id?: string;
+}
+
+interface VoiceItem {
+  id: string;
+  summary: string;
+  created_at: string;
+}
+
+interface NoteItem {
+  id: string;
+  text: string;
+  created_at: string;
+  entry_id?: string;
+}
+
+interface DayData {
+  date: string;
+  label: string;
+  voice: VoiceItem[];
+  tasks: TaskItem[];
+  notes: NoteItem[];
+}
+
+export default function HomeScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { user, isLoading: authLoading, topicCount, canCreateTopic, refreshTopicCount } = useAuth();
-  
-  const [topics, setTopics] = useState<MemoTopic[]>([]);
+  const { user, isLoading: authLoading } = useAuth();
+  const { openCreateMenu } = useCreate();
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-  const [newTopicTitle, setNewTopicTitle] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [creatingStatus, setCreatingStatus] = useState<string | null>(null);
+  const [dayData, setDayData] = useState<DayData[]>([]);
+  const [todayStats, setTodayStats] = useState({ tasks: 0, completed: 0, voiceNotes: 0 });
+  const [expandedVoice, setExpandedVoice] = useState<Set<string>>(new Set());
 
-  // Load topics function - takes userId to avoid closure issues
-  const loadTopics = useCallback(async (userId: string) => {
-    console.log('[Library] loadTopics called for user:', userId);
-    
+  const toggleVoiceExpanded = (dateKey: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedVoice(prev => {
+      const next = new Set(prev);
+      if (next.has(dateKey)) {
+        next.delete(dateKey);
+      } else {
+        next.add(dateKey);
+      }
+      return next;
+    });
+  };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
+  const getDateLabel = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffDays = Math.floor((today.getTime() - itemDate.getTime()) / 86400000);
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) {
+      return date.toLocaleDateString('en-US', { weekday: 'long' });
+    }
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getDateKey = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return `${date.getFullYear()}-${String(date.getMonth()).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  const loadData = useCallback(async () => {
+    if (!user) return;
+
     try {
-      const { data, error } = await supabase
-        .from('memo_topics')
-        .select('*')
-        .eq('user_id', userId)
-        .neq('is_archived', true)
-        .order('created_at', { ascending: false });
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayISO = today.toISOString();
 
-      console.log('[Library] Topics loaded:', data?.length || 0, 'error:', error?.message || 'none');
-      
-      if (error) throw error;
-      setTopics(data || []);
-      await refreshTopicCount();
+      // Get items from last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
+
+      // Get tasks
+      const { data: tasks } = await supabase
+        .from('voice_todos')
+        .select('id, text, status, created_at, entry_id')
+        .eq('user_id', user.id)
+        .gte('created_at', thirtyDaysAgoISO)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      // Get voice notes
+      const { data: voiceNotes } = await supabase
+        .from('voice_entries')
+        .select('id, summary, created_at')
+        .eq('user_id', user.id)
+        .gte('created_at', thirtyDaysAgoISO)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      // Get notes (bullet points)
+      const { data: notes } = await supabase
+        .from('voice_notes')
+        .select('id, text, created_at, entry_id')
+        .eq('user_id', user.id)
+        .eq('is_archived', false)
+        .gte('created_at', thirtyDaysAgoISO)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      // Group by date
+      const dayMap = new Map<string, DayData>();
+
+      // Add voice notes
+      (voiceNotes || []).forEach(v => {
+        const key = getDateKey(v.created_at);
+        if (!dayMap.has(key)) {
+          dayMap.set(key, { 
+            date: key, 
+            label: getDateLabel(v.created_at), 
+            voice: [], 
+            tasks: [], 
+            notes: [] 
+          });
+        }
+        dayMap.get(key)!.voice.push(v);
+      });
+
+      // Add tasks
+      (tasks || []).forEach(t => {
+        const key = getDateKey(t.created_at);
+        if (!dayMap.has(key)) {
+          dayMap.set(key, { 
+            date: key, 
+            label: getDateLabel(t.created_at), 
+            voice: [], 
+            tasks: [], 
+            notes: [] 
+          });
+        }
+        dayMap.get(key)!.tasks.push(t);
+      });
+
+      // Add notes
+      (notes || []).forEach(n => {
+        const key = getDateKey(n.created_at);
+        if (!dayMap.has(key)) {
+          dayMap.set(key, { 
+            date: key, 
+            label: getDateLabel(n.created_at), 
+            voice: [], 
+            tasks: [], 
+            notes: [] 
+          });
+        }
+        dayMap.get(key)!.notes.push(n);
+      });
+
+      // Sort days descending
+      const sortedDays = Array.from(dayMap.values()).sort((a, b) => 
+        b.date.localeCompare(a.date)
+      );
+
+      setDayData(sortedDays);
+
+      // Stats for today
+      const { count: pendingCount } = await supabase
+        .from('voice_todos')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'pending');
+
+      const { count: completedToday } = await supabase
+        .from('voice_todos')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .gte('completed_at', todayISO);
+
+      const todayVoiceCount = (voiceNotes || []).filter(v => 
+        new Date(v.created_at) >= today
+      ).length;
+
+      setTodayStats({
+        tasks: pendingCount || 0,
+        completed: completedToday || 0,
+        voiceNotes: todayVoiceCount,
+      });
+
     } catch (error) {
-      console.error('[Library] Error loading topics:', error);
+      console.error('Error loading data:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [refreshTopicCount]);
+  }, [user]);
 
-  // Reload topics whenever this screen comes into focus AND user is available
   useFocusEffect(
     useCallback(() => {
       if (user && !authLoading) {
-        loadTopics(user.id);
+        loadData();
       } else if (!authLoading && !user) {
         setIsLoading(false);
       }
-    }, [user, authLoading, loadTopics])
+    }, [user, authLoading, loadData])
   );
 
   const onRefresh = useCallback(() => {
-    if (!user) return;
     setIsRefreshing(true);
-    loadTopics(user.id);
-  }, [user, loadTopics]);
+    loadData();
+  }, [loadData]);
 
-  const createTopic = async () => {
-    if (!newTopicTitle.trim() || isCreating || !user) return;
-
-    if (!canCreateTopic) {
-      Alert.alert(
-        'Topic Limit Reached',
-        `You've reached the free limit of ${MAX_FREE_TOPICS} topics. More coming soon!`,
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
-    setIsCreating(true);
-    setCreatingStatus('Creating topic...');
-
+  const toggleTask = useCallback(async (task: TaskItem) => {
+    const newStatus = task.status === 'pending' ? 'completed' : 'pending';
+    
+    // Optimistic update
+    setDayData(prev => prev.map(day => ({
+      ...day,
+      tasks: day.tasks.map(t => 
+        t.id === task.id ? { ...t, status: newStatus } : t
+      ),
+    })));
+    
     try {
-      const { data: topic, error } = await supabase
-        .from('memo_topics')
-        .insert({ user_id: user.id, title: newTopicTitle.trim() })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setCreatingStatus('Generating memos...');
+      await supabase
+        .from('voice_todos')
+        .update({ 
+          status: newStatus, 
+          completed_at: newStatus === 'completed' ? new Date().toISOString() : null 
+        })
+        .eq('id', task.id);
       
-      // Try to generate memos, but don't fail if it doesn't work
-      try {
-        await generateMemos(topic.id, 10);
-      } catch (genError) {
-        console.log('Initial memo generation failed, user can retry:', genError);
-        // Continue anyway - user can generate from the topic screen
+      if (newStatus === 'completed') {
+        setTodayStats(prev => ({ ...prev, tasks: prev.tasks - 1, completed: prev.completed + 1 }));
+      } else {
+        setTodayStats(prev => ({ ...prev, tasks: prev.tasks + 1, completed: prev.completed - 1 }));
       }
-
-      setNewTopicTitle('');
-      setShowCreate(false);
-      await refreshTopicCount();
-      
-      // Navigate to the new topic
-      router.push(`/topic/${topic.id}`);
-    } catch (error: any) {
-      console.error('Error creating topic:', error);
-      const errorMessage = error?.message || error?.toString() || 'Unknown error';
-      Alert.alert('Error', `Failed to create topic: ${errorMessage}`);
-    } finally {
-      setIsCreating(false);
-      setCreatingStatus(null);
-    }
-  };
-
-  const [archivedTopic, setArchivedTopic] = useState<MemoTopic | null>(null);
-  const [showUndoBar, setShowUndoBar] = useState(false);
-
-  const archiveTopic = async (topicId: string) => {
-    Alert.alert(
-      'Archive Topic',
-      'Archive this topic and all its memos? You can restore it later.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Archive',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const topicToArchive = topics.find(t => t.id === topicId);
-              
-              // Soft delete - archive instead of delete
-              await supabase.from('memos')
-                .update({ is_archived: true, archived_at: new Date().toISOString() })
-                .eq('topic_id', topicId);
-              await supabase.from('memo_topics')
-                .update({ is_archived: true, archived_at: new Date().toISOString() })
-                .eq('id', topicId);
-              
-              setTopics(topics.filter(t => t.id !== topicId));
-              await refreshTopicCount();
-              
-              // Show undo bar
-              if (topicToArchive) {
-                setArchivedTopic(topicToArchive);
-                setShowUndoBar(true);
-                setTimeout(() => setShowUndoBar(false), 5000); // Hide after 5 seconds
-              }
-            } catch (error) {
-              console.error('Error archiving topic:', error);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const restoreTopic = async () => {
-    if (!archivedTopic) return;
-    try {
-      await supabase.from('memo_topics')
-        .update({ is_archived: false, archived_at: null })
-        .eq('id', archivedTopic.id);
-      await supabase.from('memos')
-        .update({ is_archived: false, archived_at: null })
-        .eq('topic_id', archivedTopic.id);
-      
-      setTopics([archivedTopic, ...topics]);
-      await refreshTopicCount();
-      setShowUndoBar(false);
-      setArchivedTopic(null);
     } catch (error) {
-      console.error('Error restoring topic:', error);
+      // Revert on error
+      setDayData(prev => prev.map(day => ({
+        ...day,
+        tasks: day.tasks.map(t => 
+          t.id === task.id ? { ...t, status: task.status } : t
+        ),
+      })));
+      console.error('Error toggling task:', error);
     }
-  };
+  }, []);
 
-  const renderTopic = ({ item }: { item: MemoTopic }) => (
-    <TouchableOpacity
-      style={styles.topicCard}
-      onPress={() => router.push(`/topic/${item.id}`)}
-      onLongPress={() => archiveTopic(item.id)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.topicIcon}>
-        <Ionicons name="bookmark" size={20} color="#c4dfc4" />
-      </View>
-      <View style={styles.topicContent}>
-        <Text style={styles.topicTitle}>{item.title}</Text>
-        <Text style={styles.topicMeta}>
-          {item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color="#666" />
-    </TouchableOpacity>
-  );
+  const formatDate = () => {
+    return new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   if (isLoading || authLoading) {
     return (
@@ -213,103 +301,169 @@ export default function LibraryScreen() {
     );
   }
 
+  const hasContent = dayData.some(d => d.voice.length > 0 || d.tasks.length > 0 || d.notes.length > 0);
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Creating Overlay */}
-      {creatingStatus && (
-        <View style={styles.creatingOverlay}>
-          <ActivityIndicator size="large" color="#c4dfc4" />
-          <Text style={styles.creatingText}>{creatingStatus}</Text>
-        </View>
-      )}
-
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Topics</Text>
-          <Text style={styles.headerSubtitle}>
-            {topicCount}/{MAX_FREE_TOPICS} topics
-          </Text>
-        </View>
-        <TouchableOpacity 
-          style={styles.profileButton}
-          onPress={() => router.push('/(tabs)/settings')}
-        >
-          <Ionicons name="person-circle-outline" size={28} color="#666" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Create Topic Input */}
-      {showCreate && (
-        <View style={styles.createContainer}>
-          <TextInput
-            style={styles.createInput}
-            placeholder="Topic name (e.g., Golf, Cooking)"
-            placeholderTextColor="#666"
-            value={newTopicTitle}
-            onChangeText={setNewTopicTitle}
-            autoFocus
-            onSubmitEditing={createTopic}
+    <View style={styles.container}>
+      <TabHeader title="Home" subtitle={formatDate()} />
+      
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#c4dfc4"
           />
-          <View style={styles.createActions}>
-            <TouchableOpacity
-              onPress={() => { setShowCreate(false); setNewTopicTitle(''); }}
-              style={styles.cancelButton}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={createTopic}
-              disabled={!newTopicTitle.trim() || isCreating}
-              style={[styles.createButton, (!newTopicTitle.trim() || isCreating) && styles.createButtonDisabled]}
-            >
-              <Text style={styles.createButtonText}>
-                {isCreating ? 'Creating...' : 'Create'}
-              </Text>
-            </TouchableOpacity>
+        }
+      >
+        {/* Quick Stats Row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statPill}>
+            <Text style={styles.statPillNumber}>{todayStats.tasks}</Text>
+            <Text style={styles.statPillLabel}>pending</Text>
+          </View>
+          <View style={styles.statPill}>
+            <Text style={[styles.statPillNumber, { color: '#4ade80' }]}>{todayStats.completed}</Text>
+            <Text style={styles.statPillLabel}>done today</Text>
+          </View>
+          <View style={styles.statPill}>
+            <Text style={[styles.statPillNumber, { color: '#c4dfc4' }]}>{todayStats.voiceNotes}</Text>
+            <Text style={styles.statPillLabel}>notes today</Text>
           </View>
         </View>
-      )}
 
-      {/* Topics List */}
-      {topics.length === 0 ? (
-        <EmptyState
-          icon="bookmark-outline"
-          title="No topics yet"
-          description="Topics help you organize and review key information using spaced repetition"
-          actionLabel="Create Your First Topic"
-          onAction={() => setShowCreate(true)}
-        />
-      ) : (
-        <FlatList
-          data={topics}
-          renderItem={renderTopic}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor="#c4dfc4"
-            />
-          }
-        />
-      )}
+        {/* Day Sections */}
+        {dayData.map((day) => {
+          const hasVoice = day.voice.length > 0;
+          const hasTasks = day.tasks.length > 0;
+          const hasNotes = day.notes.length > 0;
+          
+          if (!hasVoice && !hasTasks && !hasNotes) return null;
 
-      {/* Undo Bar */}
-      {showUndoBar && archivedTopic && (
-        <View style={styles.undoBar}>
-          <Text style={styles.undoText}>
-            "{archivedTopic.title}" archived
-          </Text>
-          <TouchableOpacity onPress={restoreTopic} style={styles.undoButton}>
-            <Text style={styles.undoButtonText}>UNDO</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+          return (
+            <View key={day.date} style={styles.daySection}>
+              <Text style={styles.dayLabel}>{day.label}</Text>
+              
+              {/* Voice Notes - Collapsible */}
+              {hasVoice && (
+                <View style={styles.typeSection}>
+                  <TouchableOpacity 
+                    style={styles.collapsibleHeader}
+                    onPress={() => toggleVoiceExpanded(day.date)}
+                  >
+                    <Ionicons 
+                      name={expandedVoice.has(day.date) ? "chevron-down" : "chevron-forward"} 
+                      size={16} 
+                      color="#666" 
+                    />
+                    <Ionicons name="mic" size={14} color="#c4dfc4" />
+                    <Text style={styles.collapsibleLabel}>
+                      {day.voice.length} voice note{day.voice.length !== 1 ? 's' : ''}
+                    </Text>
+                  </TouchableOpacity>
+                  {expandedVoice.has(day.date) && day.voice.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.feedItem}
+                      onPress={() => router.push(`/entry/${item.id}`)}
+                    >
+                      <View style={styles.itemIconWrapper}>
+                        <Ionicons name="mic" size={18} color="#c4dfc4" />
+                      </View>
+                      <Text style={styles.itemText} numberOfLines={1}>
+                        {item.summary || formatTime(item.created_at)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Tasks */}
+              {hasTasks && (
+                <View style={styles.typeSection}>
+                  <View style={styles.typeLabelRow}>
+                    <Ionicons name="square-outline" size={14} color="#888" />
+                    <Text style={styles.typeLabel}>Tasks</Text>
+                  </View>
+                  {day.tasks.map((task) => (
+                    <View key={task.id} style={styles.feedItem}>
+                      <TouchableOpacity
+                        style={styles.taskCheckArea}
+                        onPress={() => toggleTask(task)}
+                      >
+                        <Ionicons
+                          name={task.status === 'completed' ? 'checkbox' : 'square-outline'}
+                          size={18}
+                          color={task.status === 'completed' ? '#4ade80' : '#555'}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.taskTextArea}
+                        onPress={() => router.push(`/task/${task.id}`)}
+                      >
+                        <Text 
+                          style={[
+                            styles.itemText,
+                            task.status === 'completed' && styles.itemTextCompleted
+                          ]} 
+                          numberOfLines={1}
+                        >
+                          {task.text}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Notes */}
+              {hasNotes && (
+                <View style={styles.typeSection}>
+                  <View style={styles.typeLabelRow}>
+                    <Ionicons name="document-text-outline" size={14} color="#93c5fd" />
+                    <Text style={styles.typeLabel}>Notes</Text>
+                  </View>
+                  {day.notes.map((note) => (
+                    <TouchableOpacity
+                      key={note.id}
+                      style={styles.noteItem}
+                      onPress={() => router.push(`/note/${note.id}`)}
+                    >
+                      <View style={styles.noteIconWrapper}>
+                        <Ionicons name="document-text-outline" size={18} color="#93c5fd" />
+                      </View>
+                      <Text style={styles.noteText}>{note.text}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          );
+        })}
+
+        {/* Empty State */}
+        {!hasContent && (
+          <EmptyState
+            icon="sunny-outline"
+            title="Good morning!"
+            description="Start your day by recording a voice note or adding a task"
+            actionLabel="Record Voice Note"
+            onAction={() => router.push('/record')}
+            secondaryActionLabel="Add Task"
+            onSecondaryAction={openCreateMenu}
+          />
+        )}
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
     </View>
   );
 }
+
+const ITEM_HEIGHT = 44;
 
 const styles = StyleSheet.create({
   container: {
@@ -320,192 +474,120 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
+  content: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 16,
+  },
+  statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
+    gap: 10,
+    marginBottom: 24,
   },
-  profileButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
+  statPill: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#111',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
   },
-  headerTitle: {
-    fontSize: 28,
+  statPillNumber: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#fff',
   },
-  headerSubtitle: {
-    fontSize: 14,
+  statPillLabel: {
+    fontSize: 11,
     color: '#666',
-    marginTop: 2,
   },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#c4dfc4',
-    justifyContent: 'center',
-    alignItems: 'center',
+  daySection: {
+    marginBottom: 24,
   },
-  addButtonDisabled: {
-    backgroundColor: '#333',
-  },
-  createContainer: {
-    padding: 16,
-    backgroundColor: '#111',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
-  },
-  createInput: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+  dayLabel: {
+    fontSize: 14,
+    fontWeight: '700',
     color: '#fff',
     marginBottom: 12,
   },
-  createActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
+  typeSection: {
+    marginBottom: 12,
   },
-  cancelButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  cancelButtonText: {
-    color: '#666',
-    fontSize: 15,
-  },
-  createButton: {
-    backgroundColor: '#c4dfc4',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  createButtonDisabled: {
-    opacity: 0.5,
-  },
-  createButtonText: {
-    color: '#0a0a0a',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  listContent: {
-    padding: 16,
-    gap: 12,
-  },
-  topicCard: {
+  typeLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
+    gap: 6,
+    marginBottom: 6,
+    paddingLeft: 2,
   },
-  topicIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: 'rgba(196, 223, 196, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  topicContent: {
-    flex: 1,
-  },
-  topicTitle: {
-    fontSize: 17,
+  typeLabel: {
+    fontSize: 11,
     fontWeight: '600',
-    color: '#fff',
+    color: '#555',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  topicMeta: {
+  collapsibleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    marginBottom: 2,
+  },
+  collapsibleLabel: {
     fontSize: 13,
-    color: '#666',
-    marginTop: 2,
+    fontWeight: '500',
+    color: '#888',
   },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#fff',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 15,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  emptyButton: {
-    backgroundColor: 'rgba(196, 223, 196, 0.1)',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 24,
-  },
-  emptyButtonText: {
-    color: '#c4dfc4',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  creatingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 10, 10, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100,
-  },
-  creatingText: {
-    color: '#fff',
-    fontSize: 16,
-    marginTop: 16,
-  },
-  undoBar: {
-    position: 'absolute',
-    bottom: 100,
-    left: 16,
-    right: 16,
-    backgroundColor: '#333',
-    borderRadius: 8,
+  feedItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    minHeight: ITEM_HEIGHT,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
   },
-  undoText: {
-    color: '#fff',
-    fontSize: 14,
+  itemIconWrapper: {
+    width: 28,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  taskCheckArea: {
+    width: 28,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  taskTextArea: {
     flex: 1,
+    justifyContent: 'center',
   },
-  undoButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  itemText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#ddd',
   },
-  undoButtonText: {
-    color: '#c4dfc4',
-    fontSize: 14,
-    fontWeight: '700',
+  itemTextCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#555',
+  },
+  noteItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  noteIconWrapper: {
+    width: 28,
+    paddingTop: 2,
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#ddd',
+    lineHeight: 22,
   },
 });
-
