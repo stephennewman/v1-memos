@@ -23,7 +23,7 @@ export default function LibraryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isLoading: authLoading, topicCount, canCreateTopic, refreshTopicCount } = useAuth();
-  
+
   const [topics, setTopics] = useState<MemoTopic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -35,7 +35,7 @@ export default function LibraryScreen() {
   // Load topics function - takes userId to avoid closure issues
   const loadTopics = useCallback(async (userId: string) => {
     console.log('[Library] loadTopics called for user:', userId);
-    
+
     try {
       const { data, error } = await supabase
         .from('memo_topics')
@@ -45,7 +45,7 @@ export default function LibraryScreen() {
         .order('created_at', { ascending: false });
 
       console.log('[Library] Topics loaded:', data?.length || 0, 'error:', error?.message || 'none');
-      
+
       if (error) throw error;
       setTopics(data || []);
       await refreshTopicCount();
@@ -99,7 +99,7 @@ export default function LibraryScreen() {
       if (error) throw error;
 
       setCreatingStatus('Generating memos...');
-      
+
       // Try to generate memos, but don't fail if it doesn't work
       try {
         await generateMemos(topic.id, 10);
@@ -111,7 +111,7 @@ export default function LibraryScreen() {
       setNewTopicTitle('');
       setShowCreate(false);
       await refreshTopicCount();
-      
+
       // Navigate to the new topic
       router.push(`/topic/${topic.id}`);
     } catch (error: any) {
@@ -139,7 +139,7 @@ export default function LibraryScreen() {
           onPress: async () => {
             try {
               const topicToArchive = topics.find(t => t.id === topicId);
-              
+
               // Soft delete - archive instead of delete
               await supabase.from('memos')
                 .update({ is_archived: true, archived_at: new Date().toISOString() })
@@ -147,10 +147,10 @@ export default function LibraryScreen() {
               await supabase.from('memo_topics')
                 .update({ is_archived: true, archived_at: new Date().toISOString() })
                 .eq('id', topicId);
-              
+
               setTopics(topics.filter(t => t.id !== topicId));
               await refreshTopicCount();
-              
+
               // Show undo bar
               if (topicToArchive) {
                 setArchivedTopic(topicToArchive);
@@ -175,7 +175,7 @@ export default function LibraryScreen() {
       await supabase.from('memos')
         .update({ is_archived: false, archived_at: null })
         .eq('topic_id', archivedTopic.id);
-      
+
       setTopics([archivedTopic, ...topics]);
       await refreshTopicCount();
       setShowUndoBar(false);
@@ -231,7 +231,7 @@ export default function LibraryScreen() {
             {topicCount}/{MAX_FREE_TOPICS} topics
           </Text>
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.profileButton}
           onPress={() => router.push('/(tabs)/settings')}
         >

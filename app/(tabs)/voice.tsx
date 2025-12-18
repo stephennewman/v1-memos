@@ -25,7 +25,7 @@ export default function VoiceScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isLoading: authLoading } = useAuth();
-  
+
   // Entries state
   const [entries, setEntries] = useState<VoiceEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,25 +48,25 @@ export default function VoiceScreen() {
   const filteredEntries = React.useMemo(() => {
     // If we have search results, use those instead
     if (searchResults !== null) return searchResults;
-    
+
     let filtered = entries;
-    
+
     // Filter by person
     if (selectedPerson) {
-      filtered = filtered.filter(entry => 
+      filtered = filtered.filter(entry =>
         (entry.extracted_people || []).includes(selectedPerson)
       );
     }
-    
+
     // Local search if query is short (< 3 chars)
     if (searchQuery && searchQuery.length < 3) {
       const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(entry => 
+      filtered = filtered.filter(entry =>
         (entry.summary || '').toLowerCase().includes(q) ||
         (entry.transcript || '').toLowerCase().includes(q)
       );
     }
-    
+
     return filtered;
   }, [entries, selectedPerson, searchQuery, searchResults]);
 
@@ -82,7 +82,7 @@ export default function VoiceScreen() {
       const response = await fetch(
         `${API_URL}/api/voice/search?q=${encodeURIComponent(query)}&user_id=${user.id}&limit=50`
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         // Map search results to VoiceEntry format (partial)
@@ -111,7 +111,7 @@ export default function VoiceScreen() {
         setSearchResults(null);
       }
     }, 300);
-    
+
     return () => clearTimeout(timer);
   }, [searchQuery, performSearch]);
 
@@ -168,8 +168,8 @@ export default function VoiceScreen() {
 
   const formatDateTime = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleString('en-US', { 
-      month: 'short', 
+    return date.toLocaleString('en-US', {
+      month: 'short',
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit'
@@ -214,7 +214,7 @@ export default function VoiceScreen() {
           {/* Meta row: date, tasks, people */}
           <View style={styles.entryMeta}>
             <Text style={styles.entryDate}>{formatDate(item.created_at)}</Text>
-            
+
             {/* Tasks count */}
             <View style={styles.tasksBadge}>
               {isProcessing ? (
@@ -235,8 +235,8 @@ export default function VoiceScreen() {
             ) : peopleList.length > 0 ? (
               <View style={styles.peopleBadges}>
                 {peopleList.slice(0, 2).map((person, idx) => (
-                  <TouchableOpacity 
-                    key={idx} 
+                  <TouchableOpacity
+                    key={idx}
                     style={styles.personBadge}
                     onPress={(e) => {
                       e.stopPropagation();
@@ -276,7 +276,7 @@ export default function VoiceScreen() {
             {entries.length} recording{entries.length !== 1 ? 's' : ''}
           </Text>
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.profileButton}
           onPress={() => router.push('/(tabs)/settings')}
         >
@@ -310,8 +310,8 @@ export default function VoiceScreen() {
       {/* People Filter */}
       {allPeople.length > 0 && (
         <View style={styles.filterSection}>
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterScroll}
           >
@@ -329,10 +329,10 @@ export default function VoiceScreen() {
                 style={[styles.filterChip, selectedPerson === person && styles.filterChipActive]}
                 onPress={() => setSelectedPerson(selectedPerson === person ? null : person)}
               >
-                <Ionicons 
-                  name="person" 
-                  size={12} 
-                  color={selectedPerson === person ? '#0a0a0a' : '#888'} 
+                <Ionicons
+                  name="person"
+                  size={12}
+                  color={selectedPerson === person ? '#0a0a0a' : '#888'}
                   style={{ marginRight: 4 }}
                 />
                 <Text style={[styles.filterChipText, selectedPerson === person && styles.filterChipTextActive]}>
@@ -349,13 +349,13 @@ export default function VoiceScreen() {
         <Text style={styles.listHeader}>
           {selectedPerson ? `${selectedPerson}'s mentions` : 'Recent'}
         </Text>
-        
+
         {filteredEntries.length === 0 ? (
           <EmptyState
             icon={selectedPerson ? 'person-outline' : 'mic-outline'}
             title={selectedPerson ? `No recordings with ${selectedPerson}` : 'Start your voice journal'}
             description={
-              selectedPerson 
+              selectedPerson
                 ? `Record a note mentioning ${selectedPerson} and it will appear here`
                 : 'Capture your thoughts, ideas, and tasks with voice. AI will transcribe and extract key information.'
             }

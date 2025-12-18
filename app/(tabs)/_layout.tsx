@@ -58,8 +58,8 @@ function TabsContent() {
             title: 'Home',
             tabBarIcon: ({ focused }) => (
               <View style={{ alignItems: 'center' }}>
-                <Ionicons name="home" size={22} color={focused ? '#c4dfc4' : '#666'} />
-                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#c4dfc4', marginTop: 2 }} />}
+                <Ionicons name="home" size={22} color={focused ? '#fff' : '#666'} />
+                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#fff', marginTop: 2 }} />}
               </View>
             ),
           }}

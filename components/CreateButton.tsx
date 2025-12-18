@@ -21,7 +21,7 @@ export function QuickActions({ onVoice, onTask, onTopic }: QuickActionsProps) {
         </View>
         <Text style={styles.buttonLabel}>Topic</Text>
       </TouchableOpacity>
-      
+
       <TouchableOpacity
         style={[styles.actionButton, styles.voiceButton]}
         onPress={onVoice}
@@ -32,7 +32,7 @@ export function QuickActions({ onVoice, onTask, onTopic }: QuickActionsProps) {
         </View>
         <Text style={styles.buttonLabel}>Voice</Text>
       </TouchableOpacity>
-      
+
       <TouchableOpacity
         style={[styles.actionButton, styles.taskButton]}
         onPress={onTask}

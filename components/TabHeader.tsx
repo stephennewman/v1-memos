@@ -22,9 +22,9 @@ export function TabHeader({ title, subtitle, showProfile = true, titleColor = '#
           <Text style={[styles.title, { color: titleColor }]}>{title}</Text>
           {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
         </View>
-        
+
         {showProfile && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.profileButton}
             onPress={() => router.push('/(tabs)/settings')}
           >

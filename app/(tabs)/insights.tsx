@@ -94,7 +94,7 @@ export default function InsightsScreen() {
 
   const loadDigest = useCallback(async () => {
     if (!user) return;
-    
+
     setIsLoadingDigest(true);
     try {
       const response = await fetch(
@@ -113,7 +113,7 @@ export default function InsightsScreen() {
 
   const loadQuestions = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       const response = await fetch(
         `${API_URL}/api/voice/questions?user_id=${user.id}&limit=10`
@@ -134,7 +134,7 @@ export default function InsightsScreen() {
       const response = await fetch(
         `${API_URL}/api/voice/analytics?user_id=${user.id}&period=${selectedPeriod}`
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         setAnalytics(data);
@@ -203,7 +203,7 @@ export default function InsightsScreen() {
   return (
     <View style={styles.container}>
       <TabHeader title="Insights" subtitle={`Last ${selectedPeriod} days`} titleColor="#ec4899" />
-      
+
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
@@ -230,9 +230,9 @@ export default function InsightsScreen() {
                 <Text style={styles.digestPeriod}>{digest.period}</Text>
               </View>
             </View>
-            
+
             <Text style={styles.digestSummary}>{digest.summary}</Text>
-            
+
             {digest.highlights.length > 0 && (
               <View style={styles.digestHighlights}>
                 {digest.highlights.map((highlight, index) => (
@@ -299,14 +299,14 @@ export default function InsightsScreen() {
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Average Sentiment</Text>
-              <Text style={[styles.sentimentBadge, { 
+              <Text style={[styles.sentimentBadge, {
                 backgroundColor: analytics.averageSentiment >= 0 ? '#4ade8020' : '#f8717120',
                 color: analytics.averageSentiment >= 0 ? '#4ade80' : '#f87171',
               }]}>
                 {formatSentiment(analytics.averageSentiment)}
               </Text>
             </View>
-            
+
             {sentimentEntries.length > 0 && (
               <View style={styles.sentimentBreakdown}>
                 {sentimentEntries.map(([label, count]) => (
@@ -331,17 +331,17 @@ export default function InsightsScreen() {
               <Text style={styles.cardTitle}>Total Filler Words</Text>
               <Text style={styles.fillerCount}>{analytics.totalFillerWords}</Text>
             </View>
-            
+
             {topFillers.length > 0 ? (
               <View style={styles.fillerList}>
                 {topFillers.map(([word, count]) => (
                   <View key={word} style={styles.fillerRow}>
                     <Text style={styles.fillerWord}>"{word}"</Text>
                     <View style={styles.fillerBarContainer}>
-                      <View 
-                        style={[styles.fillerBar, { 
-                          width: `${(count / topFillers[0][1]) * 100}%` 
-                        }]} 
+                      <View
+                        style={[styles.fillerBar, {
+                          width: `${(count / topFillers[0][1]) * 100}%`
+                        }]}
                       />
                     </View>
                     <Text style={styles.fillerWordCount}>{count}</Text>
@@ -366,16 +366,16 @@ export default function InsightsScreen() {
                 {Math.round(analytics.averageClarity)}%
               </Text>
             </View>
-            
+
             <View style={styles.clarityBarContainer}>
               <View style={[styles.clarityBar, { width: `${analytics.averageClarity}%` }]} />
             </View>
             <Text style={styles.clarityHint}>
-              {analytics.averageClarity >= 70 
-                ? 'Excellent! Your thoughts are well-organized.' 
-                : analytics.averageClarity >= 50 
-                ? 'Good clarity with room for improvement.' 
-                : 'Try organizing your thoughts before recording.'}
+              {analytics.averageClarity >= 70
+                ? 'Excellent! Your thoughts are well-organized.'
+                : analytics.averageClarity >= 50
+                  ? 'Good clarity with room for improvement.'
+                  : 'Try organizing your thoughts before recording.'}
             </Text>
           </View>
         </View>

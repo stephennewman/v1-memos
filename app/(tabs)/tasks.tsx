@@ -514,40 +514,42 @@ export default function TasksScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* To Do / Done Toggle */}
-      <View style={styles.toggleRow}>
-        <TouchableOpacity
-          style={[styles.togglePill, filter === 'todo' && styles.togglePillActive]}
-          onPress={() => setFilter('todo')}
-        >
-          <Text style={[styles.toggleText, filter === 'todo' && styles.toggleTextActive]}>
-            {pendingCount} to do
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.togglePill, filter === 'done' && styles.togglePillDone]}
-          onPress={() => setFilter('done')}
-        >
-          <Text style={[styles.toggleText, filter === 'done' && styles.toggleTextActive]}>
-            {completedCount} done
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Sort Options */}
-      <View style={styles.sortRow}>
-        <Text style={styles.sortLabel}>Sort:</Text>
-        {(['newest', 'oldest', 'due_next'] as SortType[]).map((s) => (
-          <TouchableOpacity 
-            key={s}
-            style={[styles.sortBtn, sort === s && styles.sortBtnActive]}
-            onPress={() => setSort(s)}
+      {/* Sort & Filter Row */}
+      <View style={styles.filterSortRow}>
+        {/* Sort Options - Left */}
+        <View style={styles.sortGroup}>
+          {(['newest', 'oldest', 'due_next'] as SortType[]).map((s) => (
+            <TouchableOpacity 
+              key={s}
+              style={[styles.sortBtn, sort === s && styles.sortBtnActive]}
+              onPress={() => setSort(s)}
+            >
+              <Text style={[styles.sortBtnText, sort === s && styles.sortBtnTextActive]}>
+                {s === 'newest' ? 'Newest' : s === 'oldest' ? 'Oldest' : 'Due Next'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        
+        {/* To Do / Done Toggle - Right */}
+        <View style={styles.toggleGroup}>
+          <TouchableOpacity
+            style={[styles.togglePill, filter === 'todo' && styles.togglePillActive]}
+            onPress={() => setFilter('todo')}
           >
-            <Text style={[styles.sortBtnText, sort === s && styles.sortBtnTextActive]}>
-              {s === 'newest' ? 'Newest' : s === 'oldest' ? 'Oldest' : 'Due Next'}
+            <Text style={[styles.toggleText, filter === 'todo' && styles.toggleTextActive]}>
+              {pendingCount} to do
             </Text>
           </TouchableOpacity>
-        ))}
+          <TouchableOpacity
+            style={[styles.togglePill, filter === 'done' && styles.togglePillDone]}
+            onPress={() => setFilter('done')}
+          >
+            <Text style={[styles.toggleText, filter === 'done' && styles.toggleTextActive]}>
+              {completedCount} done
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Todos List */}
@@ -639,12 +641,20 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
-  toggleRow: {
+  filterSortRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    gap: 8,
+  },
+  sortGroup: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  toggleGroup: {
+    flexDirection: 'row',
+    gap: 6,
   },
   togglePill: {
     paddingHorizontal: 10,
@@ -664,17 +674,6 @@ const styles = StyleSheet.create({
   },
   toggleTextActive: {
     color: '#fff',
-  },
-  sortRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 8,
-  },
-  sortLabel: {
-    fontSize: 13,
-    color: '#555',
   },
   sortBtn: {
     paddingHorizontal: 10,

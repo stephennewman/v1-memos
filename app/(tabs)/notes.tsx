@@ -22,7 +22,7 @@ type FilterType = 'all' | 'archived';
 export default function NotesScreen() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
-  
+
   const [notes, setNotes] = useState<VoiceNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -74,10 +74,10 @@ export default function NotesScreen() {
 
   const toggleArchive = async (note: VoiceNote) => {
     const newArchived = !note.is_archived;
-    
+
     // Optimistic update
     setNotes(prev => prev.filter(n => n.id !== note.id));
-    
+
     try {
       await supabase
         .from('voice_notes')
@@ -121,10 +121,10 @@ export default function NotesScreen() {
         style={styles.archiveBtn}
         onPress={() => toggleArchive(item)}
       >
-        <Ionicons 
-          name={item.is_archived ? "archive" : "archive-outline"} 
-          size={18} 
-          color="#555" 
+        <Ionicons
+          name={item.is_archived ? "archive" : "archive-outline"}
+          size={18}
+          color="#555"
         />
       </TouchableOpacity>
     </TouchableOpacity>
@@ -140,10 +140,10 @@ export default function NotesScreen() {
 
   return (
     <View style={styles.container}>
-      <TabHeader 
-        title="Notes" 
+      <TabHeader
+        title="Notes"
         subtitle={`${filteredNotes.length} note${filteredNotes.length !== 1 ? 's' : ''}`}
-        titleColor="#a78bfa" 
+        titleColor="#a78bfa"
       />
 
       {/* Search */}
@@ -201,8 +201,8 @@ export default function NotesScreen() {
           <EmptyState
             icon="document-text-outline"
             title={filter === 'archived' ? "No archived notes" : "No notes yet"}
-            description={filter === 'archived' 
-              ? "Archived notes will appear here" 
+            description={filter === 'archived'
+              ? "Archived notes will appear here"
               : "Notes extracted from your voice recordings will appear here"
             }
           />

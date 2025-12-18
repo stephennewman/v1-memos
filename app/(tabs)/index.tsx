@@ -517,7 +517,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <TabHeader title="Home" subtitle={formatDate()} titleColor="#c4dfc4" />
+      <TabHeader title="Home" subtitle={formatDate()} titleColor="#fff" />
       
       <ScrollView
         style={styles.content}
