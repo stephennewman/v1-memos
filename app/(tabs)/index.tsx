@@ -146,6 +146,53 @@ const AnimatedHomeTaskItem = ({
   );
 };
 
+// Toast component for undo
+const UndoToast = ({ 
+  visible, 
+  onUndo, 
+  onDismiss,
+}: { 
+  visible: boolean;
+  onUndo: () => void;
+  onDismiss: () => void;
+}) => {
+  const translateY = useRef(new Animated.Value(100)).current;
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 10,
+      }).start();
+
+      const timer = setTimeout(() => {
+        onDismiss();
+      }, 4000);
+      return () => clearTimeout(timer);
+    } else {
+      Animated.timing(translateY, {
+        toValue: 100,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View style={[styles.toast, { transform: [{ translateY }] }]}>
+      <Ionicons name="checkmark-circle" size={20} color="#4ade80" />
+      <Text style={styles.toastText}>Task completed</Text>
+      <TouchableOpacity onPress={onUndo} style={styles.toastBtn}>
+        <Text style={styles.toastBtnText}>Undo</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
 interface VoiceItem {
   id: string;
   summary: string;
@@ -178,6 +225,8 @@ export default function HomeScreen() {
   const [expandedVoice, setExpandedVoice] = useState<Set<string>>(new Set());
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const [taskView, setTaskView] = useState<'todo' | 'done'>('todo');
+  const [toastVisible, setToastVisible] = useState(false);
+  const [lastCompletedTask, setLastCompletedTask] = useState<TaskItem | null>(null);
 
   const toggleVoiceExpanded = (dateKey: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -380,6 +429,12 @@ export default function HomeScreen() {
   const toggleTask = useCallback(async (task: TaskItem) => {
     const newStatus = task.status === 'pending' ? 'completed' : 'pending';
     
+    // Show toast and store for undo when completing
+    if (newStatus === 'completed') {
+      setLastCompletedTask(task);
+      setToastVisible(true);
+    }
+    
     // Optimistic update
     setDayData(prev => prev.map(day => ({
       ...day,
@@ -413,6 +468,34 @@ export default function HomeScreen() {
       console.error('Error toggling task:', error);
     }
   }, []);
+  
+  const undoComplete = useCallback(async () => {
+    if (!lastCompletedTask) return;
+    
+    setToastVisible(false);
+    
+    // Revert UI
+    setDayData(prev => prev.map(day => ({
+      ...day,
+      tasks: day.tasks.map(t => 
+        t.id === lastCompletedTask.id ? { ...t, status: 'pending' } : t
+      ),
+    })));
+    
+    // Revert in DB
+    try {
+      await supabase
+        .from('voice_todos')
+        .update({ status: 'pending', completed_at: null })
+        .eq('id', lastCompletedTask.id);
+      
+      setTodayStats(prev => ({ ...prev, tasks: prev.tasks + 1, completed: prev.completed - 1 }));
+    } catch (error) {
+      console.error('Error undoing task:', error);
+    }
+    
+    setLastCompletedTask(null);
+  }, [lastCompletedTask]);
 
   const formatDate = () => {
     return new Date().toLocaleDateString('en-US', {
@@ -588,6 +671,13 @@ export default function HomeScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+      
+      {/* Undo Toast */}
+      <UndoToast
+        visible={toastVisible}
+        onUndo={undoComplete}
+        onDismiss={() => setToastVisible(false)}
+      />
     </View>
   );
 }
@@ -775,5 +865,39 @@ const styles = StyleSheet.create({
     left: 0,
     height: 2,
     backgroundColor: '#4ade80',
+  },
+  toast: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  toastText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 15,
+    marginLeft: 10,
+  },
+  toastBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  toastBtnText: {
+    color: '#4ade80',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
