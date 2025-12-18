@@ -41,7 +41,7 @@ export default function LibraryScreen() {
         .from('memo_topics')
         .select('*')
         .eq('user_id', userId)
-        .or('is_archived.is.null,is_archived.eq.false')
+        .neq('is_archived', true)
         .order('created_at', { ascending: false });
 
       console.log('[Library] Topics loaded:', data?.length || 0, 'error:', error?.message || 'none');
