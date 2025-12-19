@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -6,34 +6,55 @@ import {
   StyleSheet, 
   Animated,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const BAR_COUNT = 40;
+const BAR_WIDTH = 3;
+const BAR_GAP = 3;
+const MAX_BAR_HEIGHT = 120;
+const MIN_BAR_HEIGHT = 4;
+
 interface VoiceRecorderProps {
   onRecordingComplete: (uri: string, durationMs: number) => void;
   onCancel?: () => void;
-  maxDuration?: number; // seconds
-  autoStart?: boolean; // Start recording automatically
+  maxDuration?: number;
+  autoStart?: boolean;
 }
 
 export function VoiceRecorder({ 
   onRecordingComplete, 
   onCancel,
-  maxDuration = 1800, // 30 minutes default
+  maxDuration = 1800,
   autoStart = false,
 }: VoiceRecorderProps) {
-  // When autoStart is true, assume we're recording to prevent flash of green button
   const [isRecording, setIsRecording] = useState(autoStart);
   const [isInitializing, setIsInitializing] = useState(autoStart);
   const [duration, setDuration] = useState(0);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const meteringRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasAutoStartedRef = useRef(false);
+  
+  // Waveform data - array of heights for each bar
+  const [waveformData, setWaveformData] = useState<number[]>(
+    Array(BAR_COUNT).fill(MIN_BAR_HEIGHT)
+  );
+  
+  // Animated values for each bar
+  const barAnimations = useRef<Animated.Value[]>(
+    Array(BAR_COUNT).fill(null).map(() => new Animated.Value(MIN_BAR_HEIGHT))
+  ).current;
 
-  // Request permissions on mount and auto-start if requested
+  // Glow animation for the stop button
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  // Request permissions and auto-start
   useEffect(() => {
     let mounted = true;
     
@@ -55,67 +76,37 @@ export function VoiceRecorder({
         return;
       }
       
-      // Auto-start recording immediately after permission granted
       if (autoStart && !hasAutoStartedRef.current) {
         hasAutoStartedRef.current = true;
-        // Configure audio and start recording
-        try {
-          await Audio.setAudioModeAsync({
-            allowsRecordingIOS: true,
-            playsInSilentModeIOS: true,
-            staysActiveInBackground: false,
-          });
-
-          const { recording } = await Audio.Recording.createAsync(
-            Audio.RecordingOptionsPresets.HIGH_QUALITY
-          );
-          
-          if (!mounted) {
-            await recording.stopAndUnloadAsync();
-            return;
-          }
-          
-          recordingRef.current = recording;
-          setIsRecording(true);
-          setIsInitializing(false);
-          setDuration(0);
-
-          timerRef.current = setInterval(() => {
-            setDuration(d => d + 1);
-          }, 1000);
-        } catch (err) {
-          console.error('Auto-start recording failed:', err);
-          setIsRecording(false);
-          setIsInitializing(false);
-        }
+        await startRecordingInternal();
       }
     })();
     
     return () => { mounted = false; };
   }, [autoStart]);
 
-  // Pulse animation while recording
+  // Glow animation loop while recording
   useEffect(() => {
     if (isRecording) {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { 
-            toValue: 1.15, 
-            duration: 600, 
-            useNativeDriver: true 
+          Animated.timing(glowAnim, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: false,
           }),
-          Animated.timing(pulseAnim, { 
-            toValue: 1, 
-            duration: 600, 
-            useNativeDriver: true 
+          Animated.timing(glowAnim, {
+            toValue: 0,
+            duration: 1500,
+            useNativeDriver: false,
           }),
         ])
       ).start();
     } else {
-      pulseAnim.stopAnimation();
-      pulseAnim.setValue(1);
+      glowAnim.stopAnimation();
+      glowAnim.setValue(0);
     }
-  }, [isRecording, pulseAnim]);
+  }, [isRecording, glowAnim]);
 
   // Auto-stop at max duration
   useEffect(() => {
@@ -128,11 +119,92 @@ export function VoiceRecorder({
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (meteringRef.current) clearInterval(meteringRef.current);
       if (recordingRef.current) {
         recordingRef.current.stopAndUnloadAsync().catch(() => {});
       }
     };
   }, []);
+
+  // Update metering and animate bars
+  const updateMetering = useCallback(async () => {
+    if (!recordingRef.current) return;
+    
+    try {
+      const status = await recordingRef.current.getStatusAsync();
+      if (status.isRecording && status.metering !== undefined) {
+        // Metering is in dB, typically -160 to 0
+        // Convert to a 0-1 scale
+        const db = status.metering;
+        const normalized = Math.max(0, Math.min(1, (db + 60) / 60));
+        
+        // Add some randomization for visual interest
+        const baseHeight = MIN_BAR_HEIGHT + normalized * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT);
+        
+        setWaveformData(prev => {
+          const newData = [...prev];
+          // Shift all bars to the left
+          for (let i = 0; i < BAR_COUNT - 1; i++) {
+            newData[i] = prev[i + 1];
+          }
+          // Add new bar on the right with some variation
+          const variation = 0.7 + Math.random() * 0.6;
+          newData[BAR_COUNT - 1] = Math.max(MIN_BAR_HEIGHT, baseHeight * variation);
+          return newData;
+        });
+      }
+    } catch (e) {
+      // Ignore metering errors
+    }
+  }, []);
+
+  // Animate bars when waveform data changes
+  useEffect(() => {
+    waveformData.forEach((height, index) => {
+      Animated.spring(barAnimations[index], {
+        toValue: height,
+        friction: 8,
+        tension: 100,
+        useNativeDriver: false,
+      }).start();
+    });
+  }, [waveformData, barAnimations]);
+
+  const startRecordingInternal = async () => {
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
+
+      const { recording } = await Audio.Recording.createAsync(
+        {
+          ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+          isMeteringEnabled: true,
+        }
+      );
+      
+      recordingRef.current = recording;
+      setIsRecording(true);
+      setIsInitializing(false);
+      setDuration(0);
+
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setDuration(d => d + 1);
+      }, 1000);
+
+      // Start metering updates
+      meteringRef.current = setInterval(updateMetering, 50);
+
+    } catch (err) {
+      console.error('Failed to start recording:', err);
+      setIsRecording(false);
+      setIsInitializing(false);
+      Alert.alert('Recording Error', 'Failed to start recording. Please try again.');
+    }
+  };
 
   const startRecording = async () => {
     if (!permissionGranted) {
@@ -144,45 +216,22 @@ export function VoiceRecorder({
       setPermissionGranted(true);
     }
 
-    try {
-      // Configure audio mode
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-      });
-
-      // Create and start recording
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      
-      recordingRef.current = recording;
-      setIsRecording(true);
-      setDuration(0);
-
-      // Start timer
-      timerRef.current = setInterval(() => {
-        setDuration(d => d + 1);
-      }, 1000);
-
-    } catch (err) {
-      console.error('Failed to start recording:', err);
-      Alert.alert('Recording Error', 'Failed to start recording. Please try again.');
-    }
+    await startRecordingInternal();
   };
 
   const stopRecording = async () => {
     if (!recordingRef.current) return;
 
     try {
-      // Stop timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+      if (meteringRef.current) {
+        clearInterval(meteringRef.current);
+        meteringRef.current = null;
+      }
 
-      // Stop and get recording
       setIsRecording(false);
       await recordingRef.current.stopAndUnloadAsync();
       
@@ -191,13 +240,14 @@ export function VoiceRecorder({
       
       recordingRef.current = null;
 
-      // Reset audio mode
+      // Reset waveform
+      setWaveformData(Array(BAR_COUNT).fill(MIN_BAR_HEIGHT));
+
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
       });
 
-      // Only callback if we have valid audio
       if (uri && duration >= 1) {
         onRecordingComplete(uri, status.durationMillis || duration * 1000);
       } else if (duration < 1) {
@@ -214,9 +264,7 @@ export function VoiceRecorder({
     if (recordingRef.current) {
       try {
         await recordingRef.current.stopAndUnloadAsync();
-      } catch (e) {
-        // Ignore errors during cancel
-      }
+      } catch (e) {}
       recordingRef.current = null;
     }
     
@@ -224,9 +272,14 @@ export function VoiceRecorder({
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    if (meteringRef.current) {
+      clearInterval(meteringRef.current);
+      meteringRef.current = null;
+    }
     
     setIsRecording(false);
     setDuration(0);
+    setWaveformData(Array(BAR_COUNT).fill(MIN_BAR_HEIGHT));
     
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
@@ -242,55 +295,89 @@ export function VoiceRecorder({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = Math.min((duration / maxDuration) * 100, 100);
+  const glowOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.8],
+  });
+
+  const glowScale = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.15],
+  });
 
   return (
     <View style={styles.container}>
       {/* Timer */}
-      <Text style={styles.timer}>{formatTime(duration)}</Text>
-      
-      {/* Progress indicator */}
-      {isRecording && (
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
+      <View style={styles.timerContainer}>
+        {isRecording && (
+          <View style={styles.recordingBadge}>
+            <View style={styles.recordingDot} />
+            <Text style={styles.recordingLabel}>REC</Text>
+          </View>
+        )}
+        <Text style={styles.timer}>{formatTime(duration)}</Text>
+        <Text style={styles.maxDuration}>/ {formatTime(maxDuration)}</Text>
+      </View>
+
+      {/* Waveform Visualizer */}
+      <View style={styles.waveformContainer}>
+        <View style={styles.waveform}>
+          {barAnimations.map((anim, index) => (
+            <Animated.View
+              key={index}
+              style={[
+                styles.bar,
+                {
+                  height: anim,
+                  backgroundColor: isRecording 
+                    ? `rgba(196, 223, 196, ${0.4 + (index / BAR_COUNT) * 0.6})`
+                    : '#333',
+                },
+              ]}
+            />
+          ))}
         </View>
-      )}
+        
+        {/* Center line */}
+        <View style={styles.centerLine} />
+      </View>
 
-      {/* Record Button */}
-      <Animated.View 
-        style={[
-          styles.recordButtonOuter, 
-          { transform: [{ scale: pulseAnim }] }
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.recordButton, 
-            isRecording && styles.recordButtonActive
-          ]}
-          onPress={isRecording ? stopRecording : startRecording}
-          activeOpacity={0.8}
-        >
-          <Ionicons 
-            name={isRecording ? 'stop' : 'mic'} 
-            size={36} 
-            color={isRecording ? '#fff' : '#0a0a0a'} 
-          />
-        </TouchableOpacity>
-      </Animated.View>
+      {/* Stop/Start Button */}
+      <View style={styles.buttonContainer}>
+        {isRecording ? (
+          <TouchableOpacity
+            style={styles.stopButtonWrapper}
+            onPress={stopRecording}
+            activeOpacity={0.8}
+          >
+            <Animated.View
+              style={[
+                styles.stopButtonGlow,
+                {
+                  opacity: glowOpacity,
+                  transform: [{ scale: glowScale }],
+                },
+              ]}
+            />
+            <View style={styles.stopButton}>
+              <View style={styles.stopIcon} />
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.startButton}
+            onPress={startRecording}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="mic" size={32} color="#0a0a0a" />
+          </TouchableOpacity>
+        )}
+      </View>
 
-      {/* Hint Text */}
+      {/* Hint */}
       <Text style={styles.hint}>
-        {isInitializing ? 'Starting...' : isRecording ? 'Tap to stop' : 'Tap to record'}
+        {isInitializing ? 'Starting...' : isRecording ? 'Tap to stop recording' : 'Tap to start recording'}
       </Text>
-
-      {/* Recording indicator */}
-      {isRecording && (
-        <View style={styles.recordingIndicator}>
-          <View style={styles.recordingDot} />
-          <Text style={styles.recordingText}>Recording</Text>
-        </View>
-      )}
 
       {/* Cancel Button */}
       {onCancel && (
@@ -311,33 +398,110 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#0a0a0a',
-    padding: 40,
+    padding: 24,
+  },
+  timerContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 8,
+  },
+  recordingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 12,
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ef4444',
+    marginRight: 6,
+  },
+  recordingLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ef4444',
+    letterSpacing: 1,
   },
   timer: {
-    fontSize: 56,
+    fontSize: 48,
     fontWeight: '200',
     color: '#fff',
     fontVariant: ['tabular-nums'],
-    marginBottom: 16,
     letterSpacing: 2,
   },
-  progressContainer: {
-    width: '60%',
-    height: 3,
+  maxDuration: {
+    fontSize: 16,
+    color: '#444',
+    marginLeft: 8,
+    fontVariant: ['tabular-nums'],
+  },
+  waveformContainer: {
+    width: '100%',
+    height: 160,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 32,
+    position: 'relative',
+  },
+  waveform: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: MAX_BAR_HEIGHT,
+    gap: BAR_GAP,
+  },
+  bar: {
+    width: BAR_WIDTH,
+    borderRadius: BAR_WIDTH / 2,
+    minHeight: MIN_BAR_HEIGHT,
+  },
+  centerLine: {
+    position: 'absolute',
+    width: '100%',
+    height: 1,
     backgroundColor: '#222',
-    borderRadius: 2,
-    marginBottom: 40,
-    overflow: 'hidden',
   },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#c4dfc4',
-    borderRadius: 2,
-  },
-  recordButtonOuter: {
+  buttonContainer: {
     marginBottom: 24,
   },
-  recordButton: {
+  stopButtonWrapper: {
+    width: 88,
+    height: 88,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stopButtonGlow: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#ef4444',
+  },
+  stopButton: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#ef4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  stopIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  startButton: {
     width: 88,
     height: 88,
     borderRadius: 44,
@@ -350,31 +514,10 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
-  recordButtonActive: {
-    backgroundColor: '#ef4444',
-    shadowColor: '#ef4444',
-  },
   hint: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#666',
-    marginBottom: 24,
-  },
-  recordingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ef4444',
-    marginRight: 8,
-  },
-  recordingText: {
-    fontSize: 14,
-    color: '#ef4444',
-    fontWeight: '500',
+    marginBottom: 32,
   },
   cancelButton: {
     paddingHorizontal: 32,
@@ -385,4 +528,3 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-
