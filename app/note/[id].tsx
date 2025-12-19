@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#fff',
+    color: '#a78bfa',
   },
   deleteButton: {
     width: 44,
@@ -431,11 +431,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 10,
-    backgroundColor: '#c4dfc4',
+    backgroundColor: '#a78bfa',
     alignItems: 'center',
   },
   saveBtnText: {
-    color: '#0a0a0a',
+    color: '#fff',
     fontSize: 15,
     fontWeight: '600',
   },

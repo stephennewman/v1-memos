@@ -6,6 +6,7 @@ import { QuickTopicModal } from '@/components/QuickTopicModal';
 import { QuickNoteModal } from '@/components/QuickNoteModal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import { generateMemos } from '@/lib/api';
 
 interface CreateContextType {
   openCreateMenu: () => void;
@@ -109,7 +110,13 @@ export function CreateProvider({ children }: CreateProviderProps) {
     if (error) throw error;
     
     if (data?.id) {
+      // Navigate first, then generate memos in the background
       router.push(`/topic/${data.id}`);
+      
+      // Auto-generate initial memos for new topic (fire and forget)
+      generateMemos(data.id, 10).catch(err => {
+        console.error('Failed to auto-generate memos:', err);
+      });
     } else {
       router.push('/(tabs)/topics');
     }
