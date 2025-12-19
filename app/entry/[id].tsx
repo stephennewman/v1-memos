@@ -60,6 +60,10 @@ export default function EntryDetailScreen() {
   
   // Polling for processing updates
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  // Input refs for continuous entry
+  const taskInputRef = useRef<TextInput>(null);
+  const noteInputRef = useRef<TextInput>(null);
 
   const loadRelatedNotes = useCallback(async () => {
     if (!id || !user) return;
@@ -332,6 +336,11 @@ export default function EntryDetailScreen() {
       if (error) throw error;
       if (data) setTasks([...tasks, data]);
       setNewTaskText('');
+      
+      // Keep focus on input for continuous task entry
+      setTimeout(() => {
+        taskInputRef.current?.focus();
+      }, 50);
     } catch (error) {
       console.error('Error adding task:', error);
     }
@@ -369,6 +378,11 @@ export default function EntryDetailScreen() {
       if (error) throw error;
       if (data) setNotes([...notes, data]);
       setNewNoteText('');
+      
+      // Keep focus on input for continuous note entry
+      setTimeout(() => {
+        noteInputRef.current?.focus();
+      }, 50);
     } catch (error) {
       console.error('Error adding note:', error);
     }
@@ -619,13 +633,15 @@ export default function EntryDetailScreen() {
               {/* Add Task Input */}
               <View style={styles.addTaskContainer}>
                 <TextInput
+                  ref={taskInputRef}
                   style={styles.addTaskInput}
                   value={newTaskText}
                   onChangeText={setNewTaskText}
                   placeholder="Add a task..."
                   placeholderTextColor="#444"
                   onSubmitEditing={addTask}
-                  returnKeyType="done"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
                 />
                 <TouchableOpacity 
                   onPress={addTask} 
@@ -672,13 +688,15 @@ export default function EntryDetailScreen() {
               {/* Add Note Input */}
               <View style={styles.addTaskContainer}>
                 <TextInput
+                  ref={noteInputRef}
                   style={styles.addTaskInput}
                   value={newNoteText}
                   onChangeText={setNewNoteText}
                   placeholder="Add a note..."
                   placeholderTextColor="#444"
                   onSubmitEditing={addNote}
-                  returnKeyType="done"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
                 />
                 <TouchableOpacity 
                   onPress={addNote} 
