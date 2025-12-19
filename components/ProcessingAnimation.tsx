@@ -114,100 +114,103 @@ export function ProcessingAnimation({ step = 'Processing...' }: ProcessingAnimat
 
   return (
     <View style={styles.container}>
-      {/* Animated visualization */}
-      <View style={styles.visualizer}>
-        {/* Rotating outer ring */}
-        <Animated.View 
-          style={[
-            styles.outerRing,
-            { transform: [{ rotate: rotation }] }
-          ]}
-        >
-          {Array(8).fill(null).map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.ringDot,
-                {
-                  transform: [
-                    { rotate: `${i * 45}deg` },
-                    { translateY: -60 },
-                  ],
-                },
-              ]}
-            />
-          ))}
-        </Animated.View>
-
-        {/* Wave bars in circular pattern */}
-        <View style={styles.waveContainer}>
-          {waveAnims.map((anim, index) => {
-            const angle = (index / WAVE_BAR_COUNT) * 360;
-            const scaleY = anim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.4, 1],
-            });
-            
-            return (
-              <Animated.View
-                key={index}
+      {/* Centered content wrapper */}
+      <View style={styles.centeredContent}>
+        {/* Animated visualization */}
+        <View style={styles.visualizer}>
+          {/* Rotating outer ring */}
+          <Animated.View 
+            style={[
+              styles.outerRing,
+              { transform: [{ rotate: rotation }] }
+            ]}
+          >
+            {Array(8).fill(null).map((_, i) => (
+              <View
+                key={i}
                 style={[
-                  styles.waveBar,
+                  styles.ringDot,
                   {
                     transform: [
-                      { rotate: `${angle}deg` },
-                      { translateY: -35 },
-                      { scaleY },
+                      { rotate: `${i * 45}deg` },
+                      { translateY: -60 },
                     ],
                   },
                 ]}
               />
-            );
-          })}
+            ))}
+          </Animated.View>
+
+          {/* Wave bars in circular pattern */}
+          <View style={styles.waveContainer}>
+            {waveAnims.map((anim, index) => {
+              const angle = (index / WAVE_BAR_COUNT) * 360;
+              const scaleY = anim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.4, 1],
+              });
+              
+              return (
+                <Animated.View
+                  key={index}
+                  style={[
+                    styles.waveBar,
+                    {
+                      transform: [
+                        { rotate: `${angle}deg` },
+                        { translateY: -35 },
+                        { scaleY },
+                      ],
+                    },
+                  ]}
+                />
+              );
+            })}
+          </View>
+
+          {/* Pulsing center */}
+          <Animated.View
+            style={[
+              styles.centerPulse,
+              {
+                transform: [{ scale: pulseScale }],
+                opacity: pulseOpacity,
+              },
+            ]}
+          />
+          <View style={styles.centerCore} />
         </View>
 
-        {/* Pulsing center */}
-        <Animated.View
-          style={[
-            styles.centerPulse,
-            {
-              transform: [{ scale: pulseScale }],
-              opacity: pulseOpacity,
-            },
-          ]}
-        />
-        <View style={styles.centerCore} />
-      </View>
-
-      {/* Status text */}
-      <View style={styles.statusContainer}>
-        <Text style={styles.statusText}>{step}</Text>
-        <View style={styles.dotsContainer}>
-          {dotAnims.map((anim, index) => (
-            <Animated.View
-              key={index}
-              style={[
-                styles.dot,
-                {
-                  opacity: anim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.3, 1],
-                  }),
-                  transform: [{
-                    scale: anim.interpolate({
+        {/* Status text */}
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusText}>{step}</Text>
+          <View style={styles.dotsContainer}>
+            {dotAnims.map((anim, index) => (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.dot,
+                  {
+                    opacity: anim.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [0.8, 1.2],
+                      outputRange: [0.3, 1],
                     }),
-                  }],
-                },
-              ]}
-            />
-          ))}
+                    transform: [{
+                      scale: anim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.8, 1.2],
+                      }),
+                    }],
+                  },
+                ]}
+              />
+            ))}
+          </View>
         </View>
-      </View>
 
-      {/* Hint */}
-      <Text style={styles.hint}>This will only take a moment</Text>
+        {/* Hint */}
+        <Text style={styles.hint}>This will only take a moment</Text>
+      </View>
     </View>
   );
 }
@@ -218,14 +221,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#0a0a0a',
-    padding: 40,
+  },
+  centeredContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   visualizer: {
     width: 160,
     height: 160,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 40,
   },
   outerRing: {
     position: 'absolute',

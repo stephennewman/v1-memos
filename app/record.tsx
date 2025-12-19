@@ -101,11 +101,11 @@ export default function RecordScreen() {
       setCreatedEntryId(entry.id);
       setProcessingStep('Processing...');
 
-      // Navigate to entry detail page immediately (1-2 second delay for UX)
+      // Navigate to entry detail page after showing the animation
       // The detail page has skeleton loaders and polls for updates
       setTimeout(() => {
         router.replace(`/entry/${entry.id}`);
-      }, 1500);
+      }, 3000);
 
       // Start transcription in background (fire and forget)
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
