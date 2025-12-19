@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -27,6 +27,9 @@ import { useAuth } from '@/lib/auth-context';
 import { useCreate } from '@/lib/create-context';
 import EmptyState from '@/components/EmptyState';
 import { supabase } from '@/lib/supabase';
+import { TrackerRow } from '@/components/TrackerRow';
+import { DailyCard, ChallengeCard } from '@/components/DailyCard';
+import { getProfile, getTodayDailys, updateChallengeStatus, UserDaily, UserChallenge } from '@/lib/guy-talk';
 
 interface TaskItem {
   id: string;
@@ -34,14 +37,38 @@ interface TaskItem {
   status: 'pending' | 'completed';
   created_at: string;
   entry_id?: string;
+  due_date?: string;
 }
 
+// Format due date helper
+const formatDueDate = (dateStr?: string) => {
+  if (!dateStr) return null;
+
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) {
+    return { text: dateStr, color: '#666' };
+  }
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dueDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const diffMs = dueDate.getTime() - todayStart.getTime();
+  const diffDays = Math.round(diffMs / 86400000);
+
+  if (diffDays < 0) return { text: 'Overdue', color: '#ef4444' };
+  if (diffDays === 0) return { text: 'Today', color: '#fcd34d' };
+  if (diffDays === 1) return { text: 'Tomorrow', color: '#fb923c' };
+  if (diffDays <= 7) return { text: `${diffDays} days`, color: '#9ca3af' };
+  return { text: date.toLocaleDateString(), color: '#666' };
+};
+
 // Animated task item component for completion animation
-const AnimatedHomeTaskItem = ({ 
-  task, 
-  onComplete, 
-  onPress 
-}: { 
+const AnimatedHomeTaskItem = ({
+  task,
+  onComplete,
+  onPress
+}: {
   task: TaskItem;
   onComplete: (task: TaskItem) => void;
   onPress: (task: TaskItem) => void;
@@ -58,7 +85,7 @@ const AnimatedHomeTaskItem = ({
     }
 
     setIsCompleting(true);
-    
+
     // Animate green fill bar and strikethrough together
     Animated.parallel([
       Animated.timing(fillWidth, {
@@ -84,22 +111,23 @@ const AnimatedHomeTaskItem = ({
   };
 
   const isCompleted = task.status === 'completed';
+  const dueInfo = formatDueDate(task.due_date);
 
   return (
     <Animated.View style={[styles.animatedTaskContainer, { opacity }]}>
       {/* Green fill background */}
-      <Animated.View 
+      <Animated.View
         style={[
           styles.taskFillBar,
-          { 
+          {
             width: fillWidth.interpolate({
               inputRange: [0, 1],
               outputRange: ['0%', '100%'],
             }),
           }
-        ]} 
+        ]}
       />
-      
+
       <View style={styles.feedItem}>
         <TouchableOpacity
           style={styles.taskCheckArea}
@@ -116,27 +144,38 @@ const AnimatedHomeTaskItem = ({
           onPress={() => onPress(task)}
         >
           <View style={styles.taskTextWrapper}>
-            <Text 
-              style={[
-                styles.itemText,
-                isCompleted && styles.itemTextCompleted
-              ]} 
-              numberOfLines={1}
-            >
-              {task.text}
-            </Text>
+            <View style={styles.taskTextRow}>
+              <Text
+                style={[
+                  styles.itemText,
+                  isCompleted && styles.itemTextCompleted
+                ]}
+                numberOfLines={1}
+              >
+                {task.text}
+              </Text>
+              {/* Due date badge */}
+              {dueInfo && !isCompleted && (
+                <View style={[styles.dueBadge, { backgroundColor: dueInfo.color + '20' }]}>
+                  <Ionicons name="calendar-outline" size={10} color={dueInfo.color} />
+                  <Text style={[styles.dueText, { color: dueInfo.color }]}>
+                    {dueInfo.text}
+                  </Text>
+                </View>
+              )}
+            </View>
             {/* Strikethrough animation */}
             {!isCompleted && (
-              <Animated.View 
+              <Animated.View
                 style={[
                   styles.strikethroughLine,
-                  { 
+                  {
                     width: strikeWidth.interpolate({
                       inputRange: [0, 1],
                       outputRange: ['0%', '100%'],
                     }),
                   }
-                ]} 
+                ]}
               />
             )}
           </View>
@@ -147,11 +186,11 @@ const AnimatedHomeTaskItem = ({
 };
 
 // Toast component for undo
-const UndoToast = ({ 
-  visible, 
-  onUndo, 
+const UndoToast = ({
+  visible,
+  onUndo,
   onDismiss,
-}: { 
+}: {
   visible: boolean;
   onUndo: () => void;
   onDismiss: () => void;
@@ -225,8 +264,15 @@ export default function HomeScreen() {
   const [expandedVoice, setExpandedVoice] = useState<Set<string>>(new Set());
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const [taskView, setTaskView] = useState<'todo' | 'done'>('todo');
+  const [taskSort, setTaskSort] = useState<'newest' | 'oldest' | 'due_next'>('newest');
   const [toastVisible, setToastVisible] = useState(false);
   const [lastCompletedTask, setLastCompletedTask] = useState<TaskItem | null>(null);
+  
+  // Guy Talk state
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [dailys, setDailys] = useState<UserDaily[]>([]);
+  const [challenge, setChallenge] = useState<UserChallenge | null>(null);
+  const [userName, setUserName] = useState<string>('');
 
   const toggleVoiceExpanded = (dateKey: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -256,10 +302,10 @@ export default function HomeScreen() {
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true
     });
   };
 
@@ -299,7 +345,7 @@ export default function HomeScreen() {
       // Get tasks
       const { data: tasks } = await supabase
         .from('voice_todos')
-        .select('id, text, status, created_at, entry_id')
+        .select('id, text, status, created_at, entry_id, due_date')
         .eq('user_id', user.id)
         .gte('created_at', thirtyDaysAgoISO)
         .order('created_at', { ascending: false })
@@ -331,12 +377,12 @@ export default function HomeScreen() {
       (voiceNotes || []).forEach(v => {
         const key = getDateKey(v.created_at);
         if (!dayMap.has(key)) {
-          dayMap.set(key, { 
-            date: key, 
-            label: getDateLabel(v.created_at), 
-            voice: [], 
-            tasks: [], 
-            notes: [] 
+          dayMap.set(key, {
+            date: key,
+            label: getDateLabel(v.created_at),
+            voice: [],
+            tasks: [],
+            notes: []
           });
         }
         dayMap.get(key)!.voice.push(v);
@@ -346,12 +392,12 @@ export default function HomeScreen() {
       (tasks || []).forEach(t => {
         const key = getDateKey(t.created_at);
         if (!dayMap.has(key)) {
-          dayMap.set(key, { 
-            date: key, 
-            label: getDateLabel(t.created_at), 
-            voice: [], 
-            tasks: [], 
-            notes: [] 
+          dayMap.set(key, {
+            date: key,
+            label: getDateLabel(t.created_at),
+            voice: [],
+            tasks: [],
+            notes: []
           });
         }
         dayMap.get(key)!.tasks.push(t);
@@ -361,19 +407,19 @@ export default function HomeScreen() {
       (notes || []).forEach(n => {
         const key = getDateKey(n.created_at);
         if (!dayMap.has(key)) {
-          dayMap.set(key, { 
-            date: key, 
-            label: getDateLabel(n.created_at), 
-            voice: [], 
-            tasks: [], 
-            notes: [] 
+          dayMap.set(key, {
+            date: key,
+            label: getDateLabel(n.created_at),
+            voice: [],
+            tasks: [],
+            notes: []
           });
         }
         dayMap.get(key)!.notes.push(n);
       });
 
       // Sort days descending
-      const sortedDays = Array.from(dayMap.values()).sort((a, b) => 
+      const sortedDays = Array.from(dayMap.values()).sort((a, b) =>
         b.date.localeCompare(a.date)
       );
 
@@ -393,7 +439,7 @@ export default function HomeScreen() {
         .eq('status', 'completed')
         .gte('completed_at', todayISO);
 
-      const todayVoiceCount = (voiceNotes || []).filter(v => 
+      const todayVoiceCount = (voiceNotes || []).filter(v =>
         new Date(v.created_at) >= today
       ).length;
 
@@ -411,47 +457,83 @@ export default function HomeScreen() {
     }
   }, [user]);
 
+  // Load Guy Talk data (profile, dailys, challenge)
+  const loadGuyTalkData = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      // Check if onboarding is needed
+      const { profile, onboarding_required } = await getProfile();
+      setNeedsOnboarding(onboarding_required);
+      
+      if (profile) {
+        // Extract first name from profile or user email
+        const firstName = user.email?.split('@')[0] || 'there';
+        setUserName(firstName.charAt(0).toUpperCase() + firstName.slice(1));
+      }
+      
+      // Load dailys and challenge if onboarded
+      if (!onboarding_required) {
+        const { dailys: todayDailys, challenge: todayChallenge } = await getTodayDailys();
+        setDailys(todayDailys);
+        setChallenge(todayChallenge || null);
+      }
+    } catch (error) {
+      console.error('[Home] Error loading Guy Talk data:', error);
+    }
+  }, [user]);
+
   useFocusEffect(
     useCallback(() => {
       if (user && !authLoading) {
         loadData();
+        loadGuyTalkData();
       } else if (!authLoading && !user) {
         setIsLoading(false);
       }
-    }, [user, authLoading, loadData])
+    }, [user, authLoading, loadData, loadGuyTalkData])
   );
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     loadData();
-  }, [loadData]);
+    loadGuyTalkData();
+  }, [loadData, loadGuyTalkData]);
+  
+  const handleChallengeStatusChange = useCallback(async (status: 'accepted' | 'completed' | 'skipped') => {
+    if (!challenge) return;
+    const result = await updateChallengeStatus(challenge.id, status);
+    if (result.success) {
+      setChallenge(prev => prev ? { ...prev, status, streak_count: result.streak || prev.streak_count } : null);
+    }
+  }, [challenge]);
 
   const toggleTask = useCallback(async (task: TaskItem) => {
     const newStatus = task.status === 'pending' ? 'completed' : 'pending';
-    
+
     // Show toast and store for undo when completing
     if (newStatus === 'completed') {
       setLastCompletedTask(task);
       setToastVisible(true);
     }
-    
+
     // Optimistic update
     setDayData(prev => prev.map(day => ({
       ...day,
-      tasks: day.tasks.map(t => 
+      tasks: day.tasks.map(t =>
         t.id === task.id ? { ...t, status: newStatus } : t
       ),
     })));
-    
+
     try {
       await supabase
         .from('voice_todos')
-        .update({ 
-          status: newStatus, 
-          completed_at: newStatus === 'completed' ? new Date().toISOString() : null 
+        .update({
+          status: newStatus,
+          completed_at: newStatus === 'completed' ? new Date().toISOString() : null
         })
         .eq('id', task.id);
-      
+
       if (newStatus === 'completed') {
         setTodayStats(prev => ({ ...prev, tasks: prev.tasks - 1, completed: prev.completed + 1 }));
       } else {
@@ -461,39 +543,39 @@ export default function HomeScreen() {
       // Revert on error
       setDayData(prev => prev.map(day => ({
         ...day,
-        tasks: day.tasks.map(t => 
+        tasks: day.tasks.map(t =>
           t.id === task.id ? { ...t, status: task.status } : t
         ),
       })));
       console.error('Error toggling task:', error);
     }
   }, []);
-  
+
   const undoComplete = useCallback(async () => {
     if (!lastCompletedTask) return;
-    
+
     setToastVisible(false);
-    
+
     // Revert UI
     setDayData(prev => prev.map(day => ({
       ...day,
-      tasks: day.tasks.map(t => 
+      tasks: day.tasks.map(t =>
         t.id === lastCompletedTask.id ? { ...t, status: 'pending' } : t
       ),
     })));
-    
+
     // Revert in DB
     try {
       await supabase
         .from('voice_todos')
         .update({ status: 'pending', completed_at: null })
         .eq('id', lastCompletedTask.id);
-      
+
       setTodayStats(prev => ({ ...prev, tasks: prev.tasks + 1, completed: prev.completed - 1 }));
     } catch (error) {
       console.error('Error undoing task:', error);
     }
-    
+
     setLastCompletedTask(null);
   }, [lastCompletedTask]);
 
@@ -515,10 +597,17 @@ export default function HomeScreen() {
 
   const hasContent = dayData.some(d => d.voice.length > 0 || d.tasks.length > 0 || d.notes.length > 0);
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   return (
     <View style={styles.container}>
       <TabHeader title="Home" subtitle={formatDate()} titleColor="#fff" />
-      
+
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
@@ -531,6 +620,72 @@ export default function HomeScreen() {
           />
         }
       >
+        {/* Onboarding CTA if needed */}
+        {needsOnboarding && (
+          <TouchableOpacity 
+            style={styles.onboardingCard}
+            onPress={() => router.push('/onboarding')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.onboardingContent}>
+              <View style={styles.onboardingIcon}>
+                <Ionicons name="mic" size={24} color="#f97316" />
+              </View>
+              <View style={styles.onboardingText}>
+                <Text style={styles.onboardingTitle}>Tell me about yourself</Text>
+                <Text style={styles.onboardingSubtitle}>
+                  1-2 min voice intro to personalize your experience
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#666" />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Voice Prompt - Quick Capture */}
+        <TouchableOpacity 
+          style={styles.voicePromptCard}
+          onPress={openCreateMenu}
+          activeOpacity={0.8}
+        >
+          <View style={styles.voicePromptContent}>
+            <Ionicons name="mic-outline" size={24} color="#c4dfc4" />
+            <Text style={styles.voicePromptText}>What's on your mind?</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Trackers Row */}
+        {!needsOnboarding && <TrackerRow />}
+
+        {/* Daily Challenge */}
+        {!needsOnboarding && challenge && (
+          <ChallengeCard 
+            challenge={challenge}
+            onStatusChange={handleChallengeStatusChange}
+          />
+        )}
+
+        {/* Dailys (Personalized Content) */}
+        {!needsOnboarding && dailys.length > 0 && (
+          <View style={styles.dailysSection}>
+            <Text style={styles.dailysSectionTitle}>Today's Inspiration</Text>
+            {dailys.map((daily) => (
+              <DailyCard 
+                key={daily.id} 
+                daily={daily}
+                onEngagementChange={(updated) => {
+                  setDailys(prev => prev.map(d => d.id === updated.id ? updated : d));
+                }}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* Divider before tasks/notes */}
+        {!needsOnboarding && (dailys.length > 0 || challenge) && hasContent && (
+          <View style={styles.sectionDivider} />
+        )}
+
         {/* Day Sections */}
         {dayData.map((day) => {
           const hasVoice = day.voice.length > 0;
@@ -538,7 +693,7 @@ export default function HomeScreen() {
           const hasNotes = day.notes.length > 0;
           const todoTasks = day.tasks.filter(t => t.status === 'pending');
           const doneTasks = day.tasks.filter(t => t.status === 'completed');
-          
+
           if (!hasVoice && !hasTasks && !hasNotes) return null;
 
           return (
@@ -567,11 +722,42 @@ export default function HomeScreen() {
                   </View>
                 )}
               </View>
-              
+
+              {/* Sort options - only show for todo view with tasks */}
+              {hasTasks && taskView === 'todo' && todoTasks.length > 1 && (
+                <View style={styles.sortRow}>
+                  {(['newest', 'oldest', 'due_next'] as const).map((sortOption) => (
+                    <TouchableOpacity
+                      key={sortOption}
+                      style={[styles.sortPill, taskSort === sortOption && styles.sortPillActive]}
+                      onPress={() => setTaskSort(sortOption)}
+                    >
+                      <Text style={[styles.sortText, taskSort === sortOption && styles.sortTextActive]}>
+                        {sortOption === 'newest' ? 'Newest' : sortOption === 'oldest' ? 'Oldest' : 'Due Next'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
               {/* Task list - shown in both views */}
               {hasTasks && (
                 <View style={styles.typeSection}>
-                  {(taskView === 'todo' ? todoTasks : doneTasks).map((task) => (
+                  {(taskView === 'todo'
+                    ? [...todoTasks].sort((a, b) => {
+                      if (taskSort === 'newest') {
+                        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                      } else if (taskSort === 'oldest') {
+                        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                      } else {
+                        // due_next - tasks with due dates first, sorted by due date
+                        const aDue = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+                        const bDue = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+                        return aDue - bDue;
+                      }
+                    })
+                    : doneTasks
+                  ).map((task) => (
                     <AnimatedHomeTaskItem
                       key={task.id}
                       task={task}
@@ -590,14 +776,14 @@ export default function HomeScreen() {
               {/* Notes - Collapsible (only in to-do view) */}
               {taskView === 'todo' && hasNotes && (
                 <View style={styles.typeSection}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.collapsibleHeader}
                     onPress={() => toggleNotesExpanded(day.date)}
                   >
-                    <Ionicons 
-                      name={expandedNotes.has(day.date) ? "chevron-down" : "chevron-forward"} 
-                      size={16} 
-                      color="#666" 
+                    <Ionicons
+                      name={expandedNotes.has(day.date) ? "chevron-down" : "chevron-forward"}
+                      size={16}
+                      color="#666"
                     />
                     <Ionicons name="document-text-outline" size={14} color="#93c5fd" />
                     <Text style={styles.collapsibleLabel}>
@@ -622,14 +808,14 @@ export default function HomeScreen() {
               {/* Voice Notes - Collapsible (only in to-do view) */}
               {taskView === 'todo' && hasVoice && (
                 <View style={styles.typeSection}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.collapsibleHeader}
                     onPress={() => toggleVoiceExpanded(day.date)}
                   >
-                    <Ionicons 
-                      name={expandedVoice.has(day.date) ? "chevron-down" : "chevron-forward"} 
-                      size={16} 
-                      color="#666" 
+                    <Ionicons
+                      name={expandedVoice.has(day.date) ? "chevron-down" : "chevron-forward"}
+                      size={16}
+                      color="#666"
                     />
                     <Ionicons name="mic" size={14} color="#c4dfc4" />
                     <Text style={styles.collapsibleLabel}>
@@ -671,7 +857,7 @@ export default function HomeScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
-      
+
       {/* Undo Toast */}
       <UndoToast
         visible={toastVisible}
@@ -698,6 +884,74 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
+  },
+  // Guy Talk styles
+  onboardingCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#f9731640',
+  },
+  onboardingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  onboardingIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#f9731620',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  onboardingText: {
+    flex: 1,
+  },
+  onboardingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  onboardingSubtitle: {
+    fontSize: 13,
+    color: '#888',
+  },
+  voicePromptCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#c4dfc440',
+  },
+  voicePromptContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  voicePromptText: {
+    fontSize: 16,
+    color: '#888',
+  },
+  dailysSection: {
+    marginBottom: 16,
+  },
+  dailysSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#888',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#222',
+    marginVertical: 16,
   },
   statsRow: {
     flexDirection: 'row',
@@ -836,6 +1090,29 @@ const styles = StyleSheet.create({
   taskToggleTextActive: {
     color: '#fff',
   },
+  sortRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  sortPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#1a1a1a',
+  },
+  sortPillActive: {
+    backgroundColor: '#c4dfc4',
+  },
+  sortText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
+  },
+  sortTextActive: {
+    color: '#0a0a0a',
+  },
   emptyTaskText: {
     fontSize: 14,
     color: '#555',
@@ -858,6 +1135,23 @@ const styles = StyleSheet.create({
   },
   taskTextWrapper: {
     position: 'relative',
+  },
+  taskTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 3,
+  },
+  dueText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   strikethroughLine: {
     position: 'absolute',

@@ -34,16 +34,16 @@ export default function EntryDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  
+
   const [entry, setEntry] = useState<VoiceEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
-  
+
   // Tasks and Notes from database
   const [tasks, setTasks] = useState<VoiceTodo[]>([]);
   const [notes, setNotes] = useState<VoiceNoteType[]>([]);
-  
+
   // Editing states
   const [isEditingSummary, setIsEditingSummary] = useState(false);
   const [isEditingTranscript, setIsEditingTranscript] = useState(false);
@@ -51,23 +51,23 @@ export default function EntryDetailScreen() {
   const [editedTranscript, setEditedTranscript] = useState('');
   const [newTaskText, setNewTaskText] = useState('');
   const [newNoteText, setNewNoteText] = useState('');
-  
+
   // Related notes
   const [relatedNotes, setRelatedNotes] = useState<RelatedNote[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isReprocessing, setIsReprocessing] = useState(false);
-  
+
   // Polling for processing updates
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  
+
   // Input refs for continuous entry
   const taskInputRef = useRef<TextInput>(null);
   const noteInputRef = useRef<TextInput>(null);
 
   const loadRelatedNotes = useCallback(async () => {
     if (!id || !user) return;
-    
+
     setIsLoadingRelated(true);
     try {
       const response = await fetch(
@@ -116,7 +116,7 @@ export default function EntryDetailScreen() {
 
   const loadTasksAndNotes = async () => {
     if (!id) return;
-    
+
     try {
       // Load tasks from voice_todos
       const { data: tasksData } = await supabase
@@ -124,7 +124,7 @@ export default function EntryDetailScreen() {
         .select('*')
         .eq('entry_id', id)
         .order('created_at', { ascending: true });
-      
+
       if (tasksData) setTasks(tasksData);
 
       // Load notes from voice_notes
@@ -134,7 +134,7 @@ export default function EntryDetailScreen() {
         .eq('entry_id', id)
         .eq('is_archived', false)
         .order('created_at', { ascending: true });
-      
+
       if (notesData) setNotes(notesData);
     } catch (error) {
       console.error('Error loading tasks/notes:', error);
@@ -143,7 +143,7 @@ export default function EntryDetailScreen() {
 
   const loadEntry = async () => {
     if (!id) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('voice_entries')
@@ -235,7 +235,7 @@ export default function EntryDetailScreen() {
 
   const reprocessEntry = async () => {
     if (!entry || !user || isReprocessing) return;
-    
+
     Alert.alert(
       'Reprocess Entry',
       'This will re-analyze your recording with the latest AI models to extract updated insights, tasks, and analytics.',
@@ -251,11 +251,11 @@ export default function EntryDetailScreen() {
                 .from('voice_entries')
                 .update({ is_processed: false })
                 .eq('id', entry.id);
-              
+
               // Get session for auth
               const { data: { session } } = await supabase.auth.getSession();
               if (!session) throw new Error('No session');
-              
+
               // Call transcribe endpoint which will re-run extraction
               const response = await fetch(`${API_URL}/api/voice/transcribe`, {
                 method: 'POST',
@@ -268,15 +268,15 @@ export default function EntryDetailScreen() {
                   audio_url: entry.audio_url,
                 }),
               });
-              
+
               if (!response.ok) {
                 throw new Error('Failed to reprocess');
               }
-              
+
               // Reload entry to get updated data
               await loadEntry();
               await loadRelatedNotes();
-              
+
               Alert.alert('Success', 'Entry has been reprocessed with latest AI models');
             } catch (error) {
               console.error('Error reprocessing:', error);
@@ -320,7 +320,7 @@ export default function EntryDetailScreen() {
 
   const addTask = async () => {
     if (!entry || !user || !newTaskText.trim()) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('voice_todos')
@@ -332,11 +332,11 @@ export default function EntryDetailScreen() {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
       if (data) setTasks([...tasks, data]);
       setNewTaskText('');
-      
+
       // Keep focus on input for continuous task entry
       setTimeout(() => {
         taskInputRef.current?.focus();
@@ -352,7 +352,7 @@ export default function EntryDetailScreen() {
         .from('voice_todos')
         .delete()
         .eq('id', taskId);
-      
+
       if (error) throw error;
       setTasks(tasks.filter(t => t.id !== taskId));
     } catch (error) {
@@ -362,7 +362,7 @@ export default function EntryDetailScreen() {
 
   const addNote = async () => {
     if (!entry || !user || !newNoteText.trim()) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('voice_notes')
@@ -374,11 +374,11 @@ export default function EntryDetailScreen() {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
       if (data) setNotes([...notes, data]);
       setNewNoteText('');
-      
+
       // Keep focus on input for continuous note entry
       setTimeout(() => {
         noteInputRef.current?.focus();
@@ -394,7 +394,7 @@ export default function EntryDetailScreen() {
         .from('voice_notes')
         .delete()
         .eq('id', noteId);
-      
+
       if (error) throw error;
       setNotes(notes.filter(n => n.id !== noteId));
     } catch (error) {
@@ -442,7 +442,7 @@ export default function EntryDetailScreen() {
   const peopleList = entry.extracted_people || [];
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={[styles.container, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
@@ -452,8 +452,8 @@ export default function EntryDetailScreen() {
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerActions}>
-          <TouchableOpacity 
-            onPress={reprocessEntry} 
+          <TouchableOpacity
+            onPress={reprocessEntry}
             style={styles.actionButton}
             disabled={isReprocessing}
           >
@@ -469,8 +469,8 @@ export default function EntryDetailScreen() {
         </View>
       </View>
 
-      <ScrollView 
-        style={styles.content} 
+      <ScrollView
+        style={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -487,10 +487,10 @@ export default function EntryDetailScreen() {
         {entry.audio_url && (
           <View style={styles.audioPlayer}>
             <TouchableOpacity onPress={playAudio} style={styles.playButton}>
-              <Ionicons 
-                name={isPlaying ? 'pause' : 'play'} 
-                size={24} 
-                color="#0a0a0a" 
+              <Ionicons
+                name={isPlaying ? 'pause' : 'play'}
+                size={24}
+                color="#0a0a0a"
               />
             </TouchableOpacity>
             <View style={styles.audioInfo}>
@@ -589,7 +589,7 @@ export default function EntryDetailScreen() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>TASKS ({isProcessing ? '...' : todoCount})</Text>
           </View>
-          
+
           {isProcessing ? (
             <>
               <View style={styles.skeletonTask} />
@@ -598,15 +598,15 @@ export default function EntryDetailScreen() {
           ) : (
             <>
               {tasks.map((task) => (
-                <TouchableOpacity 
-                  key={task.id} 
+                <TouchableOpacity
+                  key={task.id}
                   style={styles.taskItem}
                   onPress={() => router.push(`/task/${task.id}`)}
                 >
-                  <Ionicons 
-                    name={task.status === 'completed' ? "checkbox" : "checkbox-outline"} 
-                    size={20} 
-                    color={task.status === 'completed' ? '#666' : '#c4dfc4'} 
+                  <Ionicons
+                    name={task.status === 'completed' ? "checkbox" : "checkbox-outline"}
+                    size={20}
+                    color={task.status === 'completed' ? '#666' : '#c4dfc4'}
                   />
                   <View style={styles.taskContent}>
                     <Text style={[
@@ -615,21 +615,21 @@ export default function EntryDetailScreen() {
                     ]}>{task.text}</Text>
                     {task.due_date && (
                       <Text style={styles.taskDue}>
-                        Due: {new Date(task.due_date).toLocaleDateString('en-US', { 
-                          month: 'short', day: 'numeric' 
+                        Due: {new Date(task.due_date).toLocaleDateString('en-US', {
+                          month: 'short', day: 'numeric'
                         })}
                       </Text>
                     )}
                   </View>
-                  <TouchableOpacity 
-                    onPress={(e) => { e.stopPropagation(); deleteTask(task.id); }} 
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation(); deleteTask(task.id); }}
                     style={styles.deleteTaskBtn}
                   >
                     <Ionicons name="close" size={18} color="#666" />
                   </TouchableOpacity>
                 </TouchableOpacity>
               ))}
-              
+
               {/* Add Task Input */}
               <View style={styles.addTaskContainer}>
                 <TextInput
@@ -643,8 +643,8 @@ export default function EntryDetailScreen() {
                   returnKeyType="next"
                   blurOnSubmit={false}
                 />
-                <TouchableOpacity 
-                  onPress={addTask} 
+                <TouchableOpacity
+                  onPress={addTask}
                   style={[styles.addTaskBtn, !newTaskText.trim() && styles.addTaskBtnDisabled]}
                   disabled={!newTaskText.trim()}
                 >
@@ -660,7 +660,7 @@ export default function EntryDetailScreen() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>NOTES ({isProcessing ? '...' : noteCount})</Text>
           </View>
-          
+
           {isProcessing ? (
             <>
               <View style={styles.skeletonNote} />
@@ -669,22 +669,22 @@ export default function EntryDetailScreen() {
           ) : (
             <>
               {notes.map((note) => (
-                <TouchableOpacity 
-                  key={note.id} 
+                <TouchableOpacity
+                  key={note.id}
                   style={styles.noteItem}
                   onPress={() => router.push(`/note/${note.id}`)}
                 >
                   <Ionicons name="document-text-outline" size={16} color="#93c5fd" />
                   <Text style={styles.noteText} numberOfLines={2}>{note.text}</Text>
-                  <TouchableOpacity 
-                    onPress={(e) => { e.stopPropagation(); deleteNote(note.id); }} 
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation(); deleteNote(note.id); }}
                     style={styles.deleteTaskBtn}
                   >
                     <Ionicons name="close" size={18} color="#666" />
                   </TouchableOpacity>
                 </TouchableOpacity>
               ))}
-              
+
               {/* Add Note Input */}
               <View style={styles.addTaskContainer}>
                 <TextInput
@@ -698,8 +698,8 @@ export default function EntryDetailScreen() {
                   returnKeyType="next"
                   blurOnSubmit={false}
                 />
-                <TouchableOpacity 
-                  onPress={addNote} 
+                <TouchableOpacity
+                  onPress={addNote}
                   style={[styles.addTaskBtn, !newNoteText.trim() && styles.addTaskBtnDisabled]}
                   disabled={!newNoteText.trim()}
                 >
@@ -715,7 +715,7 @@ export default function EntryDetailScreen() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>PEOPLE ({isProcessing ? '...' : peopleList.length})</Text>
           </View>
-          
+
           {isProcessing ? (
             <View style={styles.peopleSkeleton}>
               <View style={styles.skeletonBadge} />
@@ -724,8 +724,8 @@ export default function EntryDetailScreen() {
           ) : peopleList.length > 0 ? (
             <View style={styles.peopleContainer}>
               {peopleList.map((person, idx) => (
-                <TouchableOpacity 
-                  key={idx} 
+                <TouchableOpacity
+                  key={idx}
                   style={styles.personTag}
                   onPress={() => router.push(`/person/${encodeURIComponent(person)}`)}
                 >
@@ -746,7 +746,7 @@ export default function EntryDetailScreen() {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>RELATED NOTES</Text>
             </View>
-            
+
             {isLoadingRelated ? (
               <View style={styles.relatedSkeleton}>
                 <View style={styles.skeletonNote} />

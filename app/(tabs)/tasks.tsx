@@ -28,13 +28,13 @@ type FilterType = 'todo' | 'done';
 type SortType = 'newest' | 'oldest' | 'due_next';
 
 // Toast component
-const Toast = ({ 
-  visible, 
-  message, 
-  onUndo, 
+const Toast = ({
+  visible,
+  message,
+  onUndo,
   onView,
   onDismiss,
-}: { 
+}: {
   visible: boolean;
   message: string;
   onUndo: () => void;
@@ -82,12 +82,12 @@ const Toast = ({
 };
 
 // Swipeable task item with complete action
-const TaskItem = ({ 
-  item, 
-  onComplete, 
+const TaskItem = ({
+  item,
+  onComplete,
   onPress,
   onLongPress,
-}: { 
+}: {
   item: VoiceTodo;
   onComplete: (todo: VoiceTodo) => void;
   onPress: (todo: VoiceTodo) => void;
@@ -150,16 +150,16 @@ const TaskItem = ({
 
   const formatDueDate = (dateStr?: string) => {
     if (!dateStr) return null;
-    
+
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
       return { text: dateStr, color: '#666' };
     }
-    
+
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const dueDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
+
     const diffMs = dueDate.getTime() - todayStart.getTime();
     const diffDays = Math.round(diffMs / 86400000);
 
@@ -178,7 +178,7 @@ const TaskItem = ({
     }
 
     setIsCompleting(true);
-    
+
     // Animate strikethrough
     Animated.timing(strikeWidth, {
       toValue: 1,
@@ -213,62 +213,64 @@ const TaskItem = ({
         <Ionicons name="checkmark-circle" size={24} color="#fff" />
         <Text style={styles.swipeText}>Done</Text>
       </View>
-      
-      <Animated.View 
-        style={{ 
-          opacity, 
+
+      <Animated.View
+        style={{
+          opacity,
           transform: [{ scale }, { translateX }],
           backgroundColor: '#0a0a0a',
-        }} 
+        }}
         {...panResponder.panHandlers}
       >
         <TouchableOpacity
-        style={[styles.todoCard, isCompleted && styles.todoCardCompleted]}
-        onPress={() => onPress(item)}
-        onLongPress={() => onLongPress(item)}
-        activeOpacity={0.7}
-      >
-        <TouchableOpacity
-          style={[styles.checkbox, isCompleted && styles.checkboxChecked]}
-          onPress={handleComplete}
+          style={[styles.todoCard, isCompleted && styles.todoCardCompleted]}
+          onPress={() => onPress(item)}
+          onLongPress={() => onLongPress(item)}
+          activeOpacity={0.7}
         >
-          {isCompleted && (
-            <Ionicons name="checkmark" size={14} color="#0a0a0a" />
-          )}
-        </TouchableOpacity>
-        <View style={styles.todoContent}>
-          <View style={styles.textContainer}>
-            <Text 
-              style={[styles.todoText, isCompleted && styles.todoTextCompleted]}
-              numberOfLines={2}
-            >
-              {item.text}
-            </Text>
-            {!isCompleted && isCompleting && (
-              <Animated.View 
-                style={[
-                  styles.strikethrough,
-                  { 
-                    width: strikeWidth.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0%', '100%'],
-                    }),
-                  }
-                ]} 
-              />
+          <TouchableOpacity
+            style={[styles.checkbox, isCompleted && styles.checkboxChecked]}
+            onPress={handleComplete}
+          >
+            {isCompleted && (
+              <Ionicons name="checkmark" size={14} color="#0a0a0a" />
             )}
-          </View>
-          {dueInfo && (
-            <View style={styles.todoMeta}>
-              <Ionicons name="calendar-outline" size={12} color={dueInfo.color} />
-              <Text style={[styles.dueDate, { color: dueInfo.color }]}>
-                {dueInfo.text}
-              </Text>
+          </TouchableOpacity>
+          <View style={styles.todoContent}>
+            <View style={styles.textContainer}>
+              <View style={styles.textRow}>
+                <Text
+                  style={[styles.todoText, isCompleted && styles.todoTextCompleted]}
+                  numberOfLines={2}
+                >
+                  {item.text}
+                </Text>
+                {dueInfo && !isCompleted && (
+                  <View style={[styles.dueBadge, { backgroundColor: dueInfo.color + '20' }]}>
+                    <Ionicons name="calendar-outline" size={10} color={dueInfo.color} />
+                    <Text style={[styles.dueBadgeText, { color: dueInfo.color }]}>
+                      {dueInfo.text}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              {!isCompleted && isCompleting && (
+                <Animated.View
+                  style={[
+                    styles.strikethrough,
+                    {
+                      width: strikeWidth.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0%', '100%'],
+                      }),
+                    }
+                  ]}
+                />
+              )}
             </View>
-          )}
-        </View>
-        <Ionicons name="chevron-forward" size={16} color="#444" />
-      </TouchableOpacity>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color="#444" />
+        </TouchableOpacity>
       </Animated.View>
     </View>
   );
@@ -279,13 +281,13 @@ export default function TasksScreen() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const { openCreateMenu } = useCreate();
-  
+
   const [todos, setTodos] = useState<VoiceTodo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('todo');
   const [sort, setSort] = useState<SortType>('newest');
-  
+
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
   const [lastCompletedTodo, setLastCompletedTodo] = useState<VoiceTodo | null>(null);
@@ -305,10 +307,10 @@ export default function TasksScreen() {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
+
     const diffMs = today.getTime() - itemDate.getTime();
     const diffDays = Math.round(diffMs / 86400000);
-    
+
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return date.toLocaleDateString('en-US', { weekday: 'long' });
@@ -319,7 +321,7 @@ export default function TasksScreen() {
   const groupTodosByDate = (todos: VoiceTodo[]) => {
     const groups: { date: string; label: string; todos: VoiceTodo[] }[] = [];
     const groupMap = new Map<string, VoiceTodo[]>();
-    
+
     todos.forEach(todo => {
       const dateKey = new Date(todo.created_at).toDateString();
       if (!groupMap.has(dateKey)) {
@@ -327,7 +329,7 @@ export default function TasksScreen() {
       }
       groupMap.get(dateKey)!.push(todo);
     });
-    
+
     groupMap.forEach((todos, dateKey) => {
       groups.push({
         date: dateKey,
@@ -335,7 +337,7 @@ export default function TasksScreen() {
         todos,
       });
     });
-    
+
     return groups;
   };
 
@@ -396,11 +398,11 @@ export default function TasksScreen() {
 
   const completeTodo = async (todo: VoiceTodo) => {
     const newStatus: TodoStatus = todo.status === 'completed' ? 'pending' : 'completed';
-    
+
     try {
       const { error } = await supabase
         .from('voice_todos')
-        .update({ 
+        .update({
           status: newStatus,
           completed_at: newStatus === 'completed' ? new Date().toISOString() : null,
         })
@@ -416,8 +418,8 @@ export default function TasksScreen() {
         setToastVisible(true);
       } else {
         // Update in place for 'all' or 'completed' view, or when uncompleting
-        setTodos(prev => prev.map(t => 
-          t.id === todo.id 
+        setTodos(prev => prev.map(t =>
+          t.id === todo.id
             ? { ...t, status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : undefined }
             : t
         ));
@@ -430,7 +432,7 @@ export default function TasksScreen() {
 
   const undoComplete = async () => {
     if (!lastCompletedTodo) return;
-    
+
     try {
       const { error } = await supabase
         .from('voice_todos')
@@ -506,7 +508,7 @@ export default function TasksScreen() {
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
           </Text>
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.profileButton}
           onPress={() => router.push('/(tabs)/settings')}
         >
@@ -519,7 +521,7 @@ export default function TasksScreen() {
         {/* Sort Options - Left */}
         <View style={styles.sortGroup}>
           {(['newest', 'oldest', 'due_next'] as SortType[]).map((s) => (
-            <TouchableOpacity 
+            <TouchableOpacity
               key={s}
               style={[styles.sortBtn, sort === s && styles.sortBtnActive]}
               onPress={() => setSort(s)}
@@ -530,7 +532,7 @@ export default function TasksScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        
+
         {/* To Do / Done Toggle - Right */}
         <View style={styles.toggleGroup}>
           <TouchableOpacity
@@ -558,7 +560,7 @@ export default function TasksScreen() {
           icon={filter === 'todo' ? 'checkbox-outline' : 'checkmark-circle'}
           title={filter === 'todo' ? 'All done!' : 'No completed tasks yet'}
           description={
-            filter === 'todo' 
+            filter === 'todo'
               ? 'Great job! Record a voice note or add a task to get started'
               : 'Complete some tasks and they\'ll show up here'
           }
@@ -583,7 +585,7 @@ export default function TasksScreen() {
             <View key={group.date} style={styles.dateGroup}>
               <Text style={styles.dateGroupLabel}>{group.label}</Text>
               {group.todos.map((item) => (
-                <TaskItem 
+                <TaskItem
                   key={item.id}
                   item={item}
                   onComplete={completeTodo}
@@ -777,14 +779,23 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: '#c4dfc4',
   },
-  todoMeta: {
+  textRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    gap: 4,
+    gap: 8,
+    flexWrap: 'wrap',
   },
-  dueDate: {
-    fontSize: 12,
+  dueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 3,
+  },
+  dueBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   emptyState: {
     flex: 1,

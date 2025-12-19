@@ -10,6 +10,7 @@ export interface TabSettings {
   notes: boolean;
   insights: boolean;
   topics: boolean;
+  forms: boolean;
 }
 
 interface SettingsContextType {
@@ -25,6 +26,7 @@ const defaultTabs: TabSettings = {
   notes: true,
   insights: true,
   topics: true,
+  forms: true,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -64,7 +66,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     if (tabs[tab] && enabledCount <= 1) {
       return; // Don't allow disabling the last tab
     }
-    
+
     setTabs(prev => ({
       ...prev,
       [tab]: !prev[tab],

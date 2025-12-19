@@ -25,7 +25,7 @@ export default function RecordScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const params = useLocalSearchParams<{ type?: VoiceEntryType; autoStart?: string }>();
-  
+
   // Auto-start recording if param is passed
   const shouldAutoStart = params.autoStart === 'true';
   const [state, setState] = useState<RecordingState>('idle');
@@ -97,7 +97,7 @@ export default function RecordScreen() {
         .single();
 
       if (entryError) throw entryError;
-      
+
       setCreatedEntryId(entry.id);
       setProcessingStep('Processing...');
 
@@ -109,15 +109,15 @@ export default function RecordScreen() {
 
       // Start transcription in background (fire and forget)
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
-      
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         if (session && audioUrl) {
           // Don't await - let it run in background
           fetch(`${apiUrl}/api/voice/transcribe`, {
             method: 'POST',
-            headers: { 
+            headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${session.access_token}`,
             },
@@ -163,7 +163,7 @@ export default function RecordScreen() {
 
   if (state === 'recording') {
     const isPersonal = selectedType !== 'meeting';
-    
+
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         {/* Header */}
@@ -171,7 +171,7 @@ export default function RecordScreen() {
           <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
             <Ionicons name="close" size={24} color="#fff" />
           </TouchableOpacity>
-          
+
           {/* Type Toggle */}
           <View style={styles.typeToggle}>
             <TouchableOpacity
@@ -224,7 +224,7 @@ export default function RecordScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
       >
@@ -234,7 +234,7 @@ export default function RecordScreen() {
           {(Object.keys(ENTRY_TYPE_CONFIG) as VoiceEntryType[]).map((type) => {
             const config = ENTRY_TYPE_CONFIG[type];
             const isSelected = selectedType === type;
-            
+
             return (
               <TouchableOpacity
                 key={type}

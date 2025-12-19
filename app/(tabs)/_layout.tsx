@@ -125,6 +125,21 @@ function TabsContent() {
           }}
         />
 
+        {/* Forms - between Notes and Insights */}
+        <Tabs.Screen
+          name="forms"
+          options={{
+            href: tabs.forms ? '/forms' : null,
+            title: 'Forms',
+            tabBarIcon: ({ focused }) => (
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name="clipboard" size={22} color={focused ? '#f97316' : '#666'} />
+                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#f97316', marginTop: 2 }} />}
+              </View>
+            ),
+          }}
+        />
+
         {/* Insights / Analytics */}
         <Tabs.Screen
           name="insights"

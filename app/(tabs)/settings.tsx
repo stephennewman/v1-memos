@@ -69,10 +69,10 @@ export default function SettingsScreen() {
                     index < navigationItems.length - 1 && styles.navRowBorder,
                   ]}
                 >
-                  <Ionicons 
-                    name={item.icon as any} 
-                    size={20} 
-                    color={isEnabled ? '#c4dfc4' : '#444'} 
+                  <Ionicons
+                    name={item.icon as any}
+                    size={20}
+                    color={isEnabled ? '#c4dfc4' : '#444'}
                   />
                   <Text style={[
                     styles.navLabel,
@@ -115,15 +115,15 @@ export default function SettingsScreen() {
               <Text style={styles.rowValue}>{topicCount} / {MAX_FREE_TOPICS}</Text>
             </View>
             <View style={styles.progressBar}>
-              <View 
+              <View
                 style={[
-                  styles.progressFill, 
+                  styles.progressFill,
                   { width: `${(topicCount / MAX_FREE_TOPICS) * 100}%` }
-                ]} 
+                ]}
               />
             </View>
             <Text style={styles.usageHint}>
-              {topicCount >= MAX_FREE_TOPICS 
+              {topicCount >= MAX_FREE_TOPICS
                 ? 'Topic limit reached. More coming soon!'
                 : `${MAX_FREE_TOPICS - topicCount} topics remaining`
               }

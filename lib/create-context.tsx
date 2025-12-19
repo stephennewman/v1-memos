@@ -31,7 +31,7 @@ export function CreateProvider({ children }: CreateProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
-  
+
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
@@ -74,7 +74,7 @@ export function CreateProvider({ children }: CreateProviderProps) {
 
   const handleSaveTask = useCallback(async (text: string) => {
     if (!user) return;
-    
+
     const { data, error } = await (supabase as any)
       .from('voice_todos')
       .insert({
@@ -86,7 +86,7 @@ export function CreateProvider({ children }: CreateProviderProps) {
       .single();
 
     if (error) throw error;
-    
+
     if (data?.id) {
       router.push(`/task/${data.id}`);
     } else {
@@ -96,7 +96,7 @@ export function CreateProvider({ children }: CreateProviderProps) {
 
   const handleSaveTopic = useCallback(async (title: string, description: string) => {
     if (!user) return;
-    
+
     const { data, error } = await supabase
       .from('memo_topics')
       .insert({
@@ -108,11 +108,11 @@ export function CreateProvider({ children }: CreateProviderProps) {
       .single();
 
     if (error) throw error;
-    
+
     if (data?.id) {
       // Navigate first, then generate memos in the background
       router.push(`/topic/${data.id}`);
-      
+
       // Auto-generate initial memos for new topic (fire and forget)
       generateMemos(data.id, 10).catch(err => {
         console.error('Failed to auto-generate memos:', err);
@@ -124,7 +124,7 @@ export function CreateProvider({ children }: CreateProviderProps) {
 
   const handleSaveNote = useCallback(async (text: string) => {
     if (!user) return;
-    
+
     const { data, error } = await (supabase as any)
       .from('voice_notes')
       .insert({
@@ -135,7 +135,7 @@ export function CreateProvider({ children }: CreateProviderProps) {
       .single();
 
     if (error) throw error;
-    
+
     if (data?.id) {
       router.push(`/note/${data.id}`);
     } else {
@@ -146,7 +146,7 @@ export function CreateProvider({ children }: CreateProviderProps) {
   return (
     <CreateContext.Provider value={{ openCreateMenu, startVoiceRecording }}>
       {children}
-      
+
       {/* Quick Actions - context-aware buttons */}
       <QuickActions
         onVoice={handleVoicePress}
@@ -155,21 +155,21 @@ export function CreateProvider({ children }: CreateProviderProps) {
         onNote={handleNotePress}
         context={currentContext}
       />
-      
+
       {/* Quick Task Modal */}
       <QuickTaskModal
         visible={isTaskModalOpen}
         onClose={() => setIsTaskModalOpen(false)}
         onSave={handleSaveTask}
       />
-      
+
       {/* Quick Topic Modal */}
       <QuickTopicModal
         visible={isTopicModalOpen}
         onClose={() => setIsTopicModalOpen(false)}
         onSave={handleSaveTopic}
       />
-      
+
       {/* Quick Note Modal */}
       <QuickNoteModal
         visible={isNoteModalOpen}
