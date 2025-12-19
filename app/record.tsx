@@ -4,7 +4,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
   ScrollView,
 } from 'react-native';
@@ -15,6 +14,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
+import { ProcessingAnimation } from '@/components/ProcessingAnimation';
 import type { VoiceEntryType } from '@/lib/types';
 import { ENTRY_TYPE_CONFIG } from '@/lib/types';
 
@@ -155,10 +155,7 @@ export default function RecordScreen() {
   if (state === 'processing') {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.processingContainer}>
-          <ActivityIndicator size="large" color="#c4dfc4" />
-          <Text style={styles.processingText}>{processingStep}</Text>
-        </View>
+        <ProcessingAnimation step={processingStep} />
       </View>
     );
   }
@@ -415,17 +412,6 @@ const styles = StyleSheet.create({
     color: '#555',
     textAlign: 'center',
     lineHeight: 20,
-  },
-  processingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  processingText: {
-    fontSize: 16,
-    color: '#888',
-    marginTop: 16,
   },
 });
 
