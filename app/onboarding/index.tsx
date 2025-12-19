@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAuth } from '@/lib/auth-context';
+import { useOnboarding } from '@/lib/onboarding-context';
 import { submitOnboarding, TransformationProfile, DAILY_CATEGORIES } from '@/lib/guy-talk';
 
 type OnboardingStep = 'intro' | 'recording' | 'processing' | 'review' | 'categories' | 'complete';
@@ -21,6 +22,7 @@ type OnboardingStep = 'intro' | 'recording' | 'processing' | 'review' | 'categor
 export default function OnboardingScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { completeOnboarding: markOnboardingComplete } = useOnboarding();
   
   const [step, setStep] = useState<OnboardingStep>('intro');
   const [isRecording, setIsRecording] = useState(false);
@@ -141,8 +143,8 @@ export default function OnboardingScreen() {
   };
 
   const completeOnboarding = () => {
-    // Update profile with selected categories if changed
-    // For now, just navigate to main app
+    // Mark onboarding as complete in context
+    markOnboardingComplete();
     setStep('complete');
     setTimeout(() => {
       router.replace('/(tabs)');

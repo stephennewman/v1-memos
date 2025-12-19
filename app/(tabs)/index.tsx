@@ -29,7 +29,7 @@ import EmptyState from '@/components/EmptyState';
 import { supabase } from '@/lib/supabase';
 import { TrackerRow } from '@/components/TrackerRow';
 import { DailyCard, ChallengeCard } from '@/components/DailyCard';
-import { getProfile, getTodayDailys, updateChallengeStatus, UserDaily, UserChallenge } from '@/lib/guy-talk';
+import { getTodayDailys, updateChallengeStatus, UserDaily, UserChallenge } from '@/lib/guy-talk';
 
 interface TaskItem {
   id: string;
@@ -269,10 +269,8 @@ export default function HomeScreen() {
   const [lastCompletedTask, setLastCompletedTask] = useState<TaskItem | null>(null);
   
   // Guy Talk state
-  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [dailys, setDailys] = useState<UserDaily[]>([]);
   const [challenge, setChallenge] = useState<UserChallenge | null>(null);
-  const [userName, setUserName] = useState<string>('');
 
   const toggleVoiceExpanded = (dateKey: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -457,27 +455,15 @@ export default function HomeScreen() {
     }
   }, [user]);
 
-  // Load Guy Talk data (profile, dailys, challenge)
+  // Load Guy Talk data (dailys, challenge)
   const loadGuyTalkData = useCallback(async () => {
     if (!user) return;
     
     try {
-      // Check if onboarding is needed
-      const { profile, onboarding_required } = await getProfile();
-      setNeedsOnboarding(onboarding_required);
-      
-      if (profile) {
-        // Extract first name from profile or user email
-        const firstName = user.email?.split('@')[0] || 'there';
-        setUserName(firstName.charAt(0).toUpperCase() + firstName.slice(1));
-      }
-      
-      // Load dailys and challenge if onboarded
-      if (!onboarding_required) {
-        const { dailys: todayDailys, challenge: todayChallenge } = await getTodayDailys();
-        setDailys(todayDailys);
-        setChallenge(todayChallenge || null);
-      }
+      // Load dailys and challenge (onboarding is already required at app level)
+      const { dailys: todayDailys, challenge: todayChallenge } = await getTodayDailys();
+      setDailys(todayDailys);
+      setChallenge(todayChallenge || null);
     } catch (error) {
       console.error('[Home] Error loading Guy Talk data:', error);
     }
@@ -597,13 +583,6 @@ export default function HomeScreen() {
 
   const hasContent = dayData.some(d => d.voice.length > 0 || d.tasks.length > 0 || d.notes.length > 0);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
-
   return (
     <View style={styles.container}>
       <TabHeader title="Home" subtitle={formatDate()} titleColor="#fff" />
@@ -620,28 +599,6 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Onboarding CTA if needed */}
-        {needsOnboarding && (
-          <TouchableOpacity 
-            style={styles.onboardingCard}
-            onPress={() => router.push('/onboarding')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.onboardingContent}>
-              <View style={styles.onboardingIcon}>
-                <Ionicons name="mic" size={24} color="#f97316" />
-              </View>
-              <View style={styles.onboardingText}>
-                <Text style={styles.onboardingTitle}>Tell me about yourself</Text>
-                <Text style={styles.onboardingSubtitle}>
-                  1-2 min voice intro to personalize your experience
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#666" />
-            </View>
-          </TouchableOpacity>
-        )}
-
         {/* Voice Prompt - Quick Capture */}
         <TouchableOpacity 
           style={styles.voicePromptCard}
@@ -655,10 +612,10 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* Trackers Row */}
-        {!needsOnboarding && <TrackerRow />}
+        <TrackerRow />
 
         {/* Daily Challenge */}
-        {!needsOnboarding && challenge && (
+        {challenge && (
           <ChallengeCard 
             challenge={challenge}
             onStatusChange={handleChallengeStatusChange}
@@ -666,7 +623,7 @@ export default function HomeScreen() {
         )}
 
         {/* Dailys (Personalized Content) */}
-        {!needsOnboarding && dailys.length > 0 && (
+        {dailys.length > 0 && (
           <View style={styles.dailysSection}>
             <Text style={styles.dailysSectionTitle}>Today's Inspiration</Text>
             {dailys.map((daily) => (
@@ -682,7 +639,7 @@ export default function HomeScreen() {
         )}
 
         {/* Divider before tasks/notes */}
-        {!needsOnboarding && (dailys.length > 0 || challenge) && hasContent && (
+        {(dailys.length > 0 || challenge) && hasContent && (
           <View style={styles.sectionDivider} />
         )}
 
@@ -886,40 +843,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   // Guy Talk styles
-  onboardingCard: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#f9731640',
-  },
-  onboardingContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  onboardingIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f9731620',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  onboardingText: {
-    flex: 1,
-  },
-  onboardingTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  onboardingSubtitle: {
-    fontSize: 13,
-    color: '#888',
-  },
   voicePromptCard: {
     backgroundColor: '#1a1a1a',
     borderRadius: 12,
