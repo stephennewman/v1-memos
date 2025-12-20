@@ -27,9 +27,6 @@ import { useAuth } from '@/lib/auth-context';
 import { useCreate } from '@/lib/create-context';
 import EmptyState from '@/components/EmptyState';
 import { supabase } from '@/lib/supabase';
-import { TrackerRow } from '@/components/TrackerRow';
-import { DailyCard, ChallengeCard } from '@/components/DailyCard';
-import { getTodayDailys, updateChallengeStatus, getNewChallenge, UserDaily, UserChallenge } from '@/lib/guy-talk';
 
 interface TaskItem {
   id: string;
@@ -268,9 +265,6 @@ export default function HomeScreen() {
   const [toastVisible, setToastVisible] = useState(false);
   const [lastCompletedTask, setLastCompletedTask] = useState<TaskItem | null>(null);
   
-  // Guy Talk state
-  const [dailys, setDailys] = useState<UserDaily[]>([]);
-  const [challenge, setChallenge] = useState<UserChallenge | null>(null);
 
   const toggleVoiceExpanded = (dateKey: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -455,64 +449,20 @@ export default function HomeScreen() {
     }
   }, [user]);
 
-  // Load Guy Talk data (dailys, challenge)
-  const loadGuyTalkData = useCallback(async () => {
-    if (!user) return;
-    
-    try {
-      // Load dailys and challenge (onboarding is already required at app level)
-      const { dailys: todayDailys, challenge: todayChallenge } = await getTodayDailys();
-      setDailys(todayDailys);
-      // Only show challenges that haven't been skipped or completed
-      const showableChallenge = todayChallenge && 
-        !['skipped', 'completed'].includes(todayChallenge.status) 
-        ? todayChallenge 
-        : null;
-      setChallenge(showableChallenge);
-    } catch (error) {
-      console.error('[Home] Error loading Guy Talk data:', error);
-    }
-  }, [user]);
-
   useFocusEffect(
     useCallback(() => {
       if (user && !authLoading) {
         loadData();
-        loadGuyTalkData();
       } else if (!authLoading && !user) {
         setIsLoading(false);
       }
-    }, [user, authLoading, loadData, loadGuyTalkData])
+    }, [user, authLoading, loadData])
   );
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     loadData();
-    loadGuyTalkData();
-  }, [loadData, loadGuyTalkData]);
-  
-  const handleChallengeStatusChange = useCallback(async (status: 'accepted' | 'completed' | 'skipped') => {
-    if (!challenge) return;
-    const result = await updateChallengeStatus(challenge.id, status);
-    if (result.success) {
-      setChallenge(prev => prev ? { ...prev, status, streak_count: result.streak || prev.streak_count } : null);
-    }
-  }, [challenge]);
-
-  const handleRequestNewChallenge = useCallback(async () => {
-    const result = await getNewChallenge();
-    if (result.success && result.challenge) {
-      setChallenge(result.challenge);
-    }
-  }, []);
-
-  const handleDismissChallenge = useCallback(async () => {
-    if (challenge) {
-      // Mark as skipped in the backend so it doesn't come back
-      await updateChallengeStatus(challenge.id, 'skipped');
-    }
-    setChallenge(null);
-  }, [challenge]);
+  }, [loadData]);
 
   const toggleTask = useCallback(async (task: TaskItem) => {
     const newStatus = task.status === 'pending' ? 'completed' : 'pending';
@@ -619,39 +569,6 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Trackers Row */}
-        <TrackerRow />
-
-        {/* Daily Challenge */}
-        {challenge && (
-          <ChallengeCard 
-            challenge={challenge}
-            onStatusChange={handleChallengeStatusChange}
-            onRequestNew={handleRequestNewChallenge}
-            onDismiss={handleDismissChallenge}
-          />
-        )}
-
-        {/* Dailys (Personalized Content) */}
-        {dailys.filter(d => !d.dismissed).length > 0 && (
-          <View style={styles.dailysSection}>
-            {dailys.map((daily) => (
-              <DailyCard 
-                key={daily.id} 
-                daily={daily}
-                onEngagementChange={(updated) => {
-                  setDailys(prev => prev.map(d => d.id === updated.id ? updated : d));
-                }}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* Divider before tasks/notes - only if Guy Talk content is visible */}
-        {(dailys.filter(d => !d.dismissed).length > 0 || challenge) && hasContent && (
-          <View style={styles.sectionDivider} />
-        )}
-
         {/* Day Sections */}
         {dayData.map((day) => {
           const hasVoice = day.voice.length > 0;
@@ -845,15 +762,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-  },
-  // Guy Talk styles
-  dailysSection: {
-    marginBottom: 16,
-  },
-  sectionDivider: {
-    height: 1,
-    backgroundColor: '#222',
-    marginVertical: 16,
   },
   statsRow: {
     flexDirection: 'row',
