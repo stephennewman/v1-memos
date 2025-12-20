@@ -579,14 +579,14 @@ export default function HomeScreen() {
 
       if (error) throw error;
 
-      // Add to today's data
+      // Add to today's data (at the end, near the input)
       const todayKey = getDateKey(new Date().toISOString());
       setDayData(prev => {
         const existing = prev.find(d => d.date === todayKey);
         if (existing) {
           return prev.map(d => 
             d.date === todayKey 
-              ? { ...d, tasks: [data, ...d.tasks] }
+              ? { ...d, tasks: [...d.tasks, data] }
               : d
           );
         } else {
@@ -633,14 +633,14 @@ export default function HomeScreen() {
 
       if (error) throw error;
 
-      // Add to today's data
+      // Add to today's data (at the end, near the input)
       const todayKey = getDateKey(new Date().toISOString());
       setDayData(prev => {
         const existing = prev.find(d => d.date === todayKey);
         if (existing) {
           return prev.map(d => 
             d.date === todayKey 
-              ? { ...d, notes: [data, ...d.notes] }
+              ? { ...d, notes: [...d.notes, data] }
               : d
           );
         } else {
@@ -1128,9 +1128,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#1a1a1a',
-    marginTop: 4,
   },
   inlineAddIcon: {
     marginRight: 8,
