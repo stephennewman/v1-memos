@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, RefObject } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,6 +12,8 @@ import {
   UIManager,
   Animated,
   Dimensions,
+  TextInput,
+  Keyboard,
 } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -266,6 +268,13 @@ export default function HomeScreen() {
   const [toastVisible, setToastVisible] = useState(false);
   const [lastCompletedTask, setLastCompletedTask] = useState<TaskItem | null>(null);
   
+  // Inline add state
+  const [inlineTaskText, setInlineTaskText] = useState('');
+  const [inlineNoteText, setInlineNoteText] = useState('');
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const taskInputRef = useRef<TextInput>(null);
+  const noteInputRef = useRef<TextInput>(null);
 
   const toggleVoiceExpanded = (dateKey: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -549,6 +558,112 @@ export default function HomeScreen() {
     setLastCompletedTask(null);
   }, [lastCompletedTask]);
 
+  // Inline add task
+  const handleAddTaskInline = useCallback(async () => {
+    if (!inlineTaskText.trim() || !user || isAddingTask) return;
+
+    setIsAddingTask(true);
+    const taskText = inlineTaskText.trim();
+    setInlineTaskText('');
+
+    try {
+      const { data, error } = await supabase
+        .from('voice_todos')
+        .insert({
+          user_id: user.id,
+          text: taskText,
+          status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add to today's data
+      const todayKey = getDateKey(new Date().toISOString());
+      setDayData(prev => {
+        const existing = prev.find(d => d.date === todayKey);
+        if (existing) {
+          return prev.map(d => 
+            d.date === todayKey 
+              ? { ...d, tasks: [data, ...d.tasks] }
+              : d
+          );
+        } else {
+          return [{
+            date: todayKey,
+            label: 'Today',
+            voice: [],
+            tasks: [data],
+            notes: [],
+          }, ...prev];
+        }
+      });
+
+      setTodayStats(prev => ({ ...prev, tasks: prev.tasks + 1 }));
+      
+      // Keep focus for adding more
+      taskInputRef.current?.focus();
+    } catch (error) {
+      console.error('Error adding task:', error);
+      setInlineTaskText(taskText); // Restore text on error
+    } finally {
+      setIsAddingTask(false);
+    }
+  }, [inlineTaskText, user, isAddingTask]);
+
+  // Inline add note
+  const handleAddNoteInline = useCallback(async () => {
+    if (!inlineNoteText.trim() || !user || isAddingNote) return;
+
+    setIsAddingNote(true);
+    const noteText = inlineNoteText.trim();
+    setInlineNoteText('');
+
+    try {
+      const { data, error } = await supabase
+        .from('voice_notes')
+        .insert({
+          user_id: user.id,
+          text: noteText,
+          is_archived: false,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add to today's data
+      const todayKey = getDateKey(new Date().toISOString());
+      setDayData(prev => {
+        const existing = prev.find(d => d.date === todayKey);
+        if (existing) {
+          return prev.map(d => 
+            d.date === todayKey 
+              ? { ...d, notes: [data, ...d.notes] }
+              : d
+          );
+        } else {
+          return [{
+            date: todayKey,
+            label: 'Today',
+            voice: [],
+            tasks: [],
+            notes: [data],
+          }, ...prev];
+        }
+      });
+      
+      // Keep focus for adding more
+      noteInputRef.current?.focus();
+    } catch (error) {
+      console.error('Error adding note:', error);
+      setInlineNoteText(noteText); // Restore text on error
+    } finally {
+      setIsAddingNote(false);
+    }
+  }, [inlineNoteText, user, isAddingNote]);
+
   const formatDate = () => {
     return new Date().toLocaleDateString('en-US', {
       weekday: 'long',
@@ -676,6 +791,35 @@ export default function HomeScreen() {
                           {taskView === 'todo' ? 'All done!' : 'No completed tasks yet'}
                         </Text>
                       )}
+                      {/* Inline Add Task */}
+                      {taskView === 'todo' && day.label === 'Today' && (
+                        <View style={styles.inlineAddRow}>
+                          <Ionicons name="add" size={18} color="#3b82f6" style={styles.inlineAddIcon} />
+                          <TextInput
+                            ref={taskInputRef}
+                            style={styles.inlineAddInput}
+                            placeholder="Add task..."
+                            placeholderTextColor="#555"
+                            value={inlineTaskText}
+                            onChangeText={setInlineTaskText}
+                            onSubmitEditing={handleAddTaskInline}
+                            returnKeyType="done"
+                            blurOnSubmit={false}
+                            editable={!isAddingTask}
+                          />
+                          {inlineTaskText.trim() && (
+                            <TouchableOpacity 
+                              onPress={handleAddTaskInline}
+                              style={styles.inlineAddButton}
+                              disabled={isAddingTask}
+                            >
+                              <Text style={styles.inlineAddButtonText}>
+                                {isAddingTask ? '...' : 'Add'}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      )}
                     </>
                   )}
                 </View>
@@ -698,18 +842,51 @@ export default function HomeScreen() {
                       {day.notes.length} note{day.notes.length !== 1 ? 's' : ''}
                     </Text>
                   </TouchableOpacity>
-                  {expandedNotes.has(day.date) && day.notes.map((note) => (
-                    <TouchableOpacity
-                      key={note.id}
-                      style={styles.noteItem}
-                      onPress={() => router.push(`/note/${note.id}`)}
-                    >
-                      <View style={styles.noteIconWrapper}>
-                        <Ionicons name="document-text-outline" size={18} color="#93c5fd" />
-                      </View>
-                      <Text style={styles.noteText}>{note.text}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {expandedNotes.has(day.date) && (
+                    <>
+                      {day.notes.map((note) => (
+                        <TouchableOpacity
+                          key={note.id}
+                          style={styles.noteItem}
+                          onPress={() => router.push(`/note/${note.id}`)}
+                        >
+                          <View style={styles.noteIconWrapper}>
+                            <Ionicons name="document-text-outline" size={18} color="#93c5fd" />
+                          </View>
+                          <Text style={styles.noteText}>{note.text}</Text>
+                        </TouchableOpacity>
+                      ))}
+                      {/* Inline Add Note */}
+                      {day.label === 'Today' && (
+                        <View style={styles.inlineAddRow}>
+                          <Ionicons name="add" size={18} color="#93c5fd" style={styles.inlineAddIcon} />
+                          <TextInput
+                            ref={noteInputRef}
+                            style={styles.inlineAddInput}
+                            placeholder="Add note..."
+                            placeholderTextColor="#555"
+                            value={inlineNoteText}
+                            onChangeText={setInlineNoteText}
+                            onSubmitEditing={handleAddNoteInline}
+                            returnKeyType="done"
+                            blurOnSubmit={false}
+                            editable={!isAddingNote}
+                          />
+                          {inlineNoteText.trim() && (
+                            <TouchableOpacity 
+                              onPress={handleAddNoteInline}
+                              style={[styles.inlineAddButton, { backgroundColor: '#93c5fd20' }]}
+                              disabled={isAddingNote}
+                            >
+                              <Text style={[styles.inlineAddButtonText, { color: '#93c5fd' }]}>
+                                {isAddingNote ? '...' : 'Add'}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      )}
+                    </>
+                  )}
                 </View>
               )}
 
@@ -945,6 +1122,37 @@ const styles = StyleSheet.create({
     color: '#555',
     fontStyle: 'italic',
     paddingVertical: 12,
+  },
+  inlineAddRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#1a1a1a',
+    marginTop: 4,
+  },
+  inlineAddIcon: {
+    marginRight: 8,
+    opacity: 0.7,
+  },
+  inlineAddInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#ddd',
+    padding: 0,
+  },
+  inlineAddButton: {
+    backgroundColor: '#3b82f620',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  inlineAddButtonText: {
+    color: '#3b82f6',
+    fontSize: 13,
+    fontWeight: '600',
   },
   animatedTaskContainer: {
     position: 'relative',
