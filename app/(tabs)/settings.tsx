@@ -12,30 +12,34 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth, MAX_FREE_TOPICS } from '@/lib/auth-context';
-import { useSettings, TabSettings, ButtonSettings } from '@/lib/settings-context';
+import { useSettings, TabSettings, ButtonSettings, TabKey, ButtonKey } from '@/lib/settings-context';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, topicCount, signOut } = useAuth();
-  const { tabs, toggleTab, buttons, toggleButton, isLoading } = useSettings();
+  const { tabs, toggleTab, tabOrder, reorderTab, buttons, toggleButton, buttonOrder, reorderButton, isLoading } = useSettings();
 
-  const navigationItems: { icon: string; label: string; key: keyof TabSettings }[] = [
-    { icon: 'home', label: 'Home', key: 'home' },
-    { icon: 'mic', label: 'Voice Notes', key: 'voice' },
-    { icon: 'checkbox-outline', label: 'Tasks', key: 'tasks' },
-    { icon: 'document-text', label: 'Notes', key: 'notes' },
-    { icon: 'bookmark', label: 'Topics (Memos)', key: 'topics' },
-    { icon: 'analytics', label: 'Insights', key: 'insights' },
-    { icon: 'reader-outline', label: 'Forms', key: 'forms' },
-  ];
+  const navigationItemsMap: Record<TabKey, { icon: string; label: string }> = {
+    home: { icon: 'home', label: 'Home' },
+    voice: { icon: 'mic', label: 'Voice Notes' },
+    tasks: { icon: 'checkbox-outline', label: 'Tasks' },
+    notes: { icon: 'document-text', label: 'Notes' },
+    topics: { icon: 'bookmark', label: 'Topics (Memos)' },
+    insights: { icon: 'analytics', label: 'Insights' },
+    forms: { icon: 'reader-outline', label: 'Forms' },
+  };
 
-  const buttonItems: { icon: string; label: string; key: keyof ButtonSettings; color: string }[] = [
-    { icon: 'bookmark', label: 'Topic', key: 'topic', color: '#f59e0b' },
-    { icon: 'mic', label: 'Voice', key: 'voice', color: '#22c55e' },
-    { icon: 'add', label: 'Task', key: 'task', color: '#3b82f6' },
-    { icon: 'document-text', label: 'Note', key: 'note', color: '#a78bfa' },
-  ];
+  const buttonItemsMap: Record<ButtonKey, { icon: string; label: string; color: string }> = {
+    topic: { icon: 'bookmark', label: 'Topic', color: '#f59e0b' },
+    voice: { icon: 'mic', label: 'Voice', color: '#22c55e' },
+    task: { icon: 'add', label: 'Task', color: '#3b82f6' },
+    note: { icon: 'document-text', label: 'Note', color: '#a78bfa' },
+  };
+
+  // Get ordered items
+  const orderedNavItems = tabOrder.map(key => ({ key, ...navigationItemsMap[key] }));
+  const orderedButtonItems = buttonOrder.map(key => ({ key, ...buttonItemsMap[key] }));
 
   // Debug log
   console.log('Settings tabs:', tabs, 'isLoading:', isLoading);
@@ -65,18 +69,36 @@ export default function SettingsScreen() {
         {/* Navigation Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Navigation</Text>
-          <Text style={styles.sectionHint}>Toggle tabs on/off in the bottom navigation</Text>
+          <Text style={styles.sectionHint}>Toggle tabs on/off • Use arrows to reorder</Text>
           <View style={styles.card}>
-            {navigationItems.map((item, index) => {
+            {orderedNavItems.map((item, index) => {
               const isEnabled = tabs?.[item.key] ?? true;
+              const isFirst = index === 0;
+              const isLast = index === orderedNavItems.length - 1;
               return (
                 <View
                   key={item.key}
                   style={[
                     styles.navRow,
-                    index < navigationItems.length - 1 && styles.navRowBorder,
+                    index < orderedNavItems.length - 1 && styles.navRowBorder,
                   ]}
                 >
+                  <View style={styles.reorderButtons}>
+                    <TouchableOpacity
+                      onPress={() => !isFirst && reorderTab(index, index - 1)}
+                      style={[styles.reorderBtn, isFirst && styles.reorderBtnDisabled]}
+                      disabled={isFirst}
+                    >
+                      <Ionicons name="chevron-up" size={16} color={isFirst ? '#333' : '#666'} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => !isLast && reorderTab(index, index + 1)}
+                      style={[styles.reorderBtn, isLast && styles.reorderBtnDisabled]}
+                      disabled={isLast}
+                    >
+                      <Ionicons name="chevron-down" size={16} color={isLast ? '#333' : '#666'} />
+                    </TouchableOpacity>
+                  </View>
                   <Ionicons
                     name={item.icon as any}
                     size={20}
@@ -104,18 +126,36 @@ export default function SettingsScreen() {
         {/* Quick Actions Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <Text style={styles.sectionHint}>Toggle quick action buttons on/off</Text>
+          <Text style={styles.sectionHint}>Toggle buttons on/off • Use arrows to reorder</Text>
           <View style={styles.card}>
-            {buttonItems.map((item, index) => {
+            {orderedButtonItems.map((item, index) => {
               const isEnabled = buttons?.[item.key] ?? true;
+              const isFirst = index === 0;
+              const isLast = index === orderedButtonItems.length - 1;
               return (
                 <View
                   key={item.key}
                   style={[
                     styles.navRow,
-                    index < buttonItems.length - 1 && styles.navRowBorder,
+                    index < orderedButtonItems.length - 1 && styles.navRowBorder,
                   ]}
                 >
+                  <View style={styles.reorderButtons}>
+                    <TouchableOpacity
+                      onPress={() => !isFirst && reorderButton(index, index - 1)}
+                      style={[styles.reorderBtn, isFirst && styles.reorderBtnDisabled]}
+                      disabled={isFirst}
+                    >
+                      <Ionicons name="chevron-up" size={16} color={isFirst ? '#333' : '#666'} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => !isLast && reorderButton(index, index + 1)}
+                      style={[styles.reorderBtn, isLast && styles.reorderBtnDisabled]}
+                      disabled={isLast}
+                    >
+                      <Ionicons name="chevron-down" size={16} color={isLast ? '#333' : '#666'} />
+                    </TouchableOpacity>
+                  </View>
                   <View style={[styles.buttonPreview, { backgroundColor: item.color }]}>
                     <Ionicons
                       name={item.icon as any}
@@ -290,6 +330,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  reorderButtons: {
+    flexDirection: 'column',
+    marginRight: 4,
+  },
+  reorderBtn: {
+    padding: 2,
+  },
+  reorderBtnDisabled: {
+    opacity: 0.3,
   },
   progressBar: {
     height: 4,

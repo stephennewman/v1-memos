@@ -1,14 +1,103 @@
 import { useEffect } from 'react';
 import { Tabs, useRouter } from 'expo-router';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth-context';
 import { CreateProvider } from '@/lib/create-context';
-import { SettingsProvider, useSettings } from '@/lib/settings-context';
+import { SettingsProvider, useSettings, TabKey } from '@/lib/settings-context';
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+
+// Tab configuration for custom tab bar
+const tabConfig: Record<TabKey, { name: string; title: string; icon: string; color: string; route: string }> = {
+  home: { name: 'index', title: 'Home', icon: 'home', color: '#fff', route: '/' },
+  voice: { name: 'voice', title: 'Voice', icon: 'mic', color: '#22c55e', route: '/voice' },
+  tasks: { name: 'tasks', title: 'Tasks', icon: 'checkbox', color: '#3b82f6', route: '/tasks' },
+  notes: { name: 'notes', title: 'Notes', icon: 'document-text', color: '#a78bfa', route: '/notes' },
+  topics: { name: 'topics', title: 'Topics', icon: 'bookmark', color: '#f59e0b', route: '/topics' },
+  insights: { name: 'insights', title: 'Insights', icon: 'analytics', color: '#ec4899', route: '/insights' },
+  forms: { name: 'forms', title: 'Forms', icon: 'clipboard', color: '#f97316', route: '/forms' },
+};
+
+function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+  const { tabs, tabOrder } = useSettings();
+  
+  // Get visible tabs in custom order
+  const visibleTabs = tabOrder.filter(key => tabs[key]);
+  
+  // Map route names to tab keys
+  const routeToTabKey: Record<string, TabKey> = {
+    index: 'home',
+    voice: 'voice',
+    tasks: 'tasks',
+    notes: 'notes',
+    topics: 'topics',
+    insights: 'insights',
+    forms: 'forms',
+  };
+  
+  const currentRouteName = state.routes[state.index]?.name;
+  const currentTabKey = routeToTabKey[currentRouteName];
+  
+  return (
+    <View style={{
+      flexDirection: 'row',
+      backgroundColor: '#0a0a0a',
+      borderTopColor: '#1a1a1a',
+      borderTopWidth: 0,
+      paddingTop: 6,
+      paddingBottom: 30,
+      height: 85,
+    }}>
+      {visibleTabs.map((tabKey) => {
+        const config = tabConfig[tabKey];
+        const isFocused = currentTabKey === tabKey;
+        
+        const onPress = () => {
+          if (!isFocused) {
+            navigation.navigate(config.name);
+          }
+        };
+        
+        return (
+          <TouchableOpacity
+            key={tabKey}
+            onPress={onPress}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons
+                name={config.icon as any}
+                size={22}
+                color={isFocused ? config.color : '#666'}
+              />
+              {isFocused && (
+                <View style={{
+                  width: 4,
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: config.color,
+                  marginTop: 2
+                }} />
+              )}
+            </View>
+            <Text style={{
+              fontSize: 10,
+              fontWeight: '600',
+              marginTop: 2,
+              color: isFocused ? '#fff' : '#666',
+            }}>
+              {config.title}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
 
 function TabsContent() {
   const { user, isLoading } = useAuth();
-  const { tabs, isLoading: settingsLoading } = useSettings();
+  const { tabs, tabOrder, isLoading: settingsLoading } = useSettings();
   const router = useRouter();
 
   useEffect(() => {
@@ -32,142 +121,23 @@ function TabsContent() {
   return (
     <CreateProvider>
       <Tabs
+        tabBar={(props) => <CustomTabBar {...props} />}
         screenOptions={{
           headerShown: false,
-          tabBarStyle: {
-            backgroundColor: '#0a0a0a',
-            borderTopColor: '#1a1a1a',
-            borderTopWidth: 0,
-            paddingTop: 6,
-            height: 85,
-          },
-          tabBarActiveTintColor: '#fff',
-          tabBarInactiveTintColor: '#666',
-          tabBarLabelStyle: {
-            fontSize: 10,
-            fontWeight: '600',
-            marginTop: 2,
-          },
         }}
       >
-        {/* Home - the all things view (default route) */}
-        <Tabs.Screen
-          name="index"
-          options={{
-            href: tabs.home ? '/' : null,
-            title: 'Home',
-            tabBarIcon: ({ focused }) => (
-              <View style={{ alignItems: 'center' }}>
-                <Ionicons name="home" size={22} color={focused ? '#fff' : '#666'} />
-                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#fff', marginTop: 2 }} />}
-              </View>
-            ),
-          }}
-        />
-
-        {/* Topics (Memos) */}
-        <Tabs.Screen
-          name="topics"
-          options={{
-            href: tabs.topics ? '/topics' : null,
-            title: 'Topics',
-            tabBarIcon: ({ focused }) => (
-              <View style={{ alignItems: 'center' }}>
-                <Ionicons name="bookmark" size={22} color={focused ? '#f59e0b' : '#666'} />
-                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#f59e0b', marginTop: 2 }} />}
-              </View>
-            ),
-          }}
-        />
-
-        {/* Voice Notes */}
-        <Tabs.Screen
-          name="voice"
-          options={{
-            href: tabs.voice ? '/voice' : null,
-            title: 'Voice',
-            tabBarIcon: ({ focused }) => (
-              <View style={{ alignItems: 'center' }}>
-                <Ionicons name="mic" size={22} color={focused ? '#22c55e' : '#666'} />
-                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#22c55e', marginTop: 2 }} />}
-              </View>
-            ),
-          }}
-        />
-
-        {/* Tasks */}
-        <Tabs.Screen
-          name="tasks"
-          options={{
-            href: tabs.tasks ? '/tasks' : null,
-            title: 'Tasks',
-            tabBarIcon: ({ focused }) => (
-              <View style={{ alignItems: 'center' }}>
-                <Ionicons name="checkbox" size={22} color={focused ? '#3b82f6' : '#666'} />
-                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#3b82f6', marginTop: 2 }} />}
-              </View>
-            ),
-          }}
-        />
-
-        {/* Notes (bullet points) */}
-        <Tabs.Screen
-          name="notes"
-          options={{
-            href: tabs.notes ? '/notes' : null,
-            title: 'Notes',
-            tabBarIcon: ({ focused }) => (
-              <View style={{ alignItems: 'center' }}>
-                <Ionicons name="document-text" size={22} color={focused ? '#a78bfa' : '#666'} />
-                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#a78bfa', marginTop: 2 }} />}
-              </View>
-            ),
-          }}
-        />
-
-        {/* Forms - between Notes and Insights */}
-        <Tabs.Screen
-          name="forms"
-          options={{
-            href: tabs.forms ? '/forms' : null,
-            title: 'Forms',
-            tabBarIcon: ({ focused }) => (
-              <View style={{ alignItems: 'center' }}>
-                <Ionicons name="clipboard" size={22} color={focused ? '#f97316' : '#666'} />
-                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#f97316', marginTop: 2 }} />}
-              </View>
-            ),
-          }}
-        />
-
-        {/* Insights / Analytics */}
-        <Tabs.Screen
-          name="insights"
-          options={{
-            href: tabs.insights ? '/insights' : null,
-            title: 'Insights',
-            tabBarIcon: ({ focused }) => (
-              <View style={{ alignItems: 'center' }}>
-                <Ionicons name="analytics" size={22} color={focused ? '#ec4899' : '#666'} />
-                {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#ec4899', marginTop: 2 }} />}
-              </View>
-            ),
-          }}
-        />
-
-        {/* Hidden tabs */}
-        <Tabs.Screen
-          name="inbox"
-          options={{
-            href: null,
-          }}
-        />
-        <Tabs.Screen
-          name="settings"
-          options={{
-            href: null, // Hidden from tab bar, accessed via profile icon
-          }}
-        />
+        {/* All tab screens - visibility and order handled by CustomTabBar */}
+        <Tabs.Screen name="index" options={{ title: 'Home' }} />
+        <Tabs.Screen name="topics" options={{ title: 'Topics' }} />
+        <Tabs.Screen name="voice" options={{ title: 'Voice' }} />
+        <Tabs.Screen name="tasks" options={{ title: 'Tasks' }} />
+        <Tabs.Screen name="notes" options={{ title: 'Notes' }} />
+        <Tabs.Screen name="forms" options={{ title: 'Forms' }} />
+        <Tabs.Screen name="insights" options={{ title: 'Insights' }} />
+        
+        {/* Hidden tabs - not in tab bar */}
+        <Tabs.Screen name="inbox" options={{ href: null }} />
+        <Tabs.Screen name="settings" options={{ href: null }} />
       </Tabs>
     </CreateProvider>
   );

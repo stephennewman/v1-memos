@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSettings, ButtonSettings } from '@/lib/settings-context';
+import { useSettings, ButtonKey } from '@/lib/settings-context';
 
 export type QuickActionContext = 'home' | 'topics' | 'voice' | 'tasks' | 'notes' | 'other';
 
@@ -14,7 +14,14 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home' }: QuickActionsProps) {
-  const { buttons } = useSettings();
+  const { buttons, buttonOrder } = useSettings();
+  
+  const buttonConfig: Record<ButtonKey, { onPress: () => void; style: any; icon: string; label: string }> = {
+    topic: { onPress: onTopic, style: styles.topicButton, icon: 'bookmark', label: 'Topic' },
+    voice: { onPress: onVoice, style: styles.voiceButton, icon: 'mic', label: 'Voice' },
+    task: { onPress: onTask, style: styles.taskButton, icon: 'add', label: 'Task' },
+    note: { onPress: onNote, style: styles.noteButton, icon: 'document-text', label: 'Note' },
+  };
   
   // Topics page: only show Topic button (full width) if enabled
   if (context === 'topics') {
@@ -92,20 +99,17 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
     );
   }
 
-  // Home & other: show enabled buttons only
-  const enabledButtons = [
-    buttons?.topic && { key: 'topic', onPress: onTopic, style: styles.topicButton, icon: 'bookmark', label: 'Topic' },
-    buttons?.voice && { key: 'voice', onPress: onVoice, style: styles.voiceButton, icon: 'mic', label: 'Voice' },
-    buttons?.task && { key: 'task', onPress: onTask, style: styles.taskButton, icon: 'add', label: 'Task' },
-    buttons?.note && { key: 'note', onPress: onNote, style: styles.noteButton, icon: 'document-text', label: 'Note' },
-  ].filter(Boolean) as Array<{ key: string; onPress: () => void; style: any; icon: string; label: string }>;
+  // Home & other: show enabled buttons in custom order
+  const orderedEnabledButtons = buttonOrder
+    .filter(key => buttons?.[key])
+    .map(key => ({ key, ...buttonConfig[key] }));
 
   // If no buttons enabled, don't render the container
-  if (enabledButtons.length === 0) return null;
+  if (orderedEnabledButtons.length === 0) return null;
 
   return (
     <View style={styles.container}>
-      {enabledButtons.map((btn) => (
+      {orderedEnabledButtons.map((btn) => (
         <TouchableOpacity
           key={btn.key}
           style={[styles.actionButton, btn.style]}
