@@ -260,6 +260,7 @@ export default function HomeScreen() {
   const [todayStats, setTodayStats] = useState({ tasks: 0, completed: 0, voiceNotes: 0 });
   const [expandedVoice, setExpandedVoice] = useState<Set<string>>(new Set());
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [taskView, setTaskView] = useState<'todo' | 'done'>('todo');
   const [taskSort, setTaskSort] = useState<'newest' | 'oldest' | 'due_next'>('newest');
   const [toastVisible, setToastVisible] = useState(false);
@@ -282,6 +283,19 @@ export default function HomeScreen() {
   const toggleNotesExpanded = (dateKey: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedNotes(prev => {
+      const next = new Set(prev);
+      if (next.has(dateKey)) {
+        next.delete(dateKey);
+      } else {
+        next.add(dateKey);
+      }
+      return next;
+    });
+  };
+
+  const toggleTasksExpanded = (dateKey: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedTasks(prev => {
       const next = new Set(prev);
       if (next.has(dateKey)) {
         next.delete(dateKey);
@@ -583,76 +597,92 @@ export default function HomeScreen() {
             <View key={day.date} style={styles.daySection}>
               {/* Day Header */}
               <Text style={styles.dayLabel}>{day.label}</Text>
-              
-              {/* Filter Row - all options on same line */}
-              {hasTasks && (
-                <View style={styles.filterRow}>
-                  {(['newest', 'oldest', 'due_next'] as const).map((sortOption) => (
-                    <TouchableOpacity
-                      key={sortOption}
-                      style={[styles.filterPill, taskSort === sortOption && taskView === 'todo' && styles.filterPillActive]}
-                      onPress={() => { setTaskSort(sortOption); setTaskView('todo'); }}
-                    >
-                      <Text style={[styles.filterText, taskSort === sortOption && taskView === 'todo' && styles.filterTextActive]}>
-                        {sortOption === 'newest' ? 'Newest' : sortOption === 'oldest' ? 'Oldest' : 'Due Next'}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                  <View style={styles.filterDivider} />
-                  <TouchableOpacity
-                    style={[styles.filterPill, taskView === 'todo' && styles.filterPillActive]}
-                    onPress={() => setTaskView('todo')}
-                  >
-                    <Text style={[styles.filterText, taskView === 'todo' && styles.filterTextActive]}>
-                      {todoTasks.length} To Do
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.filterPill, taskView === 'done' && styles.filterPillDone]}
-                    onPress={() => setTaskView('done')}
-                  >
-                    <Text style={[styles.filterText, taskView === 'done' && styles.filterTextActive]}>
-                      {doneTasks.length} Done
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
 
-              {/* Task list - shown in both views */}
+              {/* Tasks - Collapsible */}
               {hasTasks && (
                 <View style={styles.typeSection}>
-                  {(taskView === 'todo'
-                    ? [...todoTasks].sort((a, b) => {
-                      if (taskSort === 'newest') {
-                        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-                      } else if (taskSort === 'oldest') {
-                        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-                      } else {
-                        // due_next - tasks with due dates first, sorted by due date
-                        const aDue = a.due_date ? new Date(a.due_date).getTime() : Infinity;
-                        const bDue = b.due_date ? new Date(b.due_date).getTime() : Infinity;
-                        return aDue - bDue;
-                      }
-                    })
-                    : doneTasks
-                  ).map((task) => (
-                    <AnimatedHomeTaskItem
-                      key={task.id}
-                      task={task}
-                      onComplete={toggleTask}
-                      onPress={(t) => router.push(`/task/${t.id}`)}
+                  <TouchableOpacity
+                    style={styles.collapsibleHeader}
+                    onPress={() => toggleTasksExpanded(day.date)}
+                  >
+                    <Ionicons
+                      name={expandedTasks.has(day.date) ? "chevron-down" : "chevron-forward"}
+                      size={16}
+                      color="#666"
                     />
-                  ))}
-                  {(taskView === 'todo' ? todoTasks : doneTasks).length === 0 && (
-                    <Text style={styles.emptyTaskText}>
-                      {taskView === 'todo' ? 'All done!' : 'No completed tasks yet'}
+                    <Ionicons name="checkbox-outline" size={14} color="#3b82f6" />
+                    <Text style={styles.collapsibleLabel}>
+                      {todoTasks.length} task{todoTasks.length !== 1 ? 's' : ''} to do
+                      {doneTasks.length > 0 && ` · ${doneTasks.length} done`}
                     </Text>
+                  </TouchableOpacity>
+                  {expandedTasks.has(day.date) && (
+                    <>
+                      {/* Filter Row */}
+                      <View style={styles.filterRow}>
+                        {(['newest', 'oldest', 'due_next'] as const).map((sortOption) => (
+                          <TouchableOpacity
+                            key={sortOption}
+                            style={[styles.filterPill, taskSort === sortOption && taskView === 'todo' && styles.filterPillActive]}
+                            onPress={() => { setTaskSort(sortOption); setTaskView('todo'); }}
+                          >
+                            <Text style={[styles.filterText, taskSort === sortOption && taskView === 'todo' && styles.filterTextActive]}>
+                              {sortOption === 'newest' ? 'Newest' : sortOption === 'oldest' ? 'Oldest' : 'Due Next'}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                        <View style={styles.filterDivider} />
+                        <TouchableOpacity
+                          style={[styles.filterPill, taskView === 'todo' && styles.filterPillActive]}
+                          onPress={() => setTaskView('todo')}
+                        >
+                          <Text style={[styles.filterText, taskView === 'todo' && styles.filterTextActive]}>
+                            {todoTasks.length} To Do
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.filterPill, taskView === 'done' && styles.filterPillDone]}
+                          onPress={() => setTaskView('done')}
+                        >
+                          <Text style={[styles.filterText, taskView === 'done' && styles.filterTextActive]}>
+                            {doneTasks.length} Done
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      {/* Task list */}
+                      {(taskView === 'todo'
+                        ? [...todoTasks].sort((a, b) => {
+                          if (taskSort === 'newest') {
+                            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                          } else if (taskSort === 'oldest') {
+                            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                          } else {
+                            const aDue = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+                            const bDue = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+                            return aDue - bDue;
+                          }
+                        })
+                        : doneTasks
+                      ).map((task) => (
+                        <AnimatedHomeTaskItem
+                          key={task.id}
+                          task={task}
+                          onComplete={toggleTask}
+                          onPress={(t) => router.push(`/task/${t.id}`)}
+                        />
+                      ))}
+                      {(taskView === 'todo' ? todoTasks : doneTasks).length === 0 && (
+                        <Text style={styles.emptyTaskText}>
+                          {taskView === 'todo' ? 'All done!' : 'No completed tasks yet'}
+                        </Text>
+                      )}
+                    </>
                   )}
                 </View>
               )}
 
-              {/* Notes - Collapsible (only in to-do view) */}
-              {taskView === 'todo' && hasNotes && (
+              {/* Notes - Collapsible */}
+              {hasNotes && (
                 <View style={styles.typeSection}>
                   <TouchableOpacity
                     style={styles.collapsibleHeader}
@@ -683,8 +713,8 @@ export default function HomeScreen() {
                 </View>
               )}
 
-              {/* Voice Notes - Collapsible (only in to-do view) */}
-              {taskView === 'todo' && hasVoice && (
+              {/* Voice Notes - Collapsible */}
+              {hasVoice && (
                 <View style={styles.typeSection}>
                   <TouchableOpacity
                     style={styles.collapsibleHeader}
