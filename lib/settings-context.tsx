@@ -13,9 +13,18 @@ export interface TabSettings {
   forms: boolean;
 }
 
+export interface ButtonSettings {
+  topic: boolean;
+  voice: boolean;
+  task: boolean;
+  note: boolean;
+}
+
 interface SettingsContextType {
   tabs: TabSettings;
   toggleTab: (tab: keyof TabSettings) => void;
+  buttons: ButtonSettings;
+  toggleButton: (button: keyof ButtonSettings) => void;
   isLoading: boolean;
 }
 
@@ -29,10 +38,18 @@ const defaultTabs: TabSettings = {
   forms: true,
 };
 
+const defaultButtons: ButtonSettings = {
+  topic: true,
+  voice: true,
+  task: true,
+  note: true,
+};
+
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [tabs, setTabs] = useState<TabSettings>(defaultTabs);
+  const [buttons, setButtons] = useState<ButtonSettings>(defaultButtons);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load settings from storage
@@ -43,6 +60,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (stored) {
           const parsed = JSON.parse(stored);
           setTabs({ ...defaultTabs, ...parsed.tabs });
+          setButtons({ ...defaultButtons, ...parsed.buttons });
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -56,9 +74,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // Save settings when they change
   useEffect(() => {
     if (!isLoading) {
-      AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ tabs })).catch(console.error);
+      AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ tabs, buttons })).catch(console.error);
     }
-  }, [tabs, isLoading]);
+  }, [tabs, buttons, isLoading]);
 
   const toggleTab = (tab: keyof TabSettings) => {
     // Ensure at least one tab stays enabled
@@ -73,8 +91,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const toggleButton = (button: keyof ButtonSettings) => {
+    setButtons(prev => ({
+      ...prev,
+      [button]: !prev[button],
+    }));
+  };
+
   return (
-    <SettingsContext.Provider value={{ tabs, toggleTab, isLoading }}>
+    <SettingsContext.Provider value={{ tabs, toggleTab, buttons, toggleButton, isLoading }}>
       {children}
     </SettingsContext.Provider>
   );

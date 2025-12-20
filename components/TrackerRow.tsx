@@ -16,7 +16,9 @@ export function TrackerRow({ onTrackerLogged }: TrackerRowProps) {
   const [latestTrackers, setLatestTrackers] = useState<Record<string, UserTracker>>({});
   const [loading, setLoading] = useState(false);
   const [feedbackEmoji, setFeedbackEmoji] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState(false);
   const feedbackAnim = new Animated.Value(0);
+  const fadeOutAnim = new Animated.Value(1);
 
   useEffect(() => {
     loadTrackers();
@@ -25,6 +27,10 @@ export function TrackerRow({ onTrackerLogged }: TrackerRowProps) {
   const loadTrackers = async () => {
     const { latest } = await getTodayTrackers();
     setLatestTrackers(latest);
+    // If all trackers already have values, hide the component
+    if (latest.mood && latest.energy && latest.stress) {
+      setDismissed(true);
+    }
   };
 
   const handleTrackerPress = async (
@@ -51,11 +57,23 @@ export function TrackerRow({ onTrackerLogged }: TrackerRowProps) {
         [type]: result.tracker!,
       }));
       onTrackerLogged?.(result.tracker);
+      
+      // Fade out and dismiss after selection
+      setTimeout(() => {
+        Animated.timing(fadeOutAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => setDismissed(true));
+      }, 500);
     }
     
     setLoading(false);
     setTimeout(() => setFeedbackEmoji(null), 500);
   };
+
+  // Don't render if dismissed
+  if (dismissed) return null;
 
   const renderTrackerSection = (
     type: keyof typeof TRACKER_EMOJIS,
@@ -95,7 +113,7 @@ export function TrackerRow({ onTrackerLogged }: TrackerRowProps) {
   };
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { opacity: fadeOutAnim }]}>
       <View style={styles.header}>
         <Text style={styles.title}>How are you?</Text>
         {feedbackEmoji && (
@@ -121,7 +139,7 @@ export function TrackerRow({ onTrackerLogged }: TrackerRowProps) {
         {renderTrackerSection('energy', 'Energy')}
         {renderTrackerSection('stress', 'Stress')}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

@@ -120,10 +120,14 @@ interface ChallengeCardProps {
     streak_count: number;
   };
   onStatusChange?: (status: 'accepted' | 'completed' | 'skipped') => void;
+  onRequestNew?: () => void;
+  onDismiss?: () => void;
 }
 
-export function ChallengeCard({ challenge, onStatusChange }: ChallengeCardProps) {
+export function ChallengeCard({ challenge, onStatusChange, onRequestNew, onDismiss }: ChallengeCardProps) {
   const [status, setStatus] = useState(challenge.status);
+  const [showTryAnother, setShowTryAnother] = useState(false);
+  const [fullyDismissed, setFullyDismissed] = useState(false);
   const streak = challenge.streak_count;
 
   const handleAccept = () => {
@@ -139,6 +143,18 @@ export function ChallengeCard({ challenge, onStatusChange }: ChallengeCardProps)
   const handleSkip = () => {
     setStatus('skipped');
     onStatusChange?.('skipped');
+    // Show try another option after skipping
+    setTimeout(() => setShowTryAnother(true), 300);
+  };
+
+  const handleTryAnother = () => {
+    setShowTryAnother(false);
+    onRequestNew?.();
+  };
+
+  const handleDismiss = () => {
+    setFullyDismissed(true);
+    onDismiss?.();
   };
 
   const difficultyColor = {
@@ -148,6 +164,34 @@ export function ChallengeCard({ challenge, onStatusChange }: ChallengeCardProps)
     extreme: '#dc2626',
   }[challenge.difficulty] || '#f97316';
 
+  // Fully dismissed - hide completely
+  if (fullyDismissed) {
+    return null;
+  }
+
+  // Show "try another" option after skipping
+  if (showTryAnother) {
+    return (
+      <View style={styles.tryAnotherContainer}>
+        <TouchableOpacity 
+          style={styles.tryAnotherCard}
+          onPress={handleTryAnother}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="refresh" size={20} color="#f97316" />
+          <Text style={styles.tryAnotherText}>Try a different challenge</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.dismissButton}
+          onPress={handleDismiss}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.dismissText}>Not today</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.challengeCard}>
       <View style={styles.challengeHeader}>
@@ -155,11 +199,19 @@ export function ChallengeCard({ challenge, onStatusChange }: ChallengeCardProps)
           <Text style={styles.challengeEmoji}>⚡</Text>
           <Text style={styles.challengeLabel}>Today's Challenge</Text>
         </View>
-        {streak > 0 && (
-          <View style={styles.streakBadge}>
-            <Text style={styles.streakText}>🔥 {streak}</Text>
-          </View>
-        )}
+        <View style={styles.challengeRight}>
+          {streak > 0 && (
+            <View style={styles.streakBadge}>
+              <Text style={styles.streakText}>🔥 {streak}</Text>
+            </View>
+          )}
+          <TouchableOpacity 
+            onPress={handleDismiss}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="close" size={18} color="#666" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Text style={styles.challengeText}>{challenge.challenge_text}</Text>
@@ -198,12 +250,6 @@ export function ChallengeCard({ challenge, onStatusChange }: ChallengeCardProps)
         <View style={styles.completedBadge}>
           <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
           <Text style={styles.completedText}>Completed!</Text>
-        </View>
-      )}
-
-      {status === 'skipped' && (
-        <View style={styles.skippedBadge}>
-          <Text style={styles.skippedText}>Skipped</Text>
         </View>
       )}
     </View>
@@ -388,6 +434,39 @@ const styles = StyleSheet.create({
   },
   skippedText: {
     fontSize: 14,
+    color: '#666',
+  },
+  challengeRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  tryAnotherContainer: {
+    marginBottom: 12,
+  },
+  tryAnotherCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#333',
+    borderStyle: 'dashed',
+  },
+  tryAnotherText: {
+    fontSize: 14,
+    color: '#f97316',
+    fontWeight: '500',
+  },
+  dismissButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  dismissText: {
+    fontSize: 13,
     color: '#666',
   },
 });

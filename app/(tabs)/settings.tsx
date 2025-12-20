@@ -12,13 +12,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth, MAX_FREE_TOPICS } from '@/lib/auth-context';
-import { useSettings, TabSettings } from '@/lib/settings-context';
+import { useSettings, TabSettings, ButtonSettings } from '@/lib/settings-context';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, topicCount, signOut } = useAuth();
-  const { tabs, toggleTab, isLoading } = useSettings();
+  const { tabs, toggleTab, buttons, toggleButton, isLoading } = useSettings();
 
   const navigationItems: { icon: string; label: string; key: keyof TabSettings }[] = [
     { icon: 'home', label: 'Home', key: 'home' },
@@ -27,6 +27,13 @@ export default function SettingsScreen() {
     { icon: 'document-text', label: 'Notes', key: 'notes' },
     { icon: 'bookmark', label: 'Topics (Memos)', key: 'topics' },
     { icon: 'analytics', label: 'Insights', key: 'insights' },
+  ];
+
+  const buttonItems: { icon: string; label: string; key: keyof ButtonSettings; color: string }[] = [
+    { icon: 'bookmark', label: 'Topic', key: 'topic', color: '#f59e0b' },
+    { icon: 'mic', label: 'Voice', key: 'voice', color: '#22c55e' },
+    { icon: 'add', label: 'Task', key: 'task', color: '#3b82f6' },
+    { icon: 'document-text', label: 'Note', key: 'note', color: '#a78bfa' },
   ];
 
   // Debug log
@@ -83,6 +90,47 @@ export default function SettingsScreen() {
                   <Switch
                     value={isEnabled}
                     onValueChange={() => toggleTab(item.key)}
+                    trackColor={{ false: '#333', true: '#4a6b4a' }}
+                    thumbColor={isEnabled ? '#c4dfc4' : '#666'}
+                    ios_backgroundColor="#333"
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Quick Actions Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={styles.sectionHint}>Toggle quick action buttons on/off</Text>
+          <View style={styles.card}>
+            {buttonItems.map((item, index) => {
+              const isEnabled = buttons?.[item.key] ?? true;
+              return (
+                <View
+                  key={item.key}
+                  style={[
+                    styles.navRow,
+                    index < buttonItems.length - 1 && styles.navRowBorder,
+                  ]}
+                >
+                  <View style={[styles.buttonPreview, { backgroundColor: item.color }]}>
+                    <Ionicons
+                      name={item.icon as any}
+                      size={14}
+                      color="#fff"
+                    />
+                  </View>
+                  <Text style={[
+                    styles.navLabel,
+                    !isEnabled && styles.navLabelDisabled
+                  ]}>
+                    {item.label}
+                  </Text>
+                  <Switch
+                    value={isEnabled}
+                    onValueChange={() => toggleButton(item.key)}
                     trackColor={{ false: '#333', true: '#4a6b4a' }}
                     thumbColor={isEnabled ? '#c4dfc4' : '#666'}
                     ios_backgroundColor="#333"
@@ -234,6 +282,13 @@ const styles = StyleSheet.create({
   },
   navLabelDisabled: {
     color: '#555',
+  },
+  buttonPreview: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   progressBar: {
     height: 4,

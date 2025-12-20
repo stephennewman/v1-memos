@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Animated,
   ScrollView,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,13 @@ import { useOnboarding } from '@/lib/onboarding-context';
 import { submitOnboarding, TransformationProfile, DAILY_CATEGORIES } from '@/lib/guy-talk';
 
 type OnboardingStep = 'intro' | 'recording' | 'processing' | 'review' | 'categories' | 'complete';
+
+// Waveform constants
+const BAR_COUNT = 30;
+const BAR_WIDTH = 3;
+const BAR_GAP = 3;
+const MAX_BAR_HEIGHT = 80;
+const MIN_BAR_HEIGHT = 4;
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -32,16 +40,25 @@ export default function OnboardingScreen() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  // Waveform state
+  const [waveformData, setWaveformData] = useState<number[]>(
+    Array(BAR_COUNT).fill(MIN_BAR_HEIGHT)
+  );
+  const barAnimations = useRef<Animated.Value[]>(
+    Array(BAR_COUNT).fill(null).map(() => new Animated.Value(MIN_BAR_HEIGHT))
+  ).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+  
   const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const meteringRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Glow animation while recording
   useEffect(() => {
     if (isRecording) {
-      // Pulse animation while recording
       Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.2, duration: 500, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+          Animated.timing(glowAnim, { toValue: 1, duration: 1500, useNativeDriver: false }),
+          Animated.timing(glowAnim, { toValue: 0, duration: 1500, useNativeDriver: false }),
         ])
       ).start();
       
@@ -50,7 +67,8 @@ export default function OnboardingScreen() {
         setRecordingDuration(d => d + 1);
       }, 1000);
     } else {
-      pulseAnim.setValue(1);
+      glowAnim.stopAnimation();
+      glowAnim.setValue(0);
       if (durationInterval.current) {
         clearInterval(durationInterval.current);
       }
@@ -60,8 +78,47 @@ export default function OnboardingScreen() {
       if (durationInterval.current) {
         clearInterval(durationInterval.current);
       }
+      if (meteringRef.current) {
+        clearInterval(meteringRef.current);
+      }
     };
   }, [isRecording]);
+
+  // Animate bars when waveform data changes
+  useEffect(() => {
+    waveformData.forEach((height, index) => {
+      Animated.spring(barAnimations[index], {
+        toValue: height,
+        friction: 8,
+        tension: 100,
+        useNativeDriver: false,
+      }).start();
+    });
+  }, [waveformData, barAnimations]);
+
+  // Update metering
+  const updateMetering = useCallback(async () => {
+    if (!recording) return;
+    
+    try {
+      const status = await recording.getStatusAsync();
+      if (status.isRecording && status.metering !== undefined) {
+        const db = status.metering;
+        const normalized = Math.max(0, Math.min(1, (db + 60) / 60));
+        const baseHeight = MIN_BAR_HEIGHT + normalized * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT);
+        
+        setWaveformData(prev => {
+          const newData = [...prev];
+          for (let i = 0; i < BAR_COUNT - 1; i++) {
+            newData[i] = prev[i + 1];
+          }
+          const variation = 0.7 + Math.random() * 0.6;
+          newData[BAR_COUNT - 1] = Math.max(MIN_BAR_HEIGHT, baseHeight * variation);
+          return newData;
+        });
+      }
+    } catch (e) {}
+  }, [recording]);
 
   const startRecording = async () => {
     try {
@@ -78,14 +135,20 @@ export default function OnboardingScreen() {
         playsInSilentModeIOS: true,
       });
 
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
+      const { recording: newRecording } = await Audio.Recording.createAsync({
+        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        isMeteringEnabled: true,
+      });
 
       setRecording(newRecording);
       setIsRecording(true);
       setRecordingDuration(0);
       setStep('recording');
+      
+      // Start metering updates
+      meteringRef.current = setInterval(() => {
+        updateMetering();
+      }, 50);
     } catch (err: any) {
       console.error('[Onboarding] Recording error:', err);
       setError('Failed to start recording');
@@ -98,6 +161,15 @@ export default function OnboardingScreen() {
     try {
       setIsRecording(false);
       setStep('processing');
+      
+      // Clear metering interval
+      if (meteringRef.current) {
+        clearInterval(meteringRef.current);
+        meteringRef.current = null;
+      }
+      
+      // Reset waveform
+      setWaveformData(Array(BAR_COUNT).fill(MIN_BAR_HEIGHT));
       
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
@@ -151,6 +223,12 @@ export default function OnboardingScreen() {
     }, 1500);
   };
 
+  const skipOnboarding = () => {
+    // Skip for now - still mark as complete so they can use the app
+    markOnboardingComplete();
+    router.replace('/(tabs)');
+  };
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -195,6 +273,10 @@ export default function OnboardingScreen() {
           <Text style={styles.tipText}>
             Just speak naturally for 1-2 minutes. The more you share, the better I can help.
           </Text>
+
+          <TouchableOpacity style={styles.skipButton} onPress={skipOnboarding}>
+            <Text style={styles.skipButtonText}>Skip for now</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -202,26 +284,79 @@ export default function OnboardingScreen() {
 
   // Recording Screen
   if (step === 'recording') {
+    const glowOpacity = glowAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.3, 0.8],
+    });
+    const glowScale = glowAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 1.15],
+    });
+    
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          <View style={styles.recordingHeader}>
-            <Text style={styles.recordingTitle}>I'm Listening...</Text>
-            <Text style={styles.recordingDuration}>{formatDuration(recordingDuration)}</Text>
+        <View style={styles.recordingContent}>
+          {/* Prompts - always visible at top */}
+          <View style={styles.recordingPromptsContainer}>
+            <Text style={styles.recordingPromptsLabel}>Talk about:</Text>
+            <View style={styles.recordingPromptsList}>
+              <Text style={styles.recordingPromptItem}>• Your roles (father, entrepreneur, etc.)</Text>
+              <Text style={styles.recordingPromptItem}>• What you're struggling with</Text>
+              <Text style={styles.recordingPromptItem}>• What you want to transform</Text>
+              <Text style={styles.recordingPromptItem}>• Your values and faith</Text>
+              <Text style={styles.recordingPromptItem}>• Who you want to become</Text>
+            </View>
           </View>
 
-          <Animated.View style={[styles.recordingIndicator, { transform: [{ scale: pulseAnim }] }]}>
-            <Ionicons name="mic" size={48} color="#fff" />
-          </Animated.View>
+          {/* Timer with REC badge */}
+          <View style={styles.timerContainer}>
+            <View style={styles.recordingBadge}>
+              <View style={styles.recordingDot} />
+              <Text style={styles.recordingBadgeText}>REC</Text>
+            </View>
+            <Text style={styles.timer}>{formatDuration(recordingDuration)}</Text>
+          </View>
 
-          <Text style={styles.recordingHint}>
-            Share what's on your mind. When you're done, tap the button below.
-          </Text>
+          {/* Waveform */}
+          <View style={styles.waveformContainer}>
+            <View style={styles.waveform}>
+              {barAnimations.map((anim, index) => (
+                <Animated.View
+                  key={index}
+                  style={[
+                    styles.bar,
+                    {
+                      height: anim,
+                      backgroundColor: `rgba(249, 115, 22, ${0.4 + (index / BAR_COUNT) * 0.6})`,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+            <View style={styles.centerLine} />
+          </View>
 
-          <TouchableOpacity style={styles.stopButton} onPress={stopRecording}>
-            <Ionicons name="stop" size={24} color="#fff" />
-            <Text style={styles.stopButtonText}>Done</Text>
+          {/* Stop Button */}
+          <TouchableOpacity
+            style={styles.stopButtonWrapper}
+            onPress={stopRecording}
+            activeOpacity={0.8}
+          >
+            <Animated.View
+              style={[
+                styles.stopButtonGlow,
+                {
+                  opacity: glowOpacity,
+                  transform: [{ scale: glowScale }],
+                },
+              ]}
+            />
+            <View style={styles.stopButtonInner}>
+              <View style={styles.stopIcon} />
+            </View>
           </TouchableOpacity>
+
+          <Text style={styles.stopHint}>Tap to stop recording</Text>
         </View>
       </SafeAreaView>
     );
@@ -466,52 +601,145 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
-  // Recording styles
-  recordingHeader: {
-    alignItems: 'center',
-    marginBottom: 40,
+  skipButton: {
+    marginTop: 24,
+    paddingVertical: 12,
   },
-  recordingTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  recordingDuration: {
-    fontSize: 48,
-    fontWeight: '300',
-    color: '#f97316',
-    fontVariant: ['tabular-nums'],
-  },
-  recordingIndicator: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#f97316',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  recordingHint: {
+  skipButtonText: {
     fontSize: 14,
-    color: '#888',
+    color: '#666',
     textAlign: 'center',
-    marginBottom: 40,
   },
-  stopButton: {
+  // Recording styles
+  recordingContent: {
+    flex: 1,
+    padding: 24,
+    paddingTop: 16,
+  },
+  recordingPromptsContainer: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderLeftWidth: 3,
+    borderLeftColor: '#f97316',
+  },
+  recordingPromptsLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#f97316',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  recordingPromptsList: {
+    gap: 6,
+  },
+  recordingPromptItem: {
+    fontSize: 14,
+    color: '#999',
+    lineHeight: 20,
+  },
+  timerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#333',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    gap: 8,
+    marginBottom: 16,
+    gap: 12,
   },
-  stopButtonText: {
+  recordingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(249, 115, 22, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#f97316',
+    marginRight: 6,
+  },
+  recordingBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#f97316',
+    letterSpacing: 1,
+  },
+  timer: {
+    fontSize: 42,
+    fontWeight: '200',
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: 2,
+  },
+  waveformContainer: {
+    width: '100%',
+    height: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 24,
+    position: 'relative',
+  },
+  waveform: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: MAX_BAR_HEIGHT,
+    gap: BAR_GAP,
+  },
+  bar: {
+    width: BAR_WIDTH,
+    borderRadius: BAR_WIDTH / 2,
+    minHeight: MIN_BAR_HEIGHT,
+  },
+  centerLine: {
+    position: 'absolute',
+    width: '100%',
+    height: 1,
+    backgroundColor: '#222',
+  },
+  stopButtonWrapper: {
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: 16,
+  },
+  stopButtonGlow: {
+    position: 'absolute',
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: '#f97316',
+  },
+  stopButtonInner: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#f97316',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#f97316',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  stopIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  stopHint: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 20,
   },
   // Processing styles
   processingText: {

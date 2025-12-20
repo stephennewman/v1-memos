@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSettings, ButtonSettings } from '@/lib/settings-context';
 
 export type QuickActionContext = 'home' | 'topics' | 'voice' | 'tasks' | 'notes' | 'other';
 
@@ -13,8 +14,11 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home' }: QuickActionsProps) {
-  // Topics page: only show Topic button (full width)
+  const { buttons } = useSettings();
+  
+  // Topics page: only show Topic button (full width) if enabled
   if (context === 'topics') {
+    if (!buttons?.topic) return null;
     return (
       <View style={styles.container}>
         <TouchableOpacity
@@ -31,8 +35,9 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
     );
   }
 
-  // Voice page: only show Voice button (full width)
+  // Voice page: only show Voice button (full width) if enabled
   if (context === 'voice') {
+    if (!buttons?.voice) return null;
     return (
       <View style={styles.container}>
         <TouchableOpacity
@@ -49,8 +54,9 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
     );
   }
 
-  // Tasks page: only show Task button (full width)
+  // Tasks page: only show Task button (full width) if enabled
   if (context === 'tasks') {
+    if (!buttons?.task) return null;
     return (
       <View style={styles.container}>
         <TouchableOpacity
@@ -67,8 +73,9 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
     );
   }
 
-  // Notes page: only show Note button (full width)
+  // Notes page: only show Note button (full width) if enabled
   if (context === 'notes') {
+    if (!buttons?.note) return null;
     return (
       <View style={styles.container}>
         <TouchableOpacity
@@ -85,52 +92,32 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
     );
   }
 
-  // Home & other: show all 4 buttons
+  // Home & other: show enabled buttons only
+  const enabledButtons = [
+    buttons?.topic && { key: 'topic', onPress: onTopic, style: styles.topicButton, icon: 'bookmark', label: 'Topic' },
+    buttons?.voice && { key: 'voice', onPress: onVoice, style: styles.voiceButton, icon: 'mic', label: 'Voice' },
+    buttons?.task && { key: 'task', onPress: onTask, style: styles.taskButton, icon: 'add', label: 'Task' },
+    buttons?.note && { key: 'note', onPress: onNote, style: styles.noteButton, icon: 'document-text', label: 'Note' },
+  ].filter(Boolean) as Array<{ key: string; onPress: () => void; style: any; icon: string; label: string }>;
+
+  // If no buttons enabled, don't render the container
+  if (enabledButtons.length === 0) return null;
+
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={[styles.actionButton, styles.topicButton]}
-        onPress={onTopic}
-        activeOpacity={0.85}
-      >
-        <View style={styles.iconWrapper}>
-          <Ionicons name="bookmark" size={16} color="#fff" />
-        </View>
-        <Text style={styles.buttonLabelSmall}>Topic</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.actionButton, styles.voiceButton]}
-        onPress={onVoice}
-        activeOpacity={0.85}
-      >
-        <View style={styles.iconWrapper}>
-          <Ionicons name="mic" size={16} color="#fff" />
-        </View>
-        <Text style={styles.buttonLabelSmall}>Voice</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.actionButton, styles.taskButton]}
-        onPress={onTask}
-        activeOpacity={0.85}
-      >
-        <View style={styles.iconWrapper}>
-          <Ionicons name="add" size={16} color="#fff" />
-        </View>
-        <Text style={styles.buttonLabelSmall}>Task</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.actionButton, styles.noteButton]}
-        onPress={onNote}
-        activeOpacity={0.85}
-      >
-        <View style={styles.iconWrapper}>
-          <Ionicons name="document-text" size={16} color="#fff" />
-        </View>
-        <Text style={styles.buttonLabelSmall}>Note</Text>
-      </TouchableOpacity>
+      {enabledButtons.map((btn) => (
+        <TouchableOpacity
+          key={btn.key}
+          style={[styles.actionButton, btn.style]}
+          onPress={btn.onPress}
+          activeOpacity={0.85}
+        >
+          <View style={styles.iconWrapper}>
+            <Ionicons name={btn.icon as any} size={16} color="#fff" />
+          </View>
+          <Text style={styles.buttonLabelSmall}>{btn.label}</Text>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 }

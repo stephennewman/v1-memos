@@ -29,7 +29,7 @@ import EmptyState from '@/components/EmptyState';
 import { supabase } from '@/lib/supabase';
 import { TrackerRow } from '@/components/TrackerRow';
 import { DailyCard, ChallengeCard } from '@/components/DailyCard';
-import { getTodayDailys, updateChallengeStatus, UserDaily, UserChallenge } from '@/lib/guy-talk';
+import { getTodayDailys, updateChallengeStatus, getNewChallenge, UserDaily, UserChallenge } from '@/lib/guy-talk';
 
 interface TaskItem {
   id: string;
@@ -463,7 +463,12 @@ export default function HomeScreen() {
       // Load dailys and challenge (onboarding is already required at app level)
       const { dailys: todayDailys, challenge: todayChallenge } = await getTodayDailys();
       setDailys(todayDailys);
-      setChallenge(todayChallenge || null);
+      // Only show challenges that haven't been skipped or completed
+      const showableChallenge = todayChallenge && 
+        !['skipped', 'completed'].includes(todayChallenge.status) 
+        ? todayChallenge 
+        : null;
+      setChallenge(showableChallenge);
     } catch (error) {
       console.error('[Home] Error loading Guy Talk data:', error);
     }
@@ -492,6 +497,21 @@ export default function HomeScreen() {
     if (result.success) {
       setChallenge(prev => prev ? { ...prev, status, streak_count: result.streak || prev.streak_count } : null);
     }
+  }, [challenge]);
+
+  const handleRequestNewChallenge = useCallback(async () => {
+    const result = await getNewChallenge();
+    if (result.success && result.challenge) {
+      setChallenge(result.challenge);
+    }
+  }, []);
+
+  const handleDismissChallenge = useCallback(async () => {
+    if (challenge) {
+      // Mark as skipped in the backend so it doesn't come back
+      await updateChallengeStatus(challenge.id, 'skipped');
+    }
+    setChallenge(null);
   }, [challenge]);
 
   const toggleTask = useCallback(async (task: TaskItem) => {
@@ -599,18 +619,6 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Voice Prompt - Quick Capture */}
-        <TouchableOpacity 
-          style={styles.voicePromptCard}
-          onPress={openCreateMenu}
-          activeOpacity={0.8}
-        >
-          <View style={styles.voicePromptContent}>
-            <Ionicons name="mic-outline" size={24} color="#c4dfc4" />
-            <Text style={styles.voicePromptText}>What's on your mind?</Text>
-          </View>
-        </TouchableOpacity>
-
         {/* Trackers Row */}
         <TrackerRow />
 
@@ -619,13 +627,14 @@ export default function HomeScreen() {
           <ChallengeCard 
             challenge={challenge}
             onStatusChange={handleChallengeStatusChange}
+            onRequestNew={handleRequestNewChallenge}
+            onDismiss={handleDismissChallenge}
           />
         )}
 
         {/* Dailys (Personalized Content) */}
-        {dailys.length > 0 && (
+        {dailys.filter(d => !d.dismissed).length > 0 && (
           <View style={styles.dailysSection}>
-            <Text style={styles.dailysSectionTitle}>Today's Inspiration</Text>
             {dailys.map((daily) => (
               <DailyCard 
                 key={daily.id} 
@@ -638,8 +647,8 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Divider before tasks/notes */}
-        {(dailys.length > 0 || challenge) && hasContent && (
+        {/* Divider before tasks/notes - only if Guy Talk content is visible */}
+        {(dailys.filter(d => !d.dismissed).length > 0 || challenge) && hasContent && (
           <View style={styles.sectionDivider} />
         )}
 
@@ -655,45 +664,40 @@ export default function HomeScreen() {
 
           return (
             <View key={day.date} style={styles.daySection}>
-              {/* Day Header with date and task toggles */}
-              <View style={styles.dayHeaderRow}>
-                <Text style={styles.dayLabel}>{day.label}</Text>
-                {hasTasks && (
-                  <View style={styles.taskToggleRow}>
-                    <TouchableOpacity
-                      style={[styles.taskTogglePill, taskView === 'todo' && styles.taskTogglePillActive]}
-                      onPress={() => setTaskView('todo')}
-                    >
-                      <Text style={[styles.taskToggleText, taskView === 'todo' && styles.taskToggleTextActive]}>
-                        {todoTasks.length} to do
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.taskTogglePill, taskView === 'done' && styles.taskTogglePillDone]}
-                      onPress={() => setTaskView('done')}
-                    >
-                      <Text style={[styles.taskToggleText, taskView === 'done' && styles.taskToggleTextActive]}>
-                        {doneTasks.length} done
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-
-              {/* Sort options - only show for todo view with tasks */}
-              {hasTasks && taskView === 'todo' && todoTasks.length > 1 && (
-                <View style={styles.sortRow}>
+              {/* Day Header */}
+              <Text style={styles.dayLabel}>{day.label}</Text>
+              
+              {/* Filter Row - all options on same line */}
+              {hasTasks && (
+                <View style={styles.filterRow}>
                   {(['newest', 'oldest', 'due_next'] as const).map((sortOption) => (
                     <TouchableOpacity
                       key={sortOption}
-                      style={[styles.sortPill, taskSort === sortOption && styles.sortPillActive]}
-                      onPress={() => setTaskSort(sortOption)}
+                      style={[styles.filterPill, taskSort === sortOption && taskView === 'todo' && styles.filterPillActive]}
+                      onPress={() => { setTaskSort(sortOption); setTaskView('todo'); }}
                     >
-                      <Text style={[styles.sortText, taskSort === sortOption && styles.sortTextActive]}>
+                      <Text style={[styles.filterText, taskSort === sortOption && taskView === 'todo' && styles.filterTextActive]}>
                         {sortOption === 'newest' ? 'Newest' : sortOption === 'oldest' ? 'Oldest' : 'Due Next'}
                       </Text>
                     </TouchableOpacity>
                   ))}
+                  <View style={styles.filterDivider} />
+                  <TouchableOpacity
+                    style={[styles.filterPill, taskView === 'todo' && styles.filterPillActive]}
+                    onPress={() => setTaskView('todo')}
+                  >
+                    <Text style={[styles.filterText, taskView === 'todo' && styles.filterTextActive]}>
+                      {todoTasks.length} To Do
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.filterPill, taskView === 'done' && styles.filterPillDone]}
+                    onPress={() => setTaskView('done')}
+                  >
+                    <Text style={[styles.filterText, taskView === 'done' && styles.filterTextActive]}>
+                      {doneTasks.length} Done
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -843,33 +847,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   // Guy Talk styles
-  voicePromptCard: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#c4dfc440',
-  },
-  voicePromptContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  voicePromptText: {
-    fontSize: 16,
-    color: '#888',
-  },
   dailysSection: {
     marginBottom: 16,
-  },
-  dailysSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#888',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   sectionDivider: {
     height: 1,
@@ -903,16 +882,11 @@ const styles = StyleSheet.create({
   daySection: {
     marginBottom: 24,
   },
-  dayHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
   dayLabel: {
     fontSize: 14,
     fontWeight: '700',
     color: '#fff',
+    marginBottom: 8,
   },
   typeSection: {
     marginBottom: 12,
@@ -988,53 +962,45 @@ const styles = StyleSheet.create({
     color: '#ddd',
     lineHeight: 22,
   },
-  taskToggleRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  taskTogglePill: {
+  filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#1a1a1a',
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#333',
   },
-  taskTogglePillActive: {
+  filterPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: '#222',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  filterPillActive: {
     backgroundColor: '#333',
   },
-  taskTogglePillDone: {
+  filterPillDone: {
     backgroundColor: '#166534',
   },
-  taskToggleText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  taskToggleTextActive: {
-    color: '#fff',
-  },
-  sortRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-    marginLeft: 4,
-  },
-  sortPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#1a1a1a',
-  },
-  sortPillActive: {
-    backgroundColor: '#c4dfc4',
-  },
-  sortText: {
+  filterText: {
     fontSize: 11,
     color: '#666',
     fontWeight: '500',
   },
-  sortTextActive: {
-    color: '#0a0a0a',
+  filterTextActive: {
+    color: '#fff',
+  },
+  filterDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: '#333',
+    marginHorizontal: 4,
   },
   emptyTaskText: {
     fontSize: 14,

@@ -262,6 +262,25 @@ export async function updateChallengeStatus(
     }
 }
 
+export async function getNewChallenge(): Promise<{ success: boolean; challenge?: UserChallenge }> {
+    try {
+        const headers = await getAuthHeaders();
+
+        // Request a new challenge by calling the dailys endpoint with refresh flag
+        const response = await fetch(`${API_BASE}/api/guy-talk/dailys?newChallenge=true`, {
+            method: 'GET',
+            headers,
+        });
+
+        const data = await response.json();
+
+        return { success: response.ok, challenge: data.challenge };
+    } catch (error: any) {
+        console.error('[GuyTalk] Get new challenge error:', error);
+        return { success: false };
+    }
+}
+
 // Category definitions for UI
 export const DAILY_CATEGORIES = {
     bible_verse: { label: 'Bible Verse', icon: '📖', color: '#8b5cf6' },
