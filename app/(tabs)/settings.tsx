@@ -27,6 +27,7 @@ export default function SettingsScreen() {
     { icon: 'document-text', label: 'Notes', key: 'notes' },
     { icon: 'bookmark', label: 'Topics (Memos)', key: 'topics' },
     { icon: 'analytics', label: 'Insights', key: 'insights' },
+    { icon: 'reader-outline', label: 'Forms', key: 'forms' },
   ];
 
   const buttonItems: { icon: string; label: string; key: keyof ButtonSettings; color: string }[] = [
