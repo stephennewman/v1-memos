@@ -263,8 +263,6 @@ export default function HomeScreen() {
   const [expandedVoice, setExpandedVoice] = useState<Set<string>>(new Set());
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
-  const [taskView, setTaskView] = useState<'todo' | 'done'>('todo');
-  const [taskSort, setTaskSort] = useState<'newest' | 'oldest' | 'due_next'>('newest');
   const [toastVisible, setToastVisible] = useState(false);
   const [lastCompletedTask, setLastCompletedTask] = useState<TaskItem | null>(null);
   
@@ -680,8 +678,6 @@ export default function HomeScreen() {
     );
   }
 
-  const hasContent = dayData.some(d => d.voice.length > 0 || d.tasks.length > 0 || d.notes.length > 0);
-
   return (
     <View style={styles.container}>
       <TabHeader title="Home" subtitle={formatDate()} titleColor="#fff" />
@@ -699,22 +695,36 @@ export default function HomeScreen() {
         }
       >
         {/* Day Sections */}
-        {dayData.map((day) => {
-          const hasVoice = day.voice.length > 0;
-          const hasTasks = day.tasks.length > 0;
-          const hasNotes = day.notes.length > 0;
-          const todoTasks = day.tasks.filter(t => t.status === 'pending');
-          const doneTasks = day.tasks.filter(t => t.status === 'completed');
+        {(() => {
+          // Ensure Today is always shown
+          const todayKey = getDateKey(new Date().toISOString());
+          const hasToday = dayData.some(d => d.date === todayKey);
+          const allDays = hasToday ? dayData : [{
+            date: todayKey,
+            label: 'Today',
+            voice: [],
+            tasks: [],
+            notes: [],
+          }, ...dayData];
+          
+          return allDays.map((day) => {
+            const hasVoice = day.voice.length > 0;
+            const hasTasks = day.tasks.length > 0;
+            const hasNotes = day.notes.length > 0;
+            const todoTasks = day.tasks.filter(t => t.status === 'pending');
+            const doneTasks = day.tasks.filter(t => t.status === 'completed');
+            const isToday = day.label === 'Today';
 
-          if (!hasVoice && !hasTasks && !hasNotes) return null;
+            // Skip empty days except Today
+            if (!hasVoice && !hasTasks && !hasNotes && !isToday) return null;
 
-          return (
-            <View key={day.date} style={styles.daySection}>
-              {/* Day Header */}
-              <Text style={styles.dayLabel}>{day.label}</Text>
+            return (
+              <View key={day.date} style={styles.daySection}>
+                {/* Day Header */}
+                <Text style={styles.dayLabel}>{day.label}</Text>
 
-              {/* Tasks - Collapsible */}
-              {hasTasks && (
+              {/* Tasks - Collapsible (always show for Today) */}
+              {(hasTasks || day.label === 'Today') && (
                 <View style={styles.typeSection}>
                   <TouchableOpacity
                     style={styles.collapsibleHeader}
@@ -727,58 +737,16 @@ export default function HomeScreen() {
                     />
                     <Ionicons name="checkbox-outline" size={14} color="#3b82f6" />
                     <Text style={styles.collapsibleLabel}>
-                      {todoTasks.length} task{todoTasks.length !== 1 ? 's' : ''} to do
-                      {doneTasks.length > 0 && ` · ${doneTasks.length} done`}
+                      {todoTasks.length > 0 
+                        ? `${todoTasks.length} task${todoTasks.length !== 1 ? 's' : ''} to do${doneTasks.length > 0 ? ` · ${doneTasks.length} done` : ''}`
+                        : 'Tasks'
+                      }
                     </Text>
                   </TouchableOpacity>
                   {expandedTasks.has(day.date) && (
                     <>
-                      {/* Filter Row */}
-                      <View style={styles.filterRow}>
-                        {(['newest', 'oldest', 'due_next'] as const).map((sortOption) => (
-                          <TouchableOpacity
-                            key={sortOption}
-                            style={[styles.filterPill, taskSort === sortOption && taskView === 'todo' && styles.filterPillActive]}
-                            onPress={() => { setTaskSort(sortOption); setTaskView('todo'); }}
-                          >
-                            <Text style={[styles.filterText, taskSort === sortOption && taskView === 'todo' && styles.filterTextActive]}>
-                              {sortOption === 'newest' ? 'Newest' : sortOption === 'oldest' ? 'Oldest' : 'Due Next'}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                        <View style={styles.filterDivider} />
-                        <TouchableOpacity
-                          style={[styles.filterPill, taskView === 'todo' && styles.filterPillActive]}
-                          onPress={() => setTaskView('todo')}
-                        >
-                          <Text style={[styles.filterText, taskView === 'todo' && styles.filterTextActive]}>
-                            {todoTasks.length} To Do
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.filterPill, taskView === 'done' && styles.filterPillDone]}
-                          onPress={() => setTaskView('done')}
-                        >
-                          <Text style={[styles.filterText, taskView === 'done' && styles.filterTextActive]}>
-                            {doneTasks.length} Done
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      {/* Task list */}
-                      {(taskView === 'todo'
-                        ? [...todoTasks].sort((a, b) => {
-                          if (taskSort === 'newest') {
-                            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-                          } else if (taskSort === 'oldest') {
-                            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-                          } else {
-                            const aDue = a.due_date ? new Date(a.due_date).getTime() : Infinity;
-                            const bDue = b.due_date ? new Date(b.due_date).getTime() : Infinity;
-                            return aDue - bDue;
-                          }
-                        })
-                        : doneTasks
-                      ).map((task) => (
+                      {/* Task list - items appear in added order */}
+                      {todoTasks.map((task) => (
                         <AnimatedHomeTaskItem
                           key={task.id}
                           task={task}
@@ -786,13 +754,11 @@ export default function HomeScreen() {
                           onPress={(t) => router.push(`/task/${t.id}`)}
                         />
                       ))}
-                      {(taskView === 'todo' ? todoTasks : doneTasks).length === 0 && (
-                        <Text style={styles.emptyTaskText}>
-                          {taskView === 'todo' ? 'All done!' : 'No completed tasks yet'}
-                        </Text>
+                      {todoTasks.length === 0 && (
+                        <Text style={styles.emptyTaskText}>All done!</Text>
                       )}
                       {/* Inline Add Task */}
-                      {taskView === 'todo' && day.label === 'Today' && (
+                      {day.label === 'Today' && (
                         <View style={styles.inlineAddRow}>
                           <Ionicons name="add" size={18} color="#3b82f6" style={styles.inlineAddIcon} />
                           <TextInput
@@ -825,8 +791,8 @@ export default function HomeScreen() {
                 </View>
               )}
 
-              {/* Notes - Collapsible */}
-              {hasNotes && (
+              {/* Notes - Collapsible (always show for Today) */}
+              {(hasNotes || day.label === 'Today') && (
                 <View style={styles.typeSection}>
                   <TouchableOpacity
                     style={styles.collapsibleHeader}
@@ -839,7 +805,10 @@ export default function HomeScreen() {
                     />
                     <Ionicons name="document-text-outline" size={14} color="#93c5fd" />
                     <Text style={styles.collapsibleLabel}>
-                      {day.notes.length} note{day.notes.length !== 1 ? 's' : ''}
+                      {day.notes.length > 0 
+                        ? `${day.notes.length} note${day.notes.length !== 1 ? 's' : ''}`
+                        : 'Notes'
+                      }
                     </Text>
                   </TouchableOpacity>
                   {expandedNotes.has(day.date) && (
@@ -924,11 +893,12 @@ export default function HomeScreen() {
                 </View>
               )}
             </View>
-          );
-        })}
+            );
+          });
+        })()}
 
-        {/* Empty State */}
-        {!hasContent && (
+        {/* Empty State - only show if no data at all */}
+        {dayData.length === 0 && (
           <EmptyState
             icon="sunny-outline"
             title="Good morning!"
