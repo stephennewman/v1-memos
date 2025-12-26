@@ -468,16 +468,6 @@ export default function HomeScreen() {
     }, [user, authLoading, loadData])
   );
 
-  // Scroll to current hour on load
-  useEffect(() => {
-    if (!isLoading && scrollViewRef.current) {
-      const currentHour = getCurrentHour();
-      const scrollPosition = Math.max(0, (currentHour - START_HOUR - 1) * HOUR_HEIGHT);
-      setTimeout(() => {
-        scrollViewRef.current?.scrollTo({ y: scrollPosition, animated: false });
-      }, 100);
-    }
-  }, [isLoading]);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
