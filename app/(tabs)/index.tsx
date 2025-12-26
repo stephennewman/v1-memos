@@ -43,14 +43,20 @@ const getDateKey = (date: Date) => {
 };
 
 const formatDayLabel = (date: Date, isToday: boolean) => {
-  if (isToday) return 'Today';
+  const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  
+  if (isToday) return `Today · ${dateStr}`;
+  
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const diffDays = Math.floor((today.getTime() - itemDate.getTime()) / 86400000);
 
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return date.toLocaleDateString('en-US', { weekday: 'long' });
+  if (diffDays === 1) return `Yesterday · ${dateStr}`;
+  if (diffDays < 7) {
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+    return `${weekday} · ${dateStr}`;
+  }
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 };
 
@@ -600,23 +606,15 @@ export default function HomeScreen() {
   const pastDays = days.slice(1); // Show all days, even empty ones
   const currentHour = getCurrentHour();
   const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
+  const isTodayExpanded = !expandedDays.has('today-collapsed'); // Default expanded
 
   return (
     <KeyboardAvoidingView 
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Today</Text>
-        <Text style={styles.headerSubtitle}>
-          {new Date().toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            month: 'long', 
-            day: 'numeric' 
-          })}
-        </Text>
-      </View>
+      {/* Minimal Header */}
+      <View style={styles.header} />
 
       <ScrollView
         ref={scrollViewRef}
@@ -631,9 +629,37 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Today's Hours */}
+        {/* Today Section with Collapsible Header */}
         <View style={styles.todaySection}>
-          {hours.map(hour => {
+          <TouchableOpacity 
+            style={styles.dayHeader}
+            onPress={() => {
+              if (isTodayExpanded) {
+                setExpandedDays(prev => new Set([...prev, 'today-collapsed']));
+              } else {
+                setExpandedDays(prev => {
+                  const next = new Set(prev);
+                  next.delete('today-collapsed');
+                  return next;
+                });
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name={isTodayExpanded ? 'chevron-down' : 'chevron-forward'} 
+              size={18} 
+              color="#666" 
+            />
+            <Text style={styles.dayHeaderLabel}>{today?.label || 'Today'}</Text>
+            {today?.items.length > 0 && (
+              <View style={styles.itemCountBadge}>
+                <Text style={styles.itemCountText}>{today.items.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {isTodayExpanded && hours.map(hour => {
             const hourItems = today?.items.filter(i => i.hour === hour) || [];
             const isActive = activeInput?.hour === hour;
             
@@ -657,12 +683,6 @@ export default function HomeScreen() {
         {/* Past Days */}
         {pastDays.length > 0 && (
           <View style={styles.pastSection}>
-            <View style={styles.pastDivider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>Earlier</Text>
-              <View style={styles.dividerLine} />
-            </View>
-            
             {pastDays.map(day => (
               <PastDaySection
                 key={day.dateKey}
@@ -692,27 +712,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 16,
+  },
+  dayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+  dayHeaderLabel: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#e5e5e5',
   },
   scrollView: {
     flex: 1,
   },
   todaySection: {
-    paddingTop: 8,
+    // Container for today's collapsible section
   },
   hourBlock: {
     flexDirection: 'row',
@@ -799,40 +820,23 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   pastSection: {
-    paddingTop: 16,
-  },
-  pastDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#222',
-  },
-  dividerText: {
-    fontSize: 12,
-    color: '#555',
-    fontWeight: '600',
-    paddingHorizontal: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    // No padding needed, sections handle their own
   },
   pastDaySection: {
-    paddingHorizontal: 20,
-    marginBottom: 4,
+    // Each day section
   },
   pastDayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
   },
   pastDayLabel: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
     color: '#e5e5e5',
   },
@@ -851,15 +855,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#444',
     fontStyle: 'italic',
-    paddingLeft: 26,
-    paddingBottom: 12,
+    paddingHorizontal: 46,
+    paddingVertical: 12,
   },
   pastDayItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    paddingVertical: 8,
-    paddingLeft: 26,
+    paddingVertical: 10,
+    paddingLeft: 46,
+    paddingRight: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#111',
   },
