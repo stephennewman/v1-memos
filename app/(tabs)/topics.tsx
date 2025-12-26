@@ -5,10 +5,10 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
-  TextInput,
   ActivityIndicator,
   Alert,
   RefreshControl,
+  TextInput,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,12 +32,6 @@ export default function LibraryScreen() {
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [creatingStatus, setCreatingStatus] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Filter topics by search query
-  const filteredTopics = topics.filter(topic =>
-    topic.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   // Load topics function - takes userId to avoid closure issues
   const loadTopics = useCallback(async (userId: string) => {
@@ -246,23 +240,6 @@ export default function LibraryScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={18} color="#555" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search topics..."
-          placeholderTextColor="#444"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={18} color="#555" />
-          </TouchableOpacity>
-        )}
-      </View>
-
       {/* Create Topic Input */}
       {showCreate && (
         <View style={styles.createContainer}>
@@ -304,15 +281,9 @@ export default function LibraryScreen() {
           actionLabel="Create Your First Topic"
           onAction={() => setShowCreate(true)}
         />
-      ) : filteredTopics.length === 0 ? (
-        <EmptyState
-          icon="search-outline"
-          title="No matching topics"
-          description={`No topics found for "${searchQuery}"`}
-        />
       ) : (
         <FlatList
-          data={filteredTopics}
+          data={topics}
           renderItem={renderTopic}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}

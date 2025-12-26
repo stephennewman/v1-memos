@@ -289,7 +289,6 @@ export default function TasksScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('todo');
   const [sort, setSort] = useState<SortType>('newest');
-  const [searchQuery, setSearchQuery] = useState('');
 
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -476,11 +475,7 @@ export default function TasksScreen() {
   const pendingCount = allPending.length;
   const completedCount = allCompleted.length;
   
-  // Apply search filter
-  const searchFiltered = (filter === 'todo' ? allPending : allCompleted).filter(t =>
-    searchQuery ? t.text.toLowerCase().includes(searchQuery.toLowerCase()) : true
-  );
-  const displayTodos = searchFiltered;
+  const displayTodos = filter === 'todo' ? allPending : allCompleted;
 
   if (isLoading || authLoading) {
     return (
@@ -506,23 +501,6 @@ export default function TasksScreen() {
         >
           <Ionicons name="person-circle-outline" size={28} color="#666" />
         </TouchableOpacity>
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={18} color="#555" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search tasks..."
-          placeholderTextColor="#444"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={18} color="#555" />
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Sort & Filter Row */}
@@ -565,27 +543,19 @@ export default function TasksScreen() {
 
       {/* Todos List */}
       {displayTodos.length === 0 ? (
-        searchQuery ? (
-          <EmptyState
-            icon="search-outline"
-            title="No matching tasks"
-            description={`No tasks found for "${searchQuery}"`}
-          />
-        ) : (
-          <EmptyState
-            icon={filter === 'todo' ? 'checkbox-outline' : 'checkmark-circle'}
-            title={filter === 'todo' ? 'All done!' : 'No completed tasks yet'}
-            description={
-              filter === 'todo'
-                ? 'Great job! Record a voice note or add a task to get started'
-                : 'Complete some tasks and they\'ll show up here'
-            }
-            actionLabel={filter === 'todo' ? 'Record a Voice Note' : undefined}
-            onAction={filter === 'todo' ? () => router.push('/record') : undefined}
-            secondaryActionLabel={filter === 'todo' ? 'Add Task' : undefined}
-            onSecondaryAction={filter === 'todo' ? openCreateMenu : undefined}
-          />
-        )
+        <EmptyState
+          icon={filter === 'todo' ? 'checkbox-outline' : 'checkmark-circle'}
+          title={filter === 'todo' ? 'All done!' : 'No completed tasks yet'}
+          description={
+            filter === 'todo'
+              ? 'Great job! Record a voice note or add a task to get started'
+              : 'Complete some tasks and they\'ll show up here'
+          }
+          actionLabel={filter === 'todo' ? 'Record a Voice Note' : undefined}
+          onAction={filter === 'todo' ? () => router.push('/record') : undefined}
+          secondaryActionLabel={filter === 'todo' ? 'Add Task' : undefined}
+          onSecondaryAction={filter === 'todo' ? openCreateMenu : undefined}
+        />
       ) : (
         <ScrollView
           contentContainerStyle={styles.listContent}
