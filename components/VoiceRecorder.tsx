@@ -175,7 +175,7 @@ export function VoiceRecorder({
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
+        staysActiveInBackground: true,
       });
 
       const { recording } = await Audio.Recording.createAsync(

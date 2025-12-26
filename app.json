@@ -16,10 +16,12 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.outcomeview.memos",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["audio"],
+        "NSMicrophoneUsageDescription": "Memos needs microphone access to record voice notes, even when the app is in the background."
       }
     },
     "android": {
@@ -43,9 +45,11 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "1ee5096f-f26a-4d40-812b-10ca17a2cbff"
+      }
     },
     "owner": "krezzo"
   }
 }
-
