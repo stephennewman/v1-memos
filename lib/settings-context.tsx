@@ -20,8 +20,28 @@ export interface ButtonSettings {
   note: boolean;
 }
 
+// Which screens should show the button bar
+export interface ButtonBarVisibility {
+  home: boolean;
+  voice: boolean;
+  tasks: boolean;
+  notes: boolean;
+  topics: boolean;
+  insights: boolean;
+  detailPages: boolean;
+}
+
+// Customizable button labels
+export interface ButtonLabels {
+  topic: string;
+  voice: string;
+  task: string;
+  note: string;
+}
+
 export type TabKey = keyof TabSettings;
 export type ButtonKey = keyof ButtonSettings;
+export type ButtonBarScreenKey = keyof ButtonBarVisibility;
 
 interface SettingsContextType {
   tabs: TabSettings;
@@ -32,6 +52,10 @@ interface SettingsContextType {
   toggleButton: (button: keyof ButtonSettings) => void;
   buttonOrder: ButtonKey[];
   reorderButton: (fromIndex: number, toIndex: number) => void;
+  buttonBarVisibility: ButtonBarVisibility;
+  toggleButtonBarScreen: (screen: ButtonBarScreenKey) => void;
+  buttonLabels: ButtonLabels;
+  updateButtonLabel: (button: ButtonKey, label: string) => void;
   isLoading: boolean;
 }
 
@@ -42,7 +66,7 @@ const defaultTabs: TabSettings = {
   notes: true,
   insights: true,
   topics: true,
-  forms: true,
+  forms: false,  // Hidden by default
 };
 
 const defaultButtons: ButtonSettings = {
@@ -50,6 +74,23 @@ const defaultButtons: ButtonSettings = {
   voice: true,
   task: true,
   note: true,
+};
+
+const defaultButtonBarVisibility: ButtonBarVisibility = {
+  home: true,
+  voice: true,
+  tasks: true,
+  notes: true,
+  topics: true,
+  insights: true,
+  detailPages: false,
+};
+
+const defaultButtonLabels: ButtonLabels = {
+  topic: 'Topic',
+  voice: 'Voice',
+  task: 'Task',
+  note: 'Note',
 };
 
 const defaultTabOrder: TabKey[] = ['home', 'voice', 'tasks', 'notes', 'topics', 'insights', 'forms'];
@@ -62,6 +103,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [tabOrder, setTabOrder] = useState<TabKey[]>(defaultTabOrder);
   const [buttons, setButtons] = useState<ButtonSettings>(defaultButtons);
   const [buttonOrder, setButtonOrder] = useState<ButtonKey[]>(defaultButtonOrder);
+  const [buttonBarVisibility, setButtonBarVisibility] = useState<ButtonBarVisibility>(defaultButtonBarVisibility);
+  const [buttonLabels, setButtonLabels] = useState<ButtonLabels>(defaultButtonLabels);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load settings from storage
@@ -73,6 +116,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           const parsed = JSON.parse(stored);
           setTabs({ ...defaultTabs, ...parsed.tabs });
           setButtons({ ...defaultButtons, ...parsed.buttons });
+          setButtonBarVisibility({ ...defaultButtonBarVisibility, ...parsed.buttonBarVisibility });
+          setButtonLabels({ ...defaultButtonLabels, ...parsed.buttonLabels });
           // Load order if saved, otherwise use defaults
           if (parsed.tabOrder && Array.isArray(parsed.tabOrder)) {
             // Ensure all keys are present (in case new tabs were added)
@@ -98,9 +143,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // Save settings when they change
   useEffect(() => {
     if (!isLoading) {
-      AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ tabs, buttons, tabOrder, buttonOrder })).catch(console.error);
+      AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ 
+        tabs, buttons, tabOrder, buttonOrder, buttonBarVisibility, buttonLabels 
+      })).catch(console.error);
     }
-  }, [tabs, buttons, tabOrder, buttonOrder, isLoading]);
+  }, [tabs, buttons, tabOrder, buttonOrder, buttonBarVisibility, buttonLabels, isLoading]);
 
   const toggleTab = (tab: keyof TabSettings) => {
     // Ensure at least one tab stays enabled
@@ -140,10 +187,26 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const toggleButtonBarScreen = (screen: ButtonBarScreenKey) => {
+    setButtonBarVisibility(prev => ({
+      ...prev,
+      [screen]: !prev[screen],
+    }));
+  };
+
+  const updateButtonLabel = (button: ButtonKey, label: string) => {
+    setButtonLabels(prev => ({
+      ...prev,
+      [button]: label,
+    }));
+  };
+
   return (
     <SettingsContext.Provider value={{ 
       tabs, toggleTab, tabOrder, reorderTab,
       buttons, toggleButton, buttonOrder, reorderButton,
+      buttonBarVisibility, toggleButtonBarScreen,
+      buttonLabels, updateButtonLabel,
       isLoading 
     }}>
       {children}

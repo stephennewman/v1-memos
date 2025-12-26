@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,18 +7,36 @@ import {
   Alert,
   ScrollView,
   Switch,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth, MAX_FREE_TOPICS } from '@/lib/auth-context';
-import { useSettings, TabSettings, ButtonSettings, TabKey, ButtonKey } from '@/lib/settings-context';
+import { useSettings, TabSettings, ButtonSettings, TabKey, ButtonKey, ButtonBarScreenKey, ButtonLabels } from '@/lib/settings-context';
+
+// Label presets for each button type
+const labelPresets: Record<ButtonKey, string[]> = {
+  topic: ['Topic', 'New Topic', '+ Topic'],
+  voice: ['Voice', 'Record', 'Record Voice'],
+  task: ['Task', 'New Task', '+ Task', 'To-Do'],
+  note: ['Note', 'New Note', '+ Note'],
+};
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, topicCount, signOut } = useAuth();
-  const { tabs, toggleTab, tabOrder, reorderTab, buttons, toggleButton, buttonOrder, reorderButton, isLoading } = useSettings();
+  const { 
+    tabs, toggleTab, tabOrder, reorderTab, 
+    buttons, toggleButton, buttonOrder, reorderButton,
+    buttonBarVisibility, toggleButtonBarScreen,
+    buttonLabels, updateButtonLabel,
+    isLoading 
+  } = useSettings();
+
+  const [labelModalVisible, setLabelModalVisible] = useState(false);
+  const [editingButton, setEditingButton] = useState<ButtonKey | null>(null);
 
   const navigationItemsMap: Record<TabKey, { icon: string; label: string }> = {
     home: { icon: 'home', label: 'Home' },
@@ -31,18 +49,38 @@ export default function SettingsScreen() {
   };
 
   const buttonItemsMap: Record<ButtonKey, { icon: string; label: string; color: string }> = {
-    topic: { icon: 'bookmark', label: 'Topic', color: '#f59e0b' },
-    voice: { icon: 'mic', label: 'Voice', color: '#22c55e' },
-    task: { icon: 'add', label: 'Task', color: '#3b82f6' },
-    note: { icon: 'document-text', label: 'Note', color: '#a78bfa' },
+    topic: { icon: 'bookmark', label: buttonLabels?.topic || 'Topic', color: '#f59e0b' },
+    voice: { icon: 'mic', label: buttonLabels?.voice || 'Voice', color: '#22c55e' },
+    task: { icon: 'add', label: buttonLabels?.task || 'Task', color: '#3b82f6' },
+    note: { icon: 'document-text', label: buttonLabels?.note || 'Note', color: '#a78bfa' },
+  };
+
+  const screenVisibilityMap: Record<ButtonBarScreenKey, { icon: string; label: string }> = {
+    home: { icon: 'home', label: 'Home' },
+    voice: { icon: 'mic', label: 'Voice Notes' },
+    tasks: { icon: 'checkbox-outline', label: 'Tasks' },
+    notes: { icon: 'document-text', label: 'Notes' },
+    topics: { icon: 'bookmark', label: 'Topics' },
+    insights: { icon: 'analytics', label: 'Insights' },
+    detailPages: { icon: 'reader-outline', label: 'Detail Pages' },
   };
 
   // Get ordered items
   const orderedNavItems = tabOrder.map(key => ({ key, ...navigationItemsMap[key] }));
   const orderedButtonItems = buttonOrder.map(key => ({ key, ...buttonItemsMap[key] }));
 
-  // Debug log
-  console.log('Settings tabs:', tabs, 'isLoading:', isLoading);
+  const openLabelPicker = (buttonKey: ButtonKey) => {
+    setEditingButton(buttonKey);
+    setLabelModalVisible(true);
+  };
+
+  const selectLabel = (label: string) => {
+    if (editingButton) {
+      updateButtonLabel(editingButton, label);
+    }
+    setLabelModalVisible(false);
+    setEditingButton(null);
+  };
 
   const handleSignOut = () => {
     Alert.alert(
@@ -126,7 +164,7 @@ export default function SettingsScreen() {
         {/* Quick Actions Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <Text style={styles.sectionHint}>Toggle buttons on/off • Use arrows to reorder</Text>
+          <Text style={styles.sectionHint}>Toggle buttons • Tap label to customize • Use arrows to reorder</Text>
           <View style={styles.card}>
             {orderedButtonItems.map((item, index) => {
               const isEnabled = buttons?.[item.key] ?? true;
@@ -163,15 +201,61 @@ export default function SettingsScreen() {
                       color="#fff"
                     />
                   </View>
+                  <TouchableOpacity 
+                    style={styles.labelButton}
+                    onPress={() => openLabelPicker(item.key)}
+                  >
+                    <Text style={[
+                      styles.navLabel,
+                      !isEnabled && styles.navLabelDisabled
+                    ]}>
+                      {item.label}
+                    </Text>
+                    <Ionicons name="pencil" size={12} color="#555" />
+                  </TouchableOpacity>
+                  <Switch
+                    value={isEnabled}
+                    onValueChange={() => toggleButton(item.key)}
+                    trackColor={{ false: '#333', true: '#4a6b4a' }}
+                    thumbColor={isEnabled ? '#c4dfc4' : '#666'}
+                    ios_backgroundColor="#333"
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Button Bar Visibility Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Button Bar Visibility</Text>
+          <Text style={styles.sectionHint}>Choose which screens show the quick action buttons</Text>
+          <View style={styles.card}>
+            {(Object.keys(screenVisibilityMap) as ButtonBarScreenKey[]).map((screen, index, arr) => {
+              const config = screenVisibilityMap[screen];
+              const isEnabled = buttonBarVisibility?.[screen] ?? true;
+              return (
+                <View
+                  key={screen}
+                  style={[
+                    styles.navRow,
+                    index < arr.length - 1 && styles.navRowBorder,
+                  ]}
+                >
+                  <Ionicons
+                    name={config.icon as any}
+                    size={20}
+                    color={isEnabled ? '#c4dfc4' : '#444'}
+                  />
                   <Text style={[
                     styles.navLabel,
                     !isEnabled && styles.navLabelDisabled
                   ]}>
-                    {item.label}
+                    {config.label}
                   </Text>
                   <Switch
                     value={isEnabled}
-                    onValueChange={() => toggleButton(item.key)}
+                    onValueChange={() => toggleButtonBarScreen(screen)}
                     trackColor={{ false: '#333', true: '#4a6b4a' }}
                     thumbColor={isEnabled ? '#c4dfc4' : '#666'}
                     ios_backgroundColor="#333"
@@ -243,6 +327,46 @@ export default function SettingsScreen() {
           Memos by Outcome View
         </Text>
       </ScrollView>
+
+      {/* Label Picker Modal */}
+      <Modal
+        visible={labelModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLabelModalVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setLabelModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              Choose Label for {editingButton ? buttonItemsMap[editingButton].label : ''}
+            </Text>
+            {editingButton && labelPresets[editingButton].map((label) => (
+              <TouchableOpacity
+                key={label}
+                style={[
+                  styles.labelOption,
+                  buttonLabels?.[editingButton] === label && styles.labelOptionActive
+                ]}
+                onPress={() => selectLabel(label)}
+              >
+                <Text style={[
+                  styles.labelOptionText,
+                  buttonLabels?.[editingButton] === label && styles.labelOptionTextActive
+                ]}>
+                  {label}
+                </Text>
+                {buttonLabels?.[editingButton] === label && (
+                  <Ionicons name="checkmark" size={18} color="#c4dfc4" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -379,6 +503,55 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 32,
     marginBottom: 16,
+  },
+  labelButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    width: '80%',
+    maxWidth: 300,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  labelOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: '#222',
+    marginBottom: 8,
+  },
+  labelOptionActive: {
+    backgroundColor: '#2a3a2a',
+    borderWidth: 1,
+    borderColor: '#4a6b4a',
+  },
+  labelOptionText: {
+    fontSize: 15,
+    color: '#aaa',
+  },
+  labelOptionTextActive: {
+    color: '#c4dfc4',
+    fontWeight: '500',
   },
 });
 

@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettings, ButtonKey } from '@/lib/settings-context';
 
-export type QuickActionContext = 'home' | 'topics' | 'voice' | 'tasks' | 'notes' | 'other';
+export type QuickActionContext = 'home' | 'topics' | 'voice' | 'tasks' | 'notes' | 'insights' | 'settings' | 'other';
 
 interface QuickActionsProps {
   onVoice: () => void;
@@ -14,13 +14,13 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home' }: QuickActionsProps) {
-  const { buttons, buttonOrder } = useSettings();
+  const { buttons, buttonOrder, buttonLabels } = useSettings();
   
   const buttonConfig: Record<ButtonKey, { onPress: () => void; style: any; icon: string; label: string }> = {
-    topic: { onPress: onTopic, style: styles.topicButton, icon: 'bookmark', label: 'Topic' },
-    voice: { onPress: onVoice, style: styles.voiceButton, icon: 'mic', label: 'Voice' },
-    task: { onPress: onTask, style: styles.taskButton, icon: 'add', label: 'Task' },
-    note: { onPress: onNote, style: styles.noteButton, icon: 'document-text', label: 'Note' },
+    topic: { onPress: onTopic, style: styles.topicButton, icon: 'bookmark', label: buttonLabels?.topic || 'Topic' },
+    voice: { onPress: onVoice, style: styles.voiceButton, icon: 'mic', label: buttonLabels?.voice || 'Voice' },
+    task: { onPress: onTask, style: styles.taskButton, icon: 'add', label: buttonLabels?.task || 'Task' },
+    note: { onPress: onNote, style: styles.noteButton, icon: 'document-text', label: buttonLabels?.note || 'Note' },
   };
   
   // Topics page: only show Topic button (full width) if enabled
@@ -36,7 +36,7 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
           <View style={styles.iconWrapper}>
             <Ionicons name="bookmark" size={18} color="#fff" />
           </View>
-          <Text style={styles.buttonLabel}>New Topic</Text>
+          <Text style={styles.buttonLabel}>New {buttonLabels?.topic || 'Topic'}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -55,7 +55,7 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
           <View style={styles.iconWrapper}>
             <Ionicons name="mic" size={18} color="#fff" />
           </View>
-          <Text style={styles.buttonLabel}>Record Voice Note</Text>
+          <Text style={styles.buttonLabel}>Record {buttonLabels?.voice || 'Voice'} Note</Text>
         </TouchableOpacity>
       </View>
     );
@@ -74,7 +74,7 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
           <View style={styles.iconWrapper}>
             <Ionicons name="add" size={18} color="#fff" />
           </View>
-          <Text style={styles.buttonLabel}>New Task</Text>
+          <Text style={styles.buttonLabel}>New {buttonLabels?.task || 'Task'}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -93,8 +93,33 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
           <View style={styles.iconWrapper}>
             <Ionicons name="document-text" size={18} color="#fff" />
           </View>
-          <Text style={styles.buttonLabel}>New Note</Text>
+          <Text style={styles.buttonLabel}>New {buttonLabels?.note || 'Note'}</Text>
         </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Insights page: show all enabled buttons
+  if (context === 'insights') {
+    const orderedEnabledButtons = buttonOrder
+      .filter(key => buttons?.[key])
+      .map(key => ({ key, ...buttonConfig[key] }));
+    if (orderedEnabledButtons.length === 0) return null;
+    return (
+      <View style={styles.container}>
+        {orderedEnabledButtons.map((btn) => (
+          <TouchableOpacity
+            key={btn.key}
+            style={[styles.actionButton, btn.style]}
+            onPress={btn.onPress}
+            activeOpacity={0.85}
+          >
+            <View style={styles.iconWrapper}>
+              <Ionicons name={btn.icon as any} size={16} color="#fff" />
+            </View>
+            <Text style={styles.buttonLabelSmall}>{btn.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
     );
   }

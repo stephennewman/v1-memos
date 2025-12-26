@@ -6,6 +6,7 @@ import { QuickTopicModal } from '@/components/QuickTopicModal';
 import { QuickNoteModal } from '@/components/QuickNoteModal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import { useSettings, ButtonBarScreenKey } from '@/lib/settings-context';
 import { generateMemos } from '@/lib/api';
 
 interface CreateContextType {
@@ -31,6 +32,7 @@ export function CreateProvider({ children }: CreateProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
+  const { buttonBarVisibility } = useSettings();
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
@@ -42,11 +44,27 @@ export function CreateProvider({ children }: CreateProviderProps) {
     if (pathname === '/voice' || pathname === '/(tabs)/voice') return 'voice';
     if (pathname === '/tasks' || pathname === '/(tabs)/tasks') return 'tasks';
     if (pathname === '/notes' || pathname === '/(tabs)/notes') return 'notes';
+    if (pathname === '/insights' || pathname === '/(tabs)/insights') return 'insights';
+    if (pathname === '/settings' || pathname === '/(tabs)/settings') return 'settings';
     if (pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/index') return 'home';
     return 'other';
   };
 
   const currentContext = getContext();
+
+  // Check if button bar should be visible on current screen
+  const shouldShowButtonBar = (): boolean => {
+    const ctx = currentContext;
+    // Never show on settings
+    if (ctx === 'settings') return false;
+    // For detail pages (other), check detailPages setting
+    if (ctx === 'other') return buttonBarVisibility?.detailPages ?? false;
+    // For insights, check insights setting
+    if (ctx === 'insights') return buttonBarVisibility?.insights ?? true;
+    // For main tabs, check their respective settings
+    const screenKey = ctx as ButtonBarScreenKey;
+    return buttonBarVisibility?.[screenKey] ?? true;
+  };
 
   const openCreateMenu = useCallback(() => {
     setIsTaskModalOpen(true);
@@ -148,13 +166,15 @@ export function CreateProvider({ children }: CreateProviderProps) {
       {children}
 
       {/* Quick Actions - context-aware buttons */}
-      <QuickActions
-        onVoice={handleVoicePress}
-        onTask={handleTaskPress}
-        onTopic={handleTopicPress}
-        onNote={handleNotePress}
-        context={currentContext}
-      />
+      {shouldShowButtonBar() && (
+        <QuickActions
+          onVoice={handleVoicePress}
+          onTask={handleTaskPress}
+          onTopic={handleTopicPress}
+          onNote={handleNotePress}
+          context={currentContext}
+        />
+      )}
 
       {/* Quick Task Modal */}
       <QuickTaskModal

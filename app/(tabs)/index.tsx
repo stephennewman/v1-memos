@@ -312,6 +312,9 @@ export default function HomeScreen() {
   
   // Expanded days state
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  
+  // Show all hours toggle for today
+  const [showAllHours, setShowAllHours] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -605,8 +608,20 @@ export default function HomeScreen() {
   const today = days[0];
   const pastDays = days.slice(1); // Show all days, even empty ones
   const currentHour = getCurrentHour();
-  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
+  const allHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
   const isTodayExpanded = !expandedDays.has('today-collapsed'); // Default expanded
+  
+  // Get visible hours: show hours with content + current hour +/- 1 hour
+  // If showAllHours is true, show all hours
+  const visibleHours = showAllHours ? allHours : allHours.filter(hour => {
+    const hasItems = today?.items.some(i => i.hour === hour) || false;
+    const isNearCurrent = Math.abs(hour - currentHour) <= 1;
+    const hasActiveInput = activeInput?.hour === hour;
+    return hasItems || isNearCurrent || hasActiveInput;
+  });
+  
+  // Check if there are hidden hours
+  const hiddenHoursCount = allHours.length - visibleHours.length;
 
   return (
     <KeyboardAvoidingView 
@@ -659,25 +674,54 @@ export default function HomeScreen() {
             )}
           </TouchableOpacity>
 
-          {isTodayExpanded && hours.map(hour => {
-            const hourItems = today?.items.filter(i => i.hour === hour) || [];
-            const isActive = activeInput?.hour === hour;
-            
-            return (
-              <HourBlock
-                key={hour}
-                hour={hour}
-                items={hourItems}
-                isCurrentHour={hour === currentHour}
-                activeInput={isActive ? activeInput.type : null}
-                onStartInput={(type) => handleStartInput(hour, type)}
-                onSubmitItem={(text, type) => handleSubmitItem(text, hour, type)}
-                onCancelInput={() => setActiveInput(null)}
-                onToggleTask={handleToggleTask}
-                onItemPress={handleItemPress}
-              />
-            );
-          })}
+          {isTodayExpanded && (
+            <>
+              {visibleHours.map(hour => {
+                const hourItems = today?.items.filter(i => i.hour === hour) || [];
+                const isActive = activeInput?.hour === hour;
+                
+                return (
+                  <HourBlock
+                    key={hour}
+                    hour={hour}
+                    items={hourItems}
+                    isCurrentHour={hour === currentHour}
+                    activeInput={isActive ? activeInput.type : null}
+                    onStartInput={(type) => handleStartInput(hour, type)}
+                    onSubmitItem={(text, type) => handleSubmitItem(text, hour, type)}
+                    onCancelInput={() => setActiveInput(null)}
+                    onToggleTask={handleToggleTask}
+                    onItemPress={handleItemPress}
+                  />
+                );
+              })}
+              
+              {/* Show/hide all hours toggle */}
+              {hiddenHoursCount > 0 && !showAllHours && (
+                <TouchableOpacity 
+                  style={styles.showMoreHours}
+                  onPress={() => setShowAllHours(true)}
+                >
+                  <Ionicons name="ellipsis-horizontal" size={16} color="#555" />
+                  <Text style={styles.showMoreText}>
+                    Show {hiddenHoursCount} more hours
+                  </Text>
+                </TouchableOpacity>
+              )}
+              
+              {showAllHours && (
+                <TouchableOpacity 
+                  style={styles.showMoreHours}
+                  onPress={() => setShowAllHours(false)}
+                >
+                  <Ionicons name="chevron-up" size={16} color="#555" />
+                  <Text style={styles.showMoreText}>
+                    Collapse empty hours
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
         </View>
 
         {/* Past Days */}
@@ -873,5 +917,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#aaa',
     lineHeight: 20,
+  },
+  showMoreHours: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#111',
+    backgroundColor: '#0d0d0d',
+  },
+  showMoreText: {
+    fontSize: 13,
+    color: '#555',
   },
 });

@@ -11,6 +11,7 @@ import {
   Animated,
   PanResponder,
   Dimensions,
+  TextInput,
 } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -23,6 +24,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useCreate } from '@/lib/create-context';
 import EmptyState from '@/components/EmptyState';
 import type { VoiceTodo, TodoStatus } from '@/lib/types';
+import { getDateGroupLabel } from '@/lib/format-date';
 
 type FilterType = 'todo' | 'done';
 type SortType = 'newest' | 'oldest' | 'due_next';
@@ -287,6 +289,7 @@ export default function TasksScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('todo');
   const [sort, setSort] = useState<SortType>('newest');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -299,22 +302,6 @@ export default function TasksScreen() {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     return { today, tomorrow, now };
-  };
-
-  // Format date for grouping
-  const getDateLabel = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-    const diffMs = today.getTime() - itemDate.getTime();
-    const diffDays = Math.round(diffMs / 86400000);
-
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return date.toLocaleDateString('en-US', { weekday: 'long' });
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   // Group todos by date
@@ -333,7 +320,7 @@ export default function TasksScreen() {
     groupMap.forEach((todos, dateKey) => {
       groups.push({
         date: dateKey,
-        label: getDateLabel(todos[0].created_at),
+        label: getDateGroupLabel(todos[0].created_at),
         todos,
       });
     });
@@ -488,7 +475,12 @@ export default function TasksScreen() {
   const allCompleted = todos.filter(t => t.status === 'completed');
   const pendingCount = allPending.length;
   const completedCount = allCompleted.length;
-  const displayTodos = filter === 'todo' ? allPending : allCompleted;
+  
+  // Apply search filter
+  const searchFiltered = (filter === 'todo' ? allPending : allCompleted).filter(t =>
+    searchQuery ? t.text.toLowerCase().includes(searchQuery.toLowerCase()) : true
+  );
+  const displayTodos = searchFiltered;
 
   if (isLoading || authLoading) {
     return (
@@ -514,6 +506,23 @@ export default function TasksScreen() {
         >
           <Ionicons name="person-circle-outline" size={28} color="#666" />
         </TouchableOpacity>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={18} color="#555" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search tasks..."
+          placeholderTextColor="#444"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={18} color="#555" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Sort & Filter Row */}
@@ -556,19 +565,27 @@ export default function TasksScreen() {
 
       {/* Todos List */}
       {displayTodos.length === 0 ? (
-        <EmptyState
-          icon={filter === 'todo' ? 'checkbox-outline' : 'checkmark-circle'}
-          title={filter === 'todo' ? 'All done!' : 'No completed tasks yet'}
-          description={
-            filter === 'todo'
-              ? 'Great job! Record a voice note or add a task to get started'
-              : 'Complete some tasks and they\'ll show up here'
-          }
-          actionLabel={filter === 'todo' ? 'Record a Voice Note' : undefined}
-          onAction={filter === 'todo' ? () => router.push('/record') : undefined}
-          secondaryActionLabel={filter === 'todo' ? 'Add Task' : undefined}
-          onSecondaryAction={filter === 'todo' ? openCreateMenu : undefined}
-        />
+        searchQuery ? (
+          <EmptyState
+            icon="search-outline"
+            title="No matching tasks"
+            description={`No tasks found for "${searchQuery}"`}
+          />
+        ) : (
+          <EmptyState
+            icon={filter === 'todo' ? 'checkbox-outline' : 'checkmark-circle'}
+            title={filter === 'todo' ? 'All done!' : 'No completed tasks yet'}
+            description={
+              filter === 'todo'
+                ? 'Great job! Record a voice note or add a task to get started'
+                : 'Complete some tasks and they\'ll show up here'
+            }
+            actionLabel={filter === 'todo' ? 'Record a Voice Note' : undefined}
+            onAction={filter === 'todo' ? () => router.push('/record') : undefined}
+            secondaryActionLabel={filter === 'todo' ? 'Add Task' : undefined}
+            onSecondaryAction={filter === 'todo' ? openCreateMenu : undefined}
+          />
+        )
       ) : (
         <ScrollView
           contentContainerStyle={styles.listContent}
@@ -642,6 +659,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 2,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#fff',
   },
   filterSortRow: {
     flexDirection: 'row',

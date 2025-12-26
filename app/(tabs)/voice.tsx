@@ -18,6 +18,7 @@ import { useAuth } from '@/lib/auth-context';
 import EmptyState from '@/components/EmptyState';
 import type { VoiceEntry } from '@/lib/types';
 import { ENTRY_TYPE_CONFIG } from '@/lib/types';
+import { formatRelativeDate, formatDateTime } from '@/lib/format-date';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
 
@@ -151,30 +152,6 @@ export default function VoiceScreen() {
     }, [user, authLoading, loadEntries])
   );
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
-
-  const formatDateTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-  };
 
   const renderEntry = ({ item }: { item: VoiceEntry }) => {
     const config = ENTRY_TYPE_CONFIG[item.entry_type] || ENTRY_TYPE_CONFIG.freeform;
@@ -213,7 +190,7 @@ export default function VoiceScreen() {
 
           {/* Meta row: date, tasks, people */}
           <View style={styles.entryMeta}>
-            <Text style={styles.entryDate}>{formatDate(item.created_at)}</Text>
+            <Text style={styles.entryDate}>{formatRelativeDate(item.created_at)}</Text>
 
             {/* Tasks count */}
             <View style={styles.tasksBadge}>

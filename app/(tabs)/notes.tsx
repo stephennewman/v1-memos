@@ -16,6 +16,7 @@ import { useAuth } from '@/lib/auth-context';
 import EmptyState from '@/components/EmptyState';
 import { supabase } from '@/lib/supabase';
 import type { VoiceNote } from '@/lib/types';
+import { formatShortDate } from '@/lib/format-date';
 
 type FilterType = 'all' | 'archived';
 
@@ -95,18 +96,6 @@ export default function NotesScreen() {
     return note.text.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
   const renderNote = ({ item }: { item: VoiceNote }) => (
     <TouchableOpacity
       style={styles.noteItem}
@@ -115,7 +104,7 @@ export default function NotesScreen() {
       <Ionicons name="document-text-outline" size={18} color="#93c5fd" style={styles.noteIcon} />
       <View style={styles.noteContent}>
         <Text style={styles.noteText} numberOfLines={2}>{item.text}</Text>
-        <Text style={styles.noteDate}>{formatDate(item.created_at)}</Text>
+        <Text style={styles.noteDate}>{formatShortDate(item.created_at)}</Text>
       </View>
       <TouchableOpacity
         style={styles.archiveBtn}

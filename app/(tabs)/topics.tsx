@@ -18,6 +18,7 @@ import { useAuth, MAX_FREE_TOPICS } from '@/lib/auth-context';
 import { generateMemos } from '@/lib/api';
 import EmptyState from '@/components/EmptyState';
 import type { MemoTopic } from '@/lib/types';
+import { formatRelativeDate } from '@/lib/format-date';
 
 export default function LibraryScreen() {
   const router = useRouter();
@@ -31,6 +32,12 @@ export default function LibraryScreen() {
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [creatingStatus, setCreatingStatus] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter topics by search query
+  const filteredTopics = topics.filter(topic =>
+    topic.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Load topics function - takes userId to avoid closure issues
   const loadTopics = useCallback(async (userId: string) => {
@@ -198,7 +205,7 @@ export default function LibraryScreen() {
       <View style={styles.topicContent}>
         <Text style={styles.topicTitle}>{item.title}</Text>
         <Text style={styles.topicMeta}>
-          {item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}
+          {item.created_at ? formatRelativeDate(item.created_at) : ''}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={20} color="#666" />
@@ -237,6 +244,23 @@ export default function LibraryScreen() {
         >
           <Ionicons name="person-circle-outline" size={28} color="#666" />
         </TouchableOpacity>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={18} color="#555" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search topics..."
+          placeholderTextColor="#444"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={18} color="#555" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Create Topic Input */}
@@ -280,9 +304,15 @@ export default function LibraryScreen() {
           actionLabel="Create Your First Topic"
           onAction={() => setShowCreate(true)}
         />
+      ) : filteredTopics.length === 0 ? (
+        <EmptyState
+          icon="search-outline"
+          title="No matching topics"
+          description={`No topics found for "${searchQuery}"`}
+        />
       ) : (
         <FlatList
-          data={topics}
+          data={filteredTopics}
           renderItem={renderTopic}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
@@ -344,6 +374,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 2,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#fff',
   },
   addButton: {
     width: 44,
