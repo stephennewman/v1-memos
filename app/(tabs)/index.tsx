@@ -37,6 +37,7 @@ interface DayData {
   dateKey: string;
   label: string;
   isToday: boolean;
+  isFuture: boolean;
   items: TimelineItem[];
 }
 
@@ -44,7 +45,7 @@ const getDateKey = (date: Date) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
-const formatDayLabel = (date: Date, isToday: boolean) => {
+const formatDayLabel = (date: Date, isToday: boolean, isFuture: boolean) => {
   const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   
   if (isToday) return `Today · ${dateStr}`;
@@ -52,10 +53,21 @@ const formatDayLabel = (date: Date, isToday: boolean) => {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diffDays = Math.floor((today.getTime() - itemDate.getTime()) / 86400000);
+  const diffDays = Math.floor((itemDate.getTime() - today.getTime()) / 86400000);
 
-  if (diffDays === 1) return `Yesterday · ${dateStr}`;
-  if (diffDays < 7) {
+  if (isFuture) {
+    if (diffDays === 1) return `Tomorrow · ${dateStr}`;
+    if (diffDays < 7) {
+      const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+      return `${weekday} · ${dateStr}`;
+    }
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  
+  // Past days
+  const pastDiffDays = Math.floor((today.getTime() - itemDate.getTime()) / 86400000);
+  if (pastDiffDays === 1) return `Yesterday · ${dateStr}`;
+  if (pastDiffDays < 7) {
     const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
     return `${weekday} · ${dateStr}`;
   }
@@ -126,11 +138,12 @@ const InlineInput = ({
   );
 };
 
-// Hour Block for Today
+// Hour Block for Today/Future
 const HourBlock = ({
   hour,
   items,
   isCurrentHour,
+  canAdd,
   activeInput,
   onStartInput,
   onSubmitItem,
@@ -142,6 +155,7 @@ const HourBlock = ({
   hour: number;
   items: TimelineItem[];
   isCurrentHour: boolean;
+  canAdd: boolean;
   activeInput: 'task' | 'note' | null;
   onStartInput: (type: 'task' | 'note') => void;
   onSubmitItem: (text: string, type: 'task' | 'note') => void;
@@ -202,8 +216,8 @@ const HourBlock = ({
           </TouchableOpacity>
         ))}
 
-        {/* Active input */}
-        {activeInput && (
+        {/* Active input - only if canAdd */}
+        {canAdd && activeInput && (
           <InlineInput
             type={activeInput}
             hour={hour}
@@ -213,8 +227,8 @@ const HourBlock = ({
           />
         )}
 
-        {/* Add buttons - only show if no active input */}
-        {!activeInput && (
+        {/* Add buttons - only show if canAdd and no active input */}
+        {canAdd && !activeInput && (
           <View style={styles.addRow}>
             <TouchableOpacity 
               style={styles.addButton}
@@ -330,8 +344,8 @@ export default function HomeScreen() {
   const [days, setDays] = useState<DayData[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
   
-  // Active input state: { hour, type }
-  const [activeInput, setActiveInput] = useState<{ hour: number; type: 'task' | 'note' } | null>(null);
+  // Active input state: { hour, type, dateKey }
+  const [activeInput, setActiveInput] = useState<{ hour: number; type: 'task' | 'note'; dateKey: string } | null>(null);
   
   // Expanded days state
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
@@ -373,10 +387,28 @@ export default function HomeScreen() {
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
 
-      // Build days
+      // Build days - include 7 future days + today + 30 past days
       const daysArray: DayData[] = [];
       const dayMap = new Map<string, DayData>();
 
+      // Future days (7 days ahead, in reverse order so Tomorrow is first after Today)
+      for (let i = 7; i >= 1; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() + i);
+        date.setHours(0, 0, 0, 0);
+        const day: DayData = {
+          date,
+          dateKey: getDateKey(date),
+          label: formatDayLabel(date, false, true),
+          isToday: false,
+          isFuture: true,
+          items: [],
+        };
+        daysArray.push(day);
+        dayMap.set(day.dateKey, day);
+      }
+
+      // Today + past days
       for (let i = 0; i < 30; i++) {
         const date = new Date();
         date.setDate(date.getDate() - i);
@@ -385,8 +417,9 @@ export default function HomeScreen() {
         const day: DayData = {
           date,
           dateKey: getDateKey(date),
-          label: formatDayLabel(date, isToday),
+          label: formatDayLabel(date, isToday, false),
           isToday,
+          isFuture: false,
           items: [],
         };
         daysArray.push(day);
@@ -474,15 +507,19 @@ export default function HomeScreen() {
     loadData();
   }, [loadData]);
 
-  const handleStartInput = useCallback((hour: number, type: 'task' | 'note') => {
-    setActiveInput({ hour, type });
+  const handleStartInput = useCallback((hour: number, type: 'task' | 'note', dateKey?: string) => {
+    setActiveInput({ hour, type, dateKey: dateKey || getDateKey(new Date()) });
   }, []);
 
-  const handleSubmitItem = useCallback(async (text: string, hour: number, type: 'task' | 'note') => {
+  const handleSubmitItem = useCallback(async (text: string, hour: number, type: 'task' | 'note', dateKey?: string) => {
     if (!user) return;
 
-    // Create date for this hour (today)
-    const itemDate = new Date();
+    // Find the target day to get the correct date
+    const targetDateKey = dateKey || getDateKey(new Date());
+    const targetDay = days.find(d => d.dateKey === targetDateKey);
+    
+    // Create date for this hour on the target day
+    const itemDate = targetDay ? new Date(targetDay.date) : new Date();
     itemDate.setHours(hour, 0, 0, 0);
 
     try {
@@ -501,8 +538,8 @@ export default function HomeScreen() {
         if (error) throw error;
 
         // Update local state
-        setDays(prev => prev.map((day, idx) => {
-          if (idx === 0) { // Today
+        setDays(prev => prev.map(day => {
+          if (day.dateKey === targetDateKey) {
             return {
               ...day,
               items: [...day.items, {
@@ -532,8 +569,8 @@ export default function HomeScreen() {
         if (error) throw error;
 
         // Update local state
-        setDays(prev => prev.map((day, idx) => {
-          if (idx === 0) { // Today
+        setDays(prev => prev.map(day => {
+          if (day.dateKey === targetDateKey) {
             return {
               ...day,
               items: [...day.items, {
@@ -553,7 +590,7 @@ export default function HomeScreen() {
     }
 
     setActiveInput(null);
-  }, [user]);
+  }, [user, days]);
 
   const handleToggleTask = useCallback(async (item: TimelineItem) => {
     if (item.type !== 'task') return;
@@ -653,8 +690,13 @@ export default function HomeScreen() {
     });
   }, []);
 
+  // Split days into future, today, and past
+  const futureDays = days.filter(d => d.isFuture);
+  const today = days.find(d => d.isToday);
+  const pastDays = days.filter(d => !d.isToday && !d.isFuture);
+  
   // Count today's items
-  const todayItemCount = days[0]?.items.length || 0;
+  const todayItemCount = today?.items.length || 0;
 
   if (isLoading || authLoading) {
     return (
@@ -664,13 +706,11 @@ export default function HomeScreen() {
     );
   }
 
-  const today = days[0];
-  const pastDays = days.slice(1); // Show all days, even empty ones
   const currentHour = getCurrentHour();
   const allHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
   const isTodayExpanded = !expandedDays.has('today-collapsed'); // Default expanded
   
-  // Get visible hours: show hours with content + current hour +/- 1 hour
+  // Get visible hours for today: show hours with content + current hour +/- 1 hour
   // If showAllHours is true, show all hours
   const visibleHours = showAllHours ? allHours : allHours.filter(hour => {
     const hasItems = today?.items.some(i => i.hour === hour) || false;
@@ -750,7 +790,8 @@ export default function HomeScreen() {
             <>
               {visibleHours.map(hour => {
                 const hourItems = today?.items.filter(i => i.hour === hour) || [];
-                const isActive = activeInput?.hour === hour;
+                const isActive = activeInput?.hour === hour && activeInput?.dateKey === today?.dateKey;
+                const canAdd = hour >= currentHour; // Can only add to current or future hours
                 
                 return (
                   <HourBlock
@@ -758,9 +799,10 @@ export default function HomeScreen() {
                     hour={hour}
                     items={hourItems}
                     isCurrentHour={hour === currentHour}
+                    canAdd={canAdd}
                     activeInput={isActive ? activeInput.type : null}
-                    onStartInput={(type) => handleStartInput(hour, type)}
-                    onSubmitItem={(text, type) => handleSubmitItem(text, hour, type)}
+                    onStartInput={(type) => handleStartInput(hour, type, today?.dateKey)}
+                    onSubmitItem={(text, type) => handleSubmitItem(text, hour, type, today?.dateKey)}
                     onCancelInput={() => setActiveInput(null)}
                     onToggleTask={handleToggleTask}
                     onItemPress={handleItemPress}
@@ -796,6 +838,67 @@ export default function HomeScreen() {
             </>
           )}
         </View>
+
+        {/* Future Days - with hour blocks for planning */}
+        {futureDays.length > 0 && (
+          <View style={styles.futureSection}>
+            {futureDays.map(day => {
+              const isFutureDayExpanded = expandedDays.has(day.dateKey);
+              return (
+                <View key={day.dateKey} style={styles.futureDaySection}>
+                  <TouchableOpacity 
+                    style={styles.dayHeader}
+                    onPress={() => toggleDayExpanded(day.dateKey)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons 
+                      name={isFutureDayExpanded ? 'chevron-down' : 'chevron-forward'} 
+                      size={18} 
+                      color="#666" 
+                    />
+                    <Text style={[styles.dayHeaderLabel, styles.futureDayLabel]}>{day.label}</Text>
+                    {day.items.length > 0 && (
+                      <View style={styles.itemCountBadge}>
+                        <Text style={styles.itemCountText}>{day.items.length}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  
+                  {isFutureDayExpanded && (
+                    <>
+                      {allHours.filter(hour => {
+                        // For future days, show hours with items or just a few default hours
+                        const hasItems = day.items.some(i => i.hour === hour);
+                        const isWorkHour = hour >= 8 && hour <= 18;
+                        return hasItems || isWorkHour;
+                      }).map(hour => {
+                        const hourItems = day.items.filter(i => i.hour === hour);
+                        const isActive = activeInput?.hour === hour && activeInput?.dateKey === day.dateKey;
+                        
+                        return (
+                          <HourBlock
+                            key={hour}
+                            hour={hour}
+                            items={hourItems}
+                            isCurrentHour={false}
+                            canAdd={true}
+                            activeInput={isActive ? activeInput.type : null}
+                            onStartInput={(type) => handleStartInput(hour, type, day.dateKey)}
+                            onSubmitItem={(text, type) => handleSubmitItem(text, hour, type, day.dateKey)}
+                            onCancelInput={() => setActiveInput(null)}
+                            onToggleTask={handleToggleTask}
+                            onItemPress={handleItemPress}
+                            onDeleteItem={handleDeleteItem}
+                          />
+                        );
+                      })}
+                    </>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
 
         {/* Past Days */}
         {pastDays.length > 0 && (
@@ -959,8 +1062,21 @@ const styles = StyleSheet.create({
     color: '#ddd',
     padding: 0,
   },
+  futureSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#1a1a1a',
+    marginTop: 8,
+  },
+  futureDaySection: {
+    // Each future day section
+  },
+  futureDayLabel: {
+    color: '#4ade80', // Green tint for future days
+  },
   pastSection: {
-    // No padding needed, sections handle their own
+    borderTopWidth: 1,
+    borderTopColor: '#1a1a1a',
+    marginTop: 8,
   },
   pastDaySection: {
     // Each day section
