@@ -219,22 +219,43 @@ const HourBlock = ({
   );
 };
 
-// Past Day Section (no hours, just items)
+// Past Day Section (collapsible, no hours)
 const PastDaySection = ({
   day,
+  isExpanded,
+  onToggleExpand,
   onToggleTask,
   onItemPress,
 }: {
   day: DayData;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
   onToggleTask: (item: TimelineItem) => void;
   onItemPress: (item: TimelineItem) => void;
 }) => {
-  if (day.items.length === 0) return null;
+  const hasItems = day.items.length > 0;
 
   return (
     <View style={styles.pastDaySection}>
-      <Text style={styles.pastDayLabel}>{day.label}</Text>
-      {day.items.map((item) => (
+      <TouchableOpacity 
+        style={styles.pastDayHeader}
+        onPress={onToggleExpand}
+        activeOpacity={0.7}
+      >
+        <Ionicons 
+          name={isExpanded ? 'chevron-down' : 'chevron-forward'} 
+          size={18} 
+          color="#666" 
+        />
+        <Text style={styles.pastDayLabel}>{day.label}</Text>
+        {hasItems && (
+          <View style={styles.itemCountBadge}>
+            <Text style={styles.itemCountText}>{day.items.length}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+      
+      {isExpanded && hasItems && day.items.map((item) => (
         <TouchableOpacity
           key={item.id}
           style={styles.pastDayItem}
@@ -264,6 +285,10 @@ const PastDaySection = ({
           </Text>
         </TouchableOpacity>
       ))}
+      
+      {isExpanded && !hasItems && (
+        <Text style={styles.noItemsText}>No entries</Text>
+      )}
     </View>
   );
 };
@@ -278,6 +303,9 @@ export default function HomeScreen() {
   
   // Active input state: { hour, type }
   const [activeInput, setActiveInput] = useState<{ hour: number; type: 'task' | 'note' } | null>(null);
+  
+  // Expanded days state
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -557,9 +585,21 @@ export default function HomeScreen() {
   }
 
   const today = days[0];
-  const pastDays = days.slice(1).filter(d => d.items.length > 0);
+  const pastDays = days.slice(1); // Show all days, even empty ones
   const currentHour = getCurrentHour();
   const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
+
+  const toggleDayExpanded = useCallback((dateKey: string) => {
+    setExpandedDays(prev => {
+      const next = new Set(prev);
+      if (next.has(dateKey)) {
+        next.delete(dateKey);
+      } else {
+        next.add(dateKey);
+      }
+      return next;
+    });
+  }, []);
 
   return (
     <KeyboardAvoidingView 
@@ -627,6 +667,8 @@ export default function HomeScreen() {
               <PastDaySection
                 key={day.dateKey}
                 day={day}
+                isExpanded={expandedDays.has(day.dateKey)}
+                onToggleExpand={() => toggleDayExpanded(day.dateKey)}
                 onToggleTask={handleToggleTask}
                 onItemPress={handleItemPress}
               />
@@ -780,19 +822,44 @@ const styles = StyleSheet.create({
   },
   pastDaySection: {
     paddingHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 4,
+  },
+  pastDayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
   },
   pastDayLabel: {
-    fontSize: 13,
-    fontWeight: '700',
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#e5e5e5',
+  },
+  itemCountBadge: {
+    backgroundColor: '#222',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  itemCountText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#888',
-    marginBottom: 8,
+  },
+  noItemsText: {
+    fontSize: 13,
+    color: '#444',
+    fontStyle: 'italic',
+    paddingLeft: 26,
+    paddingBottom: 12,
   },
   pastDayItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
     paddingVertical: 8,
+    paddingLeft: 26,
     borderBottomWidth: 1,
     borderBottomColor: '#111',
   },
