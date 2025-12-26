@@ -11,6 +11,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -136,6 +137,7 @@ const HourBlock = ({
   onCancelInput,
   onToggleTask,
   onItemPress,
+  onDeleteItem,
 }: {
   hour: number;
   items: TimelineItem[];
@@ -146,6 +148,7 @@ const HourBlock = ({
   onCancelInput: () => void;
   onToggleTask: (item: TimelineItem) => void;
   onItemPress: (item: TimelineItem) => void;
+  onDeleteItem: (item: TimelineItem) => void;
 }) => {
   return (
     <View style={[styles.hourBlock, isCurrentHour && styles.currentHourBlock]}>
@@ -164,14 +167,21 @@ const HourBlock = ({
           <TouchableOpacity
             key={item.id}
             style={styles.timelineItem}
-            onPress={() => item.type === 'task' ? onToggleTask(item) : onItemPress(item)}
+            onPress={() => onItemPress(item)}
+            onLongPress={() => onDeleteItem(item)}
+            delayLongPress={500}
           >
             {item.type === 'task' && (
-              <Ionicons 
-                name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
-                size={16} 
-                color={item.status === 'completed' ? '#4ade80' : '#c4dfc4'} 
-              />
+              <TouchableOpacity 
+                onPress={() => onToggleTask(item)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons 
+                  name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
+                  size={16} 
+                  color={item.status === 'completed' ? '#4ade80' : '#c4dfc4'} 
+                />
+              </TouchableOpacity>
             )}
             {item.type === 'note' && (
               <Ionicons name="document-text" size={16} color="#93c5fd" />
@@ -188,6 +198,7 @@ const HourBlock = ({
             >
               {item.text}
             </Text>
+            <Ionicons name="chevron-forward" size={14} color="#333" />
           </TouchableOpacity>
         ))}
 
@@ -233,12 +244,14 @@ const PastDaySection = ({
   onToggleExpand,
   onToggleTask,
   onItemPress,
+  onDeleteItem,
 }: {
   day: DayData;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onToggleTask: (item: TimelineItem) => void;
   onItemPress: (item: TimelineItem) => void;
+  onDeleteItem: (item: TimelineItem) => void;
 }) => {
   const hasItems = day.items.length > 0;
 
@@ -266,14 +279,21 @@ const PastDaySection = ({
         <TouchableOpacity
           key={item.id}
           style={styles.pastDayItem}
-          onPress={() => item.type === 'task' ? onToggleTask(item) : onItemPress(item)}
+          onPress={() => onItemPress(item)}
+          onLongPress={() => onDeleteItem(item)}
+          delayLongPress={500}
         >
           {item.type === 'task' && (
-            <Ionicons 
-              name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
-              size={16} 
-              color={item.status === 'completed' ? '#4ade80' : '#c4dfc4'} 
-            />
+            <TouchableOpacity 
+              onPress={() => onToggleTask(item)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons 
+                name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
+                size={16} 
+                color={item.status === 'completed' ? '#4ade80' : '#c4dfc4'} 
+              />
+            </TouchableOpacity>
           )}
           {item.type === 'note' && (
             <Ionicons name="document-text" size={16} color="#93c5fd" />
@@ -290,6 +310,7 @@ const PastDaySection = ({
           >
             {item.text}
           </Text>
+          <Ionicons name="chevron-forward" size={14} color="#333" />
         </TouchableOpacity>
       ))}
       
@@ -587,6 +608,49 @@ export default function HomeScreen() {
     }
   }, [router]);
 
+  const handleDeleteItem = useCallback((item: TimelineItem) => {
+    const itemTypeLabel = item.type === 'task' ? 'Task' : item.type === 'note' ? 'Note' : 'Voice Entry';
+    const tableName = item.type === 'task' ? 'voice_todos' : item.type === 'note' ? 'voice_notes' : 'voice_entries';
+    
+    Alert.alert(
+      `Delete ${itemTypeLabel}`,
+      `Are you sure you want to delete this ${item.type}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            // Optimistic update - remove from local state
+            setDays(prev => prev.map(day => ({
+              ...day,
+              items: day.items.filter(i => i.id !== item.id),
+            })));
+
+            try {
+              if (item.type === 'note') {
+                // Archive notes instead of delete
+                await supabase
+                  .from(tableName)
+                  .update({ is_archived: true })
+                  .eq('id', item.id);
+              } else {
+                await supabase
+                  .from(tableName)
+                  .delete()
+                  .eq('id', item.id);
+              }
+            } catch (error) {
+              console.error('Error deleting item:', error);
+              // Revert on error
+              loadData();
+            }
+          },
+        },
+      ]
+    );
+  }, [loadData]);
+
   const toggleDayExpanded = useCallback((dateKey: string) => {
     setExpandedDays(prev => {
       const next = new Set(prev);
@@ -710,6 +774,7 @@ export default function HomeScreen() {
                     onCancelInput={() => setActiveInput(null)}
                     onToggleTask={handleToggleTask}
                     onItemPress={handleItemPress}
+                    onDeleteItem={handleDeleteItem}
                   />
                 );
               })}
@@ -753,6 +818,7 @@ export default function HomeScreen() {
                 onToggleExpand={() => toggleDayExpanded(day.dateKey)}
                 onToggleTask={handleToggleTask}
                 onItemPress={handleItemPress}
+                onDeleteItem={handleDeleteItem}
               />
             ))}
           </View>
