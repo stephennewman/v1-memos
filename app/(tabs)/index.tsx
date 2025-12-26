@@ -352,6 +352,9 @@ export default function HomeScreen() {
   
   // Show all hours toggle for today
   const [showAllHours, setShowAllHours] = useState(false);
+  
+  // Tab state: 'past' | 'today' | 'future'
+  const [selectedTab, setSelectedTab] = useState<'past' | 'today' | 'future'>('today');
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -708,7 +711,6 @@ export default function HomeScreen() {
 
   const currentHour = getCurrentHour();
   const allHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
-  const isTodayExpanded = !expandedDays.has('today-collapsed'); // Default expanded
   
   // Get visible hours for today: show hours with content + current hour +/- 1 hour
   // If showAllHours is true, show all hours
@@ -722,6 +724,13 @@ export default function HomeScreen() {
   // Check if there are hidden hours
   const hiddenHoursCount = allHours.length - visibleHours.length;
 
+  // Reverse future days so furthest is at top
+  const reversedFutureDays = [...futureDays].reverse();
+  
+  // Past items count
+  const pastItemsCount = pastDays.reduce((sum, d) => sum + d.items.length, 0);
+  const futureItemsCount = futureDays.reduce((sum, d) => sum + d.items.length, 0);
+
   return (
     <KeyboardAvoidingView 
       style={[styles.container, { paddingTop: insets.top }]}
@@ -732,7 +741,9 @@ export default function HomeScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Home</Text>
           <Text style={styles.headerSubtitle}>
-            {todayItemCount} item{todayItemCount !== 1 ? 's' : ''} today
+            {selectedTab === 'today' && `${todayItemCount} item${todayItemCount !== 1 ? 's' : ''} today`}
+            {selectedTab === 'past' && `${pastItemsCount} item${pastItemsCount !== 1 ? 's' : ''} in past 30 days`}
+            {selectedTab === 'future' && `${futureItemsCount} item${futureItemsCount !== 1 ? 's' : ''} planned`}
           </Text>
         </View>
         <TouchableOpacity
@@ -743,106 +754,156 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor="#c4dfc4"
-          />
-        }
-      >
-        {/* Today Section with Collapsible Header */}
-        <View style={styles.todaySection}>
-          <TouchableOpacity 
-            style={styles.dayHeader}
-            onPress={() => {
-              if (isTodayExpanded) {
-                setExpandedDays(prev => new Set([...prev, 'today-collapsed']));
-              } else {
-                setExpandedDays(prev => {
-                  const next = new Set(prev);
-                  next.delete('today-collapsed');
-                  return next;
-                });
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons 
-              name={isTodayExpanded ? 'chevron-down' : 'chevron-forward'} 
-              size={18} 
-              color="#666" 
+      {/* Tab Bar */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          style={[styles.tab, selectedTab === 'past' && styles.tabActive]}
+          onPress={() => setSelectedTab('past')}
+        >
+          <Ionicons name="arrow-back" size={16} color={selectedTab === 'past' ? '#fff' : '#666'} />
+          <Text style={[styles.tabText, selectedTab === 'past' && styles.tabTextActive]}>Past</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, styles.tabCenter, selectedTab === 'today' && styles.tabActive]}
+          onPress={() => setSelectedTab('today')}
+        >
+          <Ionicons name="today" size={16} color={selectedTab === 'today' ? '#fff' : '#666'} />
+          <Text style={[styles.tabText, selectedTab === 'today' && styles.tabTextActive]}>Today</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, selectedTab === 'future' && styles.tabActive]}
+          onPress={() => setSelectedTab('future')}
+        >
+          <Text style={[styles.tabText, selectedTab === 'future' && styles.tabTextActive]}>Future</Text>
+          <Ionicons name="arrow-forward" size={16} color={selectedTab === 'future' ? '#fff' : '#666'} />
+        </TouchableOpacity>
+      </View>
+
+      {/* TODAY TAB */}
+      {selectedTab === 'today' && (
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor="#c4dfc4"
             />
-            <Text style={styles.dayHeaderLabel}>{today?.label || 'Today'}</Text>
-            {today?.items.length > 0 && (
-              <View style={styles.itemCountBadge}>
-                <Text style={styles.itemCountText}>{today.items.length}</Text>
-              </View>
+          }
+        >
+          <View style={styles.todaySection}>
+            {visibleHours.map(hour => {
+              const hourItems = today?.items.filter(i => i.hour === hour) || [];
+              const isActive = activeInput?.hour === hour && activeInput?.dateKey === today?.dateKey;
+              const canAdd = hour >= currentHour;
+              
+              return (
+                <HourBlock
+                  key={hour}
+                  hour={hour}
+                  items={hourItems}
+                  isCurrentHour={hour === currentHour}
+                  canAdd={canAdd}
+                  activeInput={isActive ? activeInput.type : null}
+                  onStartInput={(type) => handleStartInput(hour, type, today?.dateKey)}
+                  onSubmitItem={(text, type) => handleSubmitItem(text, hour, type, today?.dateKey)}
+                  onCancelInput={() => setActiveInput(null)}
+                  onToggleTask={handleToggleTask}
+                  onItemPress={handleItemPress}
+                  onDeleteItem={handleDeleteItem}
+                />
+              );
+            })}
+            
+            {hiddenHoursCount > 0 && !showAllHours && (
+              <TouchableOpacity 
+                style={styles.showMoreHours}
+                onPress={() => setShowAllHours(true)}
+              >
+                <Ionicons name="ellipsis-horizontal" size={16} color="#555" />
+                <Text style={styles.showMoreText}>
+                  Show {hiddenHoursCount} more hours
+                </Text>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+            
+            {showAllHours && (
+              <TouchableOpacity 
+                style={styles.showMoreHours}
+                onPress={() => setShowAllHours(false)}
+              >
+                <Ionicons name="chevron-up" size={16} color="#555" />
+                <Text style={styles.showMoreText}>
+                  Collapse empty hours
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={{ height: 120 }} />
+        </ScrollView>
+      )}
 
-          {isTodayExpanded && (
-            <>
-              {visibleHours.map(hour => {
-                const hourItems = today?.items.filter(i => i.hour === hour) || [];
-                const isActive = activeInput?.hour === hour && activeInput?.dateKey === today?.dateKey;
-                const canAdd = hour >= currentHour; // Can only add to current or future hours
-                
-                return (
-                  <HourBlock
-                    key={hour}
-                    hour={hour}
-                    items={hourItems}
-                    isCurrentHour={hour === currentHour}
-                    canAdd={canAdd}
-                    activeInput={isActive ? activeInput.type : null}
-                    onStartInput={(type) => handleStartInput(hour, type, today?.dateKey)}
-                    onSubmitItem={(text, type) => handleSubmitItem(text, hour, type, today?.dateKey)}
-                    onCancelInput={() => setActiveInput(null)}
-                    onToggleTask={handleToggleTask}
-                    onItemPress={handleItemPress}
-                    onDeleteItem={handleDeleteItem}
-                  />
-                );
-              })}
-              
-              {/* Show/hide all hours toggle */}
-              {hiddenHoursCount > 0 && !showAllHours && (
-                <TouchableOpacity 
-                  style={styles.showMoreHours}
-                  onPress={() => setShowAllHours(true)}
-                >
-                  <Ionicons name="ellipsis-horizontal" size={16} color="#555" />
-                  <Text style={styles.showMoreText}>
-                    Show {hiddenHoursCount} more hours
-                  </Text>
-                </TouchableOpacity>
-              )}
-              
-              {showAllHours && (
-                <TouchableOpacity 
-                  style={styles.showMoreHours}
-                  onPress={() => setShowAllHours(false)}
-                >
-                  <Ionicons name="chevron-up" size={16} color="#555" />
-                  <Text style={styles.showMoreText}>
-                    Collapse empty hours
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </>
+      {/* PAST TAB - scrolls down, newest first */}
+      {selectedTab === 'past' && (
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor="#c4dfc4"
+            />
+          }
+        >
+          {pastDays.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="time-outline" size={48} color="#333" />
+              <Text style={styles.emptyTitle}>No past entries</Text>
+              <Text style={styles.emptyText}>Your history will appear here</Text>
+            </View>
+          ) : (
+            pastDays.map(day => (
+              <PastDaySection
+                key={day.dateKey}
+                day={day}
+                isExpanded={expandedDays.has(day.dateKey)}
+                onToggleExpand={() => toggleDayExpanded(day.dateKey)}
+                onToggleTask={handleToggleTask}
+                onItemPress={handleItemPress}
+                onDeleteItem={handleDeleteItem}
+              />
+            ))
           )}
-        </View>
+          <View style={{ height: 120 }} />
+        </ScrollView>
+      )}
 
-        {/* Future Days - with hour blocks for planning */}
-        {futureDays.length > 0 && (
-          <View style={styles.futureSection}>
-            {futureDays.map(day => {
+      {/* FUTURE TAB - scrolls up, furthest day at top */}
+      {selectedTab === 'future' && (
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor="#c4dfc4"
+            />
+          }
+        >
+          {reversedFutureDays.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="calendar-outline" size={48} color="#333" />
+              <Text style={styles.emptyTitle}>Plan ahead</Text>
+              <Text style={styles.emptyText}>Add tasks and notes for upcoming days</Text>
+            </View>
+          ) : (
+            reversedFutureDays.map(day => {
               const isFutureDayExpanded = expandedDays.has(day.dateKey);
               return (
                 <View key={day.dateKey} style={styles.futureDaySection}>
@@ -858,7 +919,7 @@ export default function HomeScreen() {
                     />
                     <Text style={[styles.dayHeaderLabel, styles.futureDayLabel]}>{day.label}</Text>
                     {day.items.length > 0 && (
-                      <View style={styles.itemCountBadge}>
+                      <View style={[styles.itemCountBadge, styles.futureItemBadge]}>
                         <Text style={styles.itemCountText}>{day.items.length}</Text>
                       </View>
                     )}
@@ -867,7 +928,6 @@ export default function HomeScreen() {
                   {isFutureDayExpanded && (
                     <>
                       {allHours.filter(hour => {
-                        // For future days, show hours with items or just a few default hours
                         const hasItems = day.items.some(i => i.hour === hour);
                         const isWorkHour = hour >= 8 && hour <= 18;
                         return hasItems || isWorkHour;
@@ -896,29 +956,11 @@ export default function HomeScreen() {
                   )}
                 </View>
               );
-            })}
-          </View>
-        )}
-
-        {/* Past Days */}
-        {pastDays.length > 0 && (
-          <View style={styles.pastSection}>
-            {pastDays.map(day => (
-              <PastDaySection
-                key={day.dateKey}
-                day={day}
-                isExpanded={expandedDays.has(day.dateKey)}
-                onToggleExpand={() => toggleDayExpanded(day.dateKey)}
-                onToggleTask={handleToggleTask}
-                onItemPress={handleItemPress}
-                onDeleteItem={handleDeleteItem}
-              />
-            ))}
-          </View>
-        )}
-
-        <View style={{ height: 120 }} />
-      </ScrollView>
+            })
+          )}
+          <View style={{ height: 120 }} />
+        </ScrollView>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -956,6 +998,55 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#111',
+  },
+  tabCenter: {
+    flex: 1.2,
+  },
+  tabActive: {
+    backgroundColor: '#1a3a1a',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  tabTextActive: {
+    color: '#fff',
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#666',
   },
   dayHeader: {
     flexDirection: 'row',
@@ -1072,6 +1163,9 @@ const styles = StyleSheet.create({
   },
   futureDayLabel: {
     color: '#4ade80', // Green tint for future days
+  },
+  futureItemBadge: {
+    backgroundColor: '#166534',
   },
   pastSection: {
     borderTopWidth: 1,
