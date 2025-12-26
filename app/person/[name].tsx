@@ -23,6 +23,7 @@ export default function PersonDetailScreen() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Related content
   const [voiceEntries, setVoiceEntries] = useState<VoiceEntry[]>([]);
@@ -34,15 +35,19 @@ export default function PersonDetailScreen() {
   const loadData = useCallback(async () => {
     if (!user || !decodedName) return;
 
+    setError(null);
+    
     try {
       // Find all voice entries that mention this person
-      const { data: entries } = await supabase
+      const { data: entries, error: entriesError } = await supabase
         .from('voice_entries')
         .select('*')
         .eq('user_id', user.id)
         .contains('extracted_people', [decodedName])
         .order('created_at', { ascending: false });
 
+      if (entriesError) throw entriesError;
+      
       setVoiceEntries(entries || []);
 
       // Get entry IDs
@@ -70,8 +75,9 @@ export default function PersonDetailScreen() {
 
         setNotes(notesData || []);
       }
-    } catch (error) {
-      console.error('Error loading person data:', error);
+    } catch (err: any) {
+      console.error('Error loading person data:', err);
+      setError(err?.message || 'Failed to load data. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -111,6 +117,38 @@ export default function PersonDetailScreen() {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color="#c4dfc4" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <Ionicons name="person" size={20} color="#c4dfc4" />
+            <Text style={styles.headerTitle}>{decodedName}</Text>
+          </View>
+          <View style={styles.headerRight} />
+        </View>
+        <View style={[styles.content, styles.centered]}>
+          <Ionicons name="cloud-offline-outline" size={48} color="#666" />
+          <Text style={styles.errorTitle}>Connection Error</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => {
+              setIsLoading(true);
+              loadData();
+            }}
+          >
+            <Ionicons name="refresh" size={18} color="#0a0a0a" />
+            <Text style={styles.retryText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -427,6 +465,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 32,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#c4dfc4',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  retryText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0a0a0a',
   },
 });
 
