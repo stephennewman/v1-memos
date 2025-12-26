@@ -576,6 +576,18 @@ export default function HomeScreen() {
     }
   }, [router]);
 
+  const toggleDayExpanded = useCallback((dateKey: string) => {
+    setExpandedDays(prev => {
+      const next = new Set(prev);
+      if (next.has(dateKey)) {
+        next.delete(dateKey);
+      } else {
+        next.add(dateKey);
+      }
+      return next;
+    });
+  }, []);
+
   if (isLoading || authLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -588,18 +600,6 @@ export default function HomeScreen() {
   const pastDays = days.slice(1); // Show all days, even empty ones
   const currentHour = getCurrentHour();
   const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
-
-  const toggleDayExpanded = useCallback((dateKey: string) => {
-    setExpandedDays(prev => {
-      const next = new Set(prev);
-      if (next.has(dateKey)) {
-        next.delete(dateKey);
-      } else {
-        next.add(dateKey);
-      }
-      return next;
-    });
-  }, []);
 
   return (
     <KeyboardAvoidingView 
