@@ -7,21 +7,19 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
-  Dimensions,
   TextInput,
   Keyboard,
-  FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { TabHeader } from '@/components/TabHeader';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const HOUR_HEIGHT = 72;
-const START_HOUR = 6; // 6 AM
-const END_HOUR = 23; // 11 PM
+const HOUR_HEIGHT = 64;
+const START_HOUR = 6;
+const END_HOUR = 23;
 
 interface TimelineItem {
   id: string;
@@ -35,6 +33,8 @@ interface TimelineItem {
 interface DayData {
   date: Date;
   dateKey: string;
+  label: string;
+  isToday: boolean;
   items: TimelineItem[];
 }
 
@@ -42,45 +42,104 @@ const getDateKey = (date: Date) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
-const formatDayLabel = (date: Date) => {
+const formatDayLabel = (date: Date, isToday: boolean) => {
+  if (isToday) return 'Today';
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const diffDays = Math.floor((today.getTime() - itemDate.getTime()) / 86400000);
 
-  if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return date.toLocaleDateString('en-US', { weekday: 'long' });
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 };
 
 const formatHour = (hour: number) => {
-  if (hour === 0) return '12 AM';
-  if (hour === 12) return '12 PM';
-  if (hour < 12) return `${hour} AM`;
-  return `${hour - 12} PM`;
+  if (hour === 0) return '12a';
+  if (hour === 12) return '12p';
+  if (hour < 12) return `${hour}a`;
+  return `${hour - 12}p`;
 };
 
 const getCurrentHour = () => new Date().getHours();
 
-// Hour Block Component
+// Inline input for adding items
+const InlineInput = ({
+  type,
+  hour,
+  onSubmit,
+  onCancel,
+  autoFocus,
+}: {
+  type: 'task' | 'note';
+  hour: number;
+  onSubmit: (text: string) => void;
+  onCancel: () => void;
+  autoFocus: boolean;
+}) => {
+  const [text, setText] = useState('');
+  const inputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (autoFocus) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [autoFocus]);
+
+  const handleSubmit = () => {
+    if (text.trim()) {
+      onSubmit(text.trim());
+      setText('');
+    } else {
+      onCancel();
+    }
+  };
+
+  return (
+    <View style={styles.inlineInputContainer}>
+      <Ionicons 
+        name={type === 'task' ? 'square-outline' : 'document-text-outline'} 
+        size={16} 
+        color={type === 'task' ? '#c4dfc4' : '#93c5fd'} 
+      />
+      <TextInput
+        ref={inputRef}
+        style={styles.inlineInput}
+        placeholder={type === 'task' ? 'Add task...' : 'Add note...'}
+        placeholderTextColor="#444"
+        value={text}
+        onChangeText={setText}
+        onSubmitEditing={handleSubmit}
+        onBlur={handleSubmit}
+        returnKeyType="done"
+        autoFocus={autoFocus}
+      />
+    </View>
+  );
+};
+
+// Hour Block for Today
 const HourBlock = ({
   hour,
   items,
   isCurrentHour,
-  onAddItem,
+  activeInput,
+  onStartInput,
+  onSubmitItem,
+  onCancelInput,
   onToggleTask,
   onItemPress,
 }: {
   hour: number;
   items: TimelineItem[];
   isCurrentHour: boolean;
-  onAddItem: (hour: number, type: 'task' | 'note') => void;
+  activeInput: 'task' | 'note' | null;
+  onStartInput: (type: 'task' | 'note') => void;
+  onSubmitItem: (text: string, type: 'task' | 'note') => void;
+  onCancelInput: () => void;
   onToggleTask: (item: TimelineItem) => void;
   onItemPress: (item: TimelineItem) => void;
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const hasItems = items.length > 0;
-
   return (
     <View style={[styles.hourBlock, isCurrentHour && styles.currentHourBlock]}>
       {/* Hour Label */}
@@ -88,16 +147,12 @@ const HourBlock = ({
         <Text style={[styles.hourLabel, isCurrentHour && styles.currentHourLabel]}>
           {formatHour(hour)}
         </Text>
-        {isCurrentHour && <View style={styles.nowDot} />}
+        {isCurrentHour && <View style={styles.nowLine} />}
       </View>
 
       {/* Content Area */}
-      <TouchableOpacity 
-        style={styles.hourContent}
-        onPress={() => !hasItems && setIsExpanded(!isExpanded)}
-        activeOpacity={hasItems ? 1 : 0.7}
-      >
-        {/* Items in this hour */}
+      <View style={styles.hourContent}>
+        {/* Existing items */}
         {items.map((item) => (
           <TouchableOpacity
             key={item.id}
@@ -129,109 +184,86 @@ const HourBlock = ({
           </TouchableOpacity>
         ))}
 
-        {/* Empty state - tap to add */}
-        {!hasItems && !isExpanded && (
-          <Text style={styles.emptyHourText}>Tap to add</Text>
+        {/* Active input */}
+        {activeInput && (
+          <InlineInput
+            type={activeInput}
+            hour={hour}
+            onSubmit={(text) => onSubmitItem(text, activeInput)}
+            onCancel={onCancelInput}
+            autoFocus
+          />
         )}
 
-        {/* Expanded add options */}
-        {!hasItems && isExpanded && (
-          <View style={styles.addOptions}>
+        {/* Add buttons - only show if no active input */}
+        {!activeInput && (
+          <View style={styles.addRow}>
             <TouchableOpacity 
-              style={styles.addOption}
-              onPress={() => {
-                setIsExpanded(false);
-                onAddItem(hour, 'task');
-              }}
+              style={styles.addButton}
+              onPress={() => onStartInput('task')}
             >
-              <Ionicons name="checkbox-outline" size={18} color="#c4dfc4" />
-              <Text style={styles.addOptionText}>Task</Text>
+              <Ionicons name="add" size={14} color="#c4dfc4" />
+              <Text style={styles.addButtonText}>Task</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.addOption}
-              onPress={() => {
-                setIsExpanded(false);
-                onAddItem(hour, 'note');
-              }}
+              style={styles.addButton}
+              onPress={() => onStartInput('note')}
             >
-              <Ionicons name="document-text-outline" size={18} color="#93c5fd" />
-              <Text style={styles.addOptionText}>Note</Text>
+              <Ionicons name="add" size={14} color="#93c5fd" />
+              <Text style={[styles.addButtonText, { color: '#93c5fd' }]}>Note</Text>
             </TouchableOpacity>
           </View>
         )}
-      </TouchableOpacity>
+      </View>
     </View>
   );
 };
 
-// Add Item Modal
-const AddItemSheet = ({
-  visible,
-  hour,
-  type,
-  onSubmit,
-  onCancel,
+// Past Day Section (no hours, just items)
+const PastDaySection = ({
+  day,
+  onToggleTask,
+  onItemPress,
 }: {
-  visible: boolean;
-  hour: number;
-  type: 'task' | 'note';
-  onSubmit: (text: string) => void;
-  onCancel: () => void;
+  day: DayData;
+  onToggleTask: (item: TimelineItem) => void;
+  onItemPress: (item: TimelineItem) => void;
 }) => {
-  const [text, setText] = useState('');
-  const inputRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    if (visible) {
-      setText('');
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [visible]);
-
-  if (!visible) return null;
-
-  const handleSubmit = () => {
-    if (text.trim()) {
-      onSubmit(text.trim());
-      setText('');
-    }
-  };
+  if (day.items.length === 0) return null;
 
   return (
-    <View style={styles.addSheet}>
-      <View style={styles.addSheetHeader}>
-        <Text style={styles.addSheetTitle}>
-          Add {type} for {formatHour(hour)}
-        </Text>
-        <TouchableOpacity onPress={onCancel}>
-          <Ionicons name="close" size={24} color="#666" />
+    <View style={styles.pastDaySection}>
+      <Text style={styles.pastDayLabel}>{day.label}</Text>
+      {day.items.map((item) => (
+        <TouchableOpacity
+          key={item.id}
+          style={styles.pastDayItem}
+          onPress={() => item.type === 'task' ? onToggleTask(item) : onItemPress(item)}
+        >
+          {item.type === 'task' && (
+            <Ionicons 
+              name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
+              size={16} 
+              color={item.status === 'completed' ? '#4ade80' : '#c4dfc4'} 
+            />
+          )}
+          {item.type === 'note' && (
+            <Ionicons name="document-text" size={16} color="#93c5fd" />
+          )}
+          {item.type === 'voice' && (
+            <Ionicons name="mic" size={16} color="#c4dfc4" />
+          )}
+          <Text 
+            style={[
+              styles.pastItemText,
+              item.status === 'completed' && styles.completedText
+            ]} 
+            numberOfLines={2}
+          >
+            {item.text}
+          </Text>
         </TouchableOpacity>
-      </View>
-      <View style={styles.addSheetInput}>
-        <Ionicons 
-          name={type === 'task' ? 'checkbox-outline' : 'document-text-outline'} 
-          size={20} 
-          color={type === 'task' ? '#c4dfc4' : '#93c5fd'} 
-        />
-        <TextInput
-          ref={inputRef}
-          style={styles.input}
-          placeholder={type === 'task' ? 'What needs to be done?' : 'What\'s on your mind?'}
-          placeholderTextColor="#555"
-          value={text}
-          onChangeText={setText}
-          onSubmitEditing={handleSubmit}
-          returnKeyType="done"
-          autoFocus
-        />
-      </View>
-      <TouchableOpacity 
-        style={[styles.addSheetButton, !text.trim() && styles.addSheetButtonDisabled]}
-        onPress={handleSubmit}
-        disabled={!text.trim()}
-      >
-        <Text style={styles.addSheetButtonText}>Add {type}</Text>
-      </TouchableOpacity>
+      ))}
     </View>
   );
 };
@@ -242,33 +274,17 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [days, setDays] = useState<DayData[]>([]);
-  const [currentDayIndex, setCurrentDayIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   
-  // Add item state
-  const [addingItem, setAddingItem] = useState<{ hour: number; type: 'task' | 'note' } | null>(null);
-
-  // Initialize days (today + last 30 days)
-  const initializeDays = useCallback(() => {
-    const daysArray: DayData[] = [];
-    for (let i = 0; i < 30; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      date.setHours(0, 0, 0, 0);
-      daysArray.push({
-        date,
-        dateKey: getDateKey(date),
-        items: [],
-      });
-    }
-    return daysArray;
-  }, []);
+  // Active input state: { hour, type }
+  const [activeInput, setActiveInput] = useState<{ hour: number; type: 'task' | 'note' } | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user) return;
 
     try {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -297,10 +313,25 @@ export default function HomeScreen() {
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
 
-      // Build days with items
-      const daysArray = initializeDays();
+      // Build days
+      const daysArray: DayData[] = [];
       const dayMap = new Map<string, DayData>();
-      daysArray.forEach(d => dayMap.set(d.dateKey, d));
+
+      for (let i = 0; i < 30; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+        const isToday = i === 0;
+        const day: DayData = {
+          date,
+          dateKey: getDateKey(date),
+          label: formatDayLabel(date, isToday),
+          isToday,
+          items: [],
+        };
+        daysArray.push(day);
+        dayMap.set(day.dateKey, day);
+      }
 
       // Add tasks
       (tasks || []).forEach(t => {
@@ -351,6 +382,13 @@ export default function HomeScreen() {
         }
       });
 
+      // Sort items within each day by created_at (newest first for past days, by hour for today)
+      daysArray.forEach(day => {
+        if (!day.isToday) {
+          day.items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        }
+      });
+
       setDays(daysArray);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -358,7 +396,7 @@ export default function HomeScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [user, initializeDays]);
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -374,7 +412,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!isLoading && scrollViewRef.current) {
       const currentHour = getCurrentHour();
-      const scrollPosition = Math.max(0, (currentHour - START_HOUR - 2) * HOUR_HEIGHT);
+      const scrollPosition = Math.max(0, (currentHour - START_HOUR - 1) * HOUR_HEIGHT);
       setTimeout(() => {
         scrollViewRef.current?.scrollTo({ y: scrollPosition, animated: false });
       }, 100);
@@ -386,17 +424,15 @@ export default function HomeScreen() {
     loadData();
   }, [loadData]);
 
-  const handleAddItem = useCallback((hour: number, type: 'task' | 'note') => {
-    setAddingItem({ hour, type });
+  const handleStartInput = useCallback((hour: number, type: 'task' | 'note') => {
+    setActiveInput({ hour, type });
   }, []);
 
-  const handleSubmitItem = useCallback(async (text: string) => {
-    if (!user || !addingItem) return;
+  const handleSubmitItem = useCallback(async (text: string, hour: number, type: 'task' | 'note') => {
+    if (!user) return;
 
-    const { hour, type } = addingItem;
-    
-    // Create date for this hour
-    const itemDate = new Date(days[currentDayIndex].date);
+    // Create date for this hour (today)
+    const itemDate = new Date();
     itemDate.setHours(hour, 0, 0, 0);
 
     try {
@@ -416,7 +452,7 @@ export default function HomeScreen() {
 
         // Update local state
         setDays(prev => prev.map((day, idx) => {
-          if (idx === currentDayIndex) {
+          if (idx === 0) { // Today
             return {
               ...day,
               items: [...day.items, {
@@ -447,7 +483,7 @@ export default function HomeScreen() {
 
         // Update local state
         setDays(prev => prev.map((day, idx) => {
-          if (idx === currentDayIndex) {
+          if (idx === 0) { // Today
             return {
               ...day,
               items: [...day.items, {
@@ -466,9 +502,8 @@ export default function HomeScreen() {
       console.error('Error adding item:', error);
     }
 
-    setAddingItem(null);
-    Keyboard.dismiss();
-  }, [user, addingItem, days, currentDayIndex]);
+    setActiveInput(null);
+  }, [user]);
 
   const handleToggleTask = useCallback(async (item: TimelineItem) => {
     if (item.type !== 'task') return;
@@ -513,44 +548,6 @@ export default function HomeScreen() {
     }
   }, [router]);
 
-  const renderDay = ({ item: day, index }: { item: DayData; index: number }) => {
-    const currentHour = index === 0 ? getCurrentHour() : -1;
-    const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
-
-    return (
-      <View style={styles.dayPage}>
-        <ScrollView
-          ref={index === currentDayIndex ? scrollViewRef : undefined}
-          style={styles.hoursScroll}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor="#c4dfc4"
-            />
-          }
-        >
-          {hours.map(hour => {
-            const hourItems = day.items.filter(i => i.hour === hour);
-            return (
-              <HourBlock
-                key={hour}
-                hour={hour}
-                items={hourItems}
-                isCurrentHour={hour === currentHour}
-                onAddItem={handleAddItem}
-                onToggleTask={handleToggleTask}
-                onItemPress={handleItemPress}
-              />
-            );
-          })}
-          <View style={{ height: 100 }} />
-        </ScrollView>
-      </View>
-    );
-  };
-
   if (isLoading || authLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -559,92 +556,87 @@ export default function HomeScreen() {
     );
   }
 
-  const currentDay = days[currentDayIndex];
+  const today = days[0];
+  const pastDays = days.slice(1).filter(d => d.items.length > 0);
+  const currentHour = getCurrentHour();
+  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
 
   return (
-    <View style={styles.container}>
-      {/* Day Header - shows current day label */}
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.dayNav}
-          onPress={() => {
-            if (currentDayIndex < days.length - 1) {
-              flatListRef.current?.scrollToIndex({ index: currentDayIndex + 1, animated: true });
-            }
-          }}
-          disabled={currentDayIndex >= days.length - 1}
-        >
-          <Ionicons 
-            name="chevron-back" 
-            size={24} 
-            color={currentDayIndex < days.length - 1 ? '#fff' : '#333'} 
-          />
-        </TouchableOpacity>
-        
-        <View style={styles.dayTitleContainer}>
-          <Text style={styles.dayTitle}>{currentDay ? formatDayLabel(currentDay.date) : 'Today'}</Text>
-          <Text style={styles.daySubtitle}>
-            {currentDay?.date.toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </Text>
-        </View>
-
-        <TouchableOpacity 
-          style={styles.dayNav}
-          onPress={() => {
-            if (currentDayIndex > 0) {
-              flatListRef.current?.scrollToIndex({ index: currentDayIndex - 1, animated: true });
-            }
-          }}
-          disabled={currentDayIndex === 0}
-        >
-          <Ionicons 
-            name="chevron-forward" 
-            size={24} 
-            color={currentDayIndex > 0 ? '#fff' : '#333'} 
-          />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Today</Text>
+        <Text style={styles.headerSubtitle}>
+          {new Date().toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            month: 'long', 
+            day: 'numeric' 
+          })}
+        </Text>
       </View>
 
-      {/* Horizontal Day Pager */}
-      <FlatList
-        ref={flatListRef}
-        data={days}
-        renderItem={renderDay}
-        keyExtractor={(item) => item.dateKey}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        inverted // So swiping left goes to yesterday
-        onMomentumScrollEnd={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-          setCurrentDayIndex(index);
-        }}
-        getItemLayout={(_, index) => ({
-          length: SCREEN_WIDTH,
-          offset: SCREEN_WIDTH * index,
-          index,
-        })}
-        initialScrollIndex={0}
-      />
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#c4dfc4"
+          />
+        }
+      >
+        {/* Today's Hours */}
+        <View style={styles.todaySection}>
+          {hours.map(hour => {
+            const hourItems = today?.items.filter(i => i.hour === hour) || [];
+            const isActive = activeInput?.hour === hour;
+            
+            return (
+              <HourBlock
+                key={hour}
+                hour={hour}
+                items={hourItems}
+                isCurrentHour={hour === currentHour}
+                activeInput={isActive ? activeInput.type : null}
+                onStartInput={(type) => handleStartInput(hour, type)}
+                onSubmitItem={(text, type) => handleSubmitItem(text, hour, type)}
+                onCancelInput={() => setActiveInput(null)}
+                onToggleTask={handleToggleTask}
+                onItemPress={handleItemPress}
+              />
+            );
+          })}
+        </View>
 
-      {/* Add Item Sheet */}
-      {addingItem && (
-        <AddItemSheet
-          visible={true}
-          hour={addingItem.hour}
-          type={addingItem.type}
-          onSubmit={handleSubmitItem}
-          onCancel={() => {
-            setAddingItem(null);
-            Keyboard.dismiss();
-          }}
-        />
-      )}
-    </View>
+        {/* Past Days */}
+        {pastDays.length > 0 && (
+          <View style={styles.pastSection}>
+            <View style={styles.pastDivider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>Earlier</Text>
+              <View style={styles.dividerLine} />
+            </View>
+            
+            {pastDays.map(day => (
+              <PastDaySection
+                key={day.dateKey}
+                day={day}
+                onToggleTask={handleToggleTask}
+                onItemPress={handleItemPress}
+              />
+            ))}
+          </View>
+        )}
+
+        <View style={{ height: 120 }} />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -658,168 +650,156 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
   },
-  dayNav: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dayTitleContainer: {
-    alignItems: 'center',
-  },
-  dayTitle: {
-    fontSize: 20,
+  headerTitle: {
+    fontSize: 28,
     fontWeight: '700',
     color: '#fff',
   },
-  daySubtitle: {
-    fontSize: 13,
+  headerSubtitle: {
+    fontSize: 14,
     color: '#666',
     marginTop: 2,
   },
-  dayPage: {
-    width: SCREEN_WIDTH,
+  scrollView: {
     flex: 1,
   },
-  hoursScroll: {
-    flex: 1,
+  todaySection: {
+    paddingTop: 8,
   },
   hourBlock: {
     flexDirection: 'row',
     minHeight: HOUR_HEIGHT,
     borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
+    borderBottomColor: '#111',
   },
   currentHourBlock: {
-    backgroundColor: 'rgba(196, 223, 196, 0.05)',
+    backgroundColor: 'rgba(196, 223, 196, 0.03)',
   },
   hourLabelContainer: {
-    width: 70,
-    paddingTop: 12,
+    width: 50,
+    paddingTop: 10,
     paddingLeft: 16,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
+    position: 'relative',
   },
   hourLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#555',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#444',
   },
   currentHourLabel: {
     color: '#c4dfc4',
-    fontWeight: '700',
   },
-  nowDot: {
+  nowLine: {
+    position: 'absolute',
+    top: 16,
+    right: 0,
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: '#c4dfc4',
-    marginTop: 4,
   },
   hourContent: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingRight: 16,
-    justifyContent: 'center',
+    paddingLeft: 8,
   },
   timelineItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 6,
+    gap: 8,
+    paddingVertical: 4,
   },
   itemText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: '#ddd',
   },
   completedText: {
     textDecorationLine: 'line-through',
     color: '#555',
   },
-  emptyHourText: {
-    fontSize: 13,
-    color: '#333',
-    fontStyle: 'italic',
-  },
-  addOptions: {
+  addRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 8,
+    marginTop: 4,
   },
-  addOption: {
+  addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
     backgroundColor: '#111',
-    borderRadius: 8,
   },
-  addOptionText: {
-    fontSize: 13,
-    color: '#888',
+  addButtonText: {
+    fontSize: 12,
+    color: '#c4dfc4',
     fontWeight: '500',
   },
-  addSheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#111',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 40,
-    borderTopWidth: 1,
-    borderColor: '#222',
-  },
-  addSheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  addSheetTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  addSheetInput: {
+  inlineInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
+    gap: 8,
+    paddingVertical: 4,
   },
-  input: {
+  inlineInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#fff',
+    fontSize: 14,
+    color: '#ddd',
+    padding: 0,
   },
-  addSheetButton: {
-    backgroundColor: '#c4dfc4',
-    borderRadius: 12,
-    paddingVertical: 14,
+  pastSection: {
+    paddingTop: 16,
+  },
+  pastDivider: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
-  addSheetButtonDisabled: {
-    opacity: 0.5,
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#222',
   },
-  addSheetButtonText: {
-    fontSize: 16,
+  dividerText: {
+    fontSize: 12,
+    color: '#555',
     fontWeight: '600',
-    color: '#0a0a0a',
+    paddingHorizontal: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  pastDaySection: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  pastDayLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#888',
+    marginBottom: 8,
+  },
+  pastDayItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#111',
+  },
+  pastItemText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#aaa',
+    lineHeight: 20,
   },
 });
