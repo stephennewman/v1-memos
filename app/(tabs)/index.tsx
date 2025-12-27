@@ -263,6 +263,8 @@ export default function HomeScreen() {
   }, [loadData]);
 
   const startAdding = (dateKey: string) => {
+    // Auto-expand the day when adding
+    setExpandedDays(prev => new Set([...prev, dateKey]));
     setAddingToDay(dateKey);
     setIsAdding(true);
     setNewItemText('');
@@ -411,9 +413,11 @@ export default function HomeScreen() {
                   value={newItemText}
                   onChangeText={setNewItemText}
                   onSubmitEditing={submitItem}
-                  onBlur={cancelAdding}
                   returnKeyType="done"
                 />
+                <TouchableOpacity onPress={cancelAdding} style={styles.cancelBtn}>
+                  <Ionicons name="close" size={18} color="#666" />
+                </TouchableOpacity>
               </View>
             )}
             
@@ -677,6 +681,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#fff',
     padding: 0,
+  },
+  cancelBtn: {
+    padding: 4,
   },
   emptyText: {
     fontSize: 14,
