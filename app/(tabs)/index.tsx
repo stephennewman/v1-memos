@@ -403,10 +403,23 @@ export default function HomeScreen() {
                     placeholder="Enter task..."
                     placeholderTextColor="#666"
                     autoFocus
-                    onSubmitEditing={handleAddTask}
-                    onBlur={() => { setAddingType(null); setAddingText(''); }}
+                    onSubmitEditing={() => {
+                      if (addingText.trim()) {
+                        handleAddTask();
+                      } else {
+                        setAddingType(null);
+                      }
+                    }}
+                    blurOnSubmit={true}
                     returnKeyType="done"
+                    enablesReturnKeyAutomatically={true}
                   />
+                  <TouchableOpacity 
+                    style={styles.cancelBtn}
+                    onPress={() => { setAddingType(null); setAddingText(''); }}
+                  >
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
                 <TouchableOpacity 
@@ -432,10 +445,23 @@ export default function HomeScreen() {
                     placeholder="Enter note..."
                     placeholderTextColor="#666"
                     autoFocus
-                    onSubmitEditing={handleAddNote}
-                    onBlur={() => { setAddingType(null); setAddingText(''); }}
+                    onSubmitEditing={() => {
+                      if (addingText.trim()) {
+                        handleAddNote();
+                      } else {
+                        setAddingType(null);
+                      }
+                    }}
+                    blurOnSubmit={true}
                     returnKeyType="done"
+                    enablesReturnKeyAutomatically={true}
                   />
+                  <TouchableOpacity 
+                    style={styles.cancelBtn}
+                    onPress={() => { setAddingType(null); setAddingText(''); }}
+                  >
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
                 <TouchableOpacity 
@@ -780,10 +806,14 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   inlineInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 4,
+    gap: 8,
   },
   inlineInput: {
+    flex: 1,
     backgroundColor: '#1a1a1a',
     borderRadius: 8,
     paddingHorizontal: 12,
@@ -792,5 +822,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     borderWidth: 1,
     borderColor: '#333',
+  },
+  cancelBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  cancelBtnText: {
+    fontSize: 13,
+    color: '#666',
   },
 });
