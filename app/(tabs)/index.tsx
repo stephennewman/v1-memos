@@ -75,8 +75,7 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [days, setDays] = useState<DayData[]>([]);
   const { timeTab: selectedTab, setTimeTab: setSelectedTab } = useSettings();
-  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
-  const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
+  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
   const [typeFilter, setTypeFilter] = useState<'all' | 'tasks' | 'notes'>('all');
   const [statusFilter, setStatusFilter] = useState<'todo' | 'done'>('todo');
 
@@ -260,12 +259,19 @@ export default function HomeScreen() {
   }, [loadData]);
 
   const toggleDayExpanded = (dateKey: string) => {
-    setExpandedDays(prev => {
+    setCollapsedDays(prev => {
       const next = new Set(prev);
       if (next.has(dateKey)) next.delete(dateKey);
       else next.add(dateKey);
       return next;
     });
+  };
+
+  const expandAll = () => setCollapsedDays(new Set());
+  
+  const collapseAll = () => {
+    const allDayKeys = days.map(d => d.dateKey);
+    setCollapsedDays(new Set(allDayKeys));
   };
 
   // Helper to filter and sort items
@@ -286,11 +292,11 @@ export default function HomeScreen() {
       return i.status === 'completed';
     });
     
-    // Sort
+    // Sort by newest first
     filtered.sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
-      return sort === 'newest' ? dateB - dateA : dateA - dateB;
+      return dateB - dateA;
     });
     return filtered;
   };
@@ -341,7 +347,7 @@ export default function HomeScreen() {
 
   const renderDaySection = (day: DayData, hideHeader: boolean = false) => {
     // All sections expanded by default - user can collapse manually
-    const isExpanded = !expandedDays.has(day.dateKey);
+    const isExpanded = !collapsedDays.has(day.dateKey);
     
     // Group by type
     const tasks = day.items.filter(i => i.type === 'task');
@@ -451,19 +457,19 @@ export default function HomeScreen() {
 
       {/* Sort & Filter Row */}
       <View style={styles.filterSortRow}>
-        {/* Sort Options - Left */}
+        {/* Expand/Collapse - Left */}
         <View style={styles.sortGroup}>
           <TouchableOpacity
-            style={[styles.sortBtn, sort === 'newest' && styles.sortBtnActive]}
-            onPress={() => setSort('newest')}
+            style={styles.sortBtn}
+            onPress={expandAll}
           >
-            <Text style={[styles.sortBtnText, sort === 'newest' && styles.sortBtnTextActive]}>Newest</Text>
+            <Text style={styles.sortBtnText}>Expand</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.sortBtn, sort === 'oldest' && styles.sortBtnActive]}
-            onPress={() => setSort('oldest')}
+            style={styles.sortBtn}
+            onPress={collapseAll}
           >
-            <Text style={[styles.sortBtnText, sort === 'oldest' && styles.sortBtnTextActive]}>Oldest</Text>
+            <Text style={styles.sortBtnText}>Collapse</Text>
           </TouchableOpacity>
         </View>
 
