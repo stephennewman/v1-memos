@@ -42,6 +42,7 @@ export interface ButtonLabels {
 export type TabKey = keyof TabSettings;
 export type ButtonKey = keyof ButtonSettings;
 export type ButtonBarScreenKey = keyof ButtonBarVisibility;
+export type TimeTab = 'past' | 'today' | 'future';
 
 interface SettingsContextType {
   tabs: TabSettings;
@@ -56,6 +57,8 @@ interface SettingsContextType {
   toggleButtonBarScreen: (screen: ButtonBarScreenKey) => void;
   buttonLabels: ButtonLabels;
   updateButtonLabel: (button: ButtonKey, label: string) => void;
+  timeTab: TimeTab;
+  setTimeTab: (tab: TimeTab) => void;
   isLoading: boolean;
 }
 
@@ -105,6 +108,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [buttonOrder, setButtonOrder] = useState<ButtonKey[]>(defaultButtonOrder);
   const [buttonBarVisibility, setButtonBarVisibility] = useState<ButtonBarVisibility>(defaultButtonBarVisibility);
   const [buttonLabels, setButtonLabels] = useState<ButtonLabels>(defaultButtonLabels);
+  const [timeTab, setTimeTab] = useState<TimeTab>('today');
   const [isLoading, setIsLoading] = useState(true);
 
   // Load settings from storage
@@ -207,6 +211,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       buttons, toggleButton, buttonOrder, reorderButton,
       buttonBarVisibility, toggleButtonBarScreen,
       buttonLabels, updateButtonLabel,
+      timeTab, setTimeTab,
       isLoading 
     }}>
       {children}

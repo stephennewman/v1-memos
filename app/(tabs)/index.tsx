@@ -16,6 +16,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth-context';
+import { useSettings } from '@/lib/settings-context';
 import { supabase } from '@/lib/supabase';
 
 interface Item {
@@ -74,7 +75,7 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [days, setDays] = useState<DayData[]>([]);
-  const [selectedTab, setSelectedTab] = useState<'past' | 'today' | 'future'>('today');
+  const { timeTab: selectedTab, setTimeTab: setSelectedTab } = useSettings();
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   
   // Add input state

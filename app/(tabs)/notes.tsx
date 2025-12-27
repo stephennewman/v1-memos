@@ -12,6 +12,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TabHeader } from '@/components/TabHeader';
 import { useAuth } from '@/lib/auth-context';
+import { useSettings } from '@/lib/settings-context';
 import EmptyState from '@/components/EmptyState';
 import { supabase } from '@/lib/supabase';
 import type { VoiceNote } from '@/lib/types';
@@ -27,7 +28,7 @@ export default function NotesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
-  const [timeTab, setTimeTab] = useState<'past' | 'today' | 'future'>('today');
+  const { timeTab, setTimeTab } = useSettings();
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
 
   const loadNotes = useCallback(async () => {

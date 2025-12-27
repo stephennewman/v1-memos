@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import { useSettings } from '@/lib/settings-context';
 import EmptyState from '@/components/EmptyState';
 import type { VoiceEntry } from '@/lib/types';
 import { ENTRY_TYPE_CONFIG } from '@/lib/types';
@@ -30,7 +31,7 @@ export default function VoiceScreen() {
   const [entries, setEntries] = useState<VoiceEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [timeTab, setTimeTab] = useState<'past' | 'today' | 'future'>('today');
+  const { timeTab, setTimeTab } = useSettings();
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
 
   // Filter entries by time

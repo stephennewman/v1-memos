@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import { useSettings } from '@/lib/settings-context';
 import { useCreate } from '@/lib/create-context';
 import EmptyState from '@/components/EmptyState';
 import type { VoiceTodo, TodoStatus } from '@/lib/types';
@@ -289,7 +290,7 @@ export default function TasksScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('todo');
   const [sort, setSort] = useState<SortType>('newest');
-  const [timeTab, setTimeTab] = useState<'past' | 'today' | 'future'>('today');
+  const { timeTab, setTimeTab } = useSettings();
 
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
