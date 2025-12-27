@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,7 +7,6 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
   Alert,
@@ -80,12 +79,6 @@ export default function HomeScreen() {
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
   const [typeFilter, setTypeFilter] = useState<'all' | 'tasks' | 'notes'>('all');
   const [statusFilter, setStatusFilter] = useState<'todo' | 'done'>('todo');
-  
-  // Add input state
-  const [isAdding, setIsAdding] = useState(false);
-  const [addingToDay, setAddingToDay] = useState<string | null>(null);
-  const [newItemText, setNewItemText] = useState('');
-  const inputRef = useRef<TextInput>(null);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -266,60 +259,6 @@ export default function HomeScreen() {
     ]);
   }, [loadData]);
 
-  const startAdding = (dateKey: string) => {
-    // Auto-expand the day when adding
-    setExpandedDays(prev => new Set([...prev, dateKey]));
-    setAddingToDay(dateKey);
-    setIsAdding(true);
-    setNewItemText('');
-    setTimeout(() => inputRef.current?.focus(), 100);
-  };
-
-  const cancelAdding = () => {
-    setIsAdding(false);
-    setAddingToDay(null);
-    setNewItemText('');
-  };
-
-  const submitItem = async () => {
-    if (!newItemText.trim() || !user || !addingToDay) return;
-    
-    const targetDay = days.find(d => d.dateKey === addingToDay);
-    if (!targetDay) return;
-
-    const itemDate = new Date(targetDay.date);
-    itemDate.setHours(new Date().getHours(), new Date().getMinutes(), 0, 0);
-
-    try {
-      const { data, error } = await supabase
-        .from('voice_todos')
-        .insert({
-          user_id: user.id,
-          text: newItemText.trim(),
-          status: 'pending',
-          created_at: itemDate.toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setDays(prev => prev.map(day => {
-        if (day.dateKey === addingToDay) {
-          return {
-            ...day,
-            items: [{ id: data.id, type: 'task', text: data.text, status: 'pending', created_at: data.created_at }, ...day.items],
-          };
-        }
-        return day;
-      }));
-
-      cancelAdding();
-    } catch (error) {
-      console.error('Error adding item:', error);
-    }
-  };
-
   const toggleDayExpanded = (dateKey: string) => {
     setExpandedDays(prev => {
       const next = new Set(prev);
@@ -400,9 +339,8 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
-  const renderDaySection = (day: DayData, canAdd: boolean, hideHeader: boolean = false) => {
+  const renderDaySection = (day: DayData, hideHeader: boolean = false) => {
     const isExpanded = expandedDays.has(day.dateKey) || day.isToday || hideHeader;
-    const isAddingHere = isAdding && addingToDay === day.dateKey;
     
     // Group by type
     const tasks = day.items.filter(i => i.type === 'task');
@@ -421,51 +359,17 @@ export default function HomeScreen() {
               <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color="#666" />
             )}
             <Text style={[styles.dayLabel, day.isFuture && styles.futureDayLabel]}>{day.label}</Text>
-            {day.items.length > 0 && (
-              <View style={[styles.badge, day.isFuture && styles.futureBadge]}>
-                <Text style={styles.badgeText}>{day.items.length}</Text>
-              </View>
-            )}
-            {canAdd && (
-              <TouchableOpacity style={styles.addBtn} onPress={() => startAdding(day.dateKey)}>
-                <Ionicons name="add" size={20} color="#666" />
-              </TouchableOpacity>
-            )}
-          </TouchableOpacity>
-        )}
-        
-        {/* Add button when header is hidden */}
-        {hideHeader && canAdd && (
-          <View style={styles.addRow}>
-            <TouchableOpacity style={styles.addBtn} onPress={() => startAdding(day.dateKey)}>
-              <Ionicons name="add" size={20} color="#666" />
-              <Text style={styles.addBtnText}>Add item</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          {day.items.length > 0 && (
+            <View style={[styles.badge, day.isFuture && styles.futureBadge]}>
+              <Text style={styles.badgeText}>{day.items.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      )}
         
         {isExpanded && (
           <View style={styles.dayContent}>
-            {isAddingHere && (
-              <View style={styles.addInputRow}>
-                <Ionicons name="square-outline" size={20} color="#666" />
-                <TextInput
-                  ref={inputRef}
-                  style={styles.addInput}
-                  placeholder="Add item..."
-                  placeholderTextColor="#444"
-                  value={newItemText}
-                  onChangeText={setNewItemText}
-                  onSubmitEditing={submitItem}
-                  returnKeyType="done"
-                />
-                <TouchableOpacity onPress={cancelAdding} style={styles.cancelBtn}>
-                  <Ionicons name="close" size={18} color="#666" />
-                </TouchableOpacity>
-              </View>
-            )}
-            
-            {day.items.length === 0 && !isAddingHere && (
+            {day.items.length === 0 && (
               <Text style={styles.emptyText}>No items</Text>
             )}
             
@@ -610,7 +514,7 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#c4dfc4" />}
       >
-        {selectedTab === 'today' && todayProcessed && renderDaySection(todayProcessed, true, true)}
+        {selectedTab === 'today' && todayProcessed && renderDaySection(todayProcessed)}
         
         {selectedTab === 'past' && (
           pastDays.length === 0 ? (
@@ -619,7 +523,7 @@ export default function HomeScreen() {
               <Text style={styles.emptyTitle}>No history</Text>
             </View>
           ) : (
-            pastDays.map(day => renderDaySection(day, false))
+            pastDays.map(day => renderDaySection(day))
           )
         )}
         
@@ -630,7 +534,7 @@ export default function HomeScreen() {
               <Text style={styles.emptyTitle}>Plan ahead</Text>
             </View>
           ) : (
-            futureDays.map(day => renderDaySection(day, true))
+            futureDays.map(day => renderDaySection(day))
           )
         )}
         
