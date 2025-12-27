@@ -227,24 +227,14 @@ const HourBlock = ({
           />
         )}
 
-        {/* Add buttons - only show if canAdd and no active input */}
+        {/* Add button - only show if canAdd and no active input */}
         {canAdd && !activeInput && (
-          <View style={styles.addRow}>
-            <TouchableOpacity 
-              style={styles.addButton}
-              onPress={() => onStartInput('task')}
-            >
-              <Ionicons name="add" size={14} color="#c4dfc4" />
-              <Text style={styles.addButtonText}>Task</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.addButton}
-              onPress={() => onStartInput('note')}
-            >
-              <Ionicons name="add" size={14} color="#93c5fd" />
-              <Text style={[styles.addButtonText, { color: '#93c5fd' }]}>Note</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity 
+            style={styles.addButtonSolo}
+            onPress={() => onStartInput('task')}
+          >
+            <Ionicons name="add" size={18} color="#666" />
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -1141,6 +1131,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 6,
     backgroundColor: '#111',
+  },
+  addButtonSolo: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   addButtonText: {
     fontSize: 12,

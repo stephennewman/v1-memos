@@ -194,6 +194,59 @@ export default function TaskDetailScreen() {
     }
   };
 
+  const convertToNote = () => {
+    Alert.alert(
+      'Convert to Note',
+      'This will delete the task and create a note with the same text. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Convert',
+          onPress: async () => {
+            if (!task) return;
+            
+            try {
+              // Get user_id from the task
+              const { data: taskData } = await supabase
+                .from('voice_todos')
+                .select('user_id')
+                .eq('id', task.id)
+                .single();
+              
+              if (!taskData) throw new Error('Task not found');
+              
+              // Create the note
+              const { error: noteError } = await supabase
+                .from('voice_notes')
+                .insert({
+                  user_id: taskData.user_id,
+                  text: task.text,
+                  entry_id: task.entry_id || null,
+                  is_archived: false,
+                });
+
+              if (noteError) throw noteError;
+
+              // Delete the task
+              const { error: deleteError } = await supabase
+                .from('voice_todos')
+                .delete()
+                .eq('id', task.id);
+
+              if (deleteError) throw deleteError;
+
+              Alert.alert('Success', 'Task converted to note');
+              router.back();
+            } catch (error) {
+              console.error('Error converting:', error);
+              Alert.alert('Error', 'Failed to convert task');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (isLoading || !task) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -343,6 +396,16 @@ export default function TaskDetailScreen() {
               </Text>
             </View>
           )}
+        </View>
+
+        {/* Convert to Note */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>ACTIONS</Text>
+          <TouchableOpacity style={styles.convertRow} onPress={convertToNote}>
+            <Ionicons name="document-text-outline" size={18} color="#a78bfa" />
+            <Text style={styles.convertText}>Convert to Note</Text>
+            <Ionicons name="chevron-forward" size={16} color="#444" />
+          </TouchableOpacity>
         </View>
 
         {/* Edit Actions */}
@@ -518,6 +581,21 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#888',
+  },
+  convertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    borderRadius: 10,
+    padding: 14,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+  },
+  convertText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#a78bfa',
   },
   metaRow: {
     flexDirection: 'row',
