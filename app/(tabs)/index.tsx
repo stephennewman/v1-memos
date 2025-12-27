@@ -340,7 +340,8 @@ export default function HomeScreen() {
   );
 
   const renderDaySection = (day: DayData, hideHeader: boolean = false) => {
-    const isExpanded = expandedDays.has(day.dateKey) || day.isToday || hideHeader;
+    // All sections expanded by default - user can collapse manually
+    const isExpanded = !expandedDays.has(day.dateKey);
     
     // Group by type
     const tasks = day.items.filter(i => i.type === 'task');
@@ -352,12 +353,10 @@ export default function HomeScreen() {
         {!hideHeader && (
           <TouchableOpacity 
             style={styles.dayHeader}
-            onPress={() => !day.isToday && toggleDayExpanded(day.dateKey)}
-            activeOpacity={day.isToday ? 1 : 0.7}
+            onPress={() => toggleDayExpanded(day.dateKey)}
+            activeOpacity={0.7}
           >
-            {!day.isToday && (
-              <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color="#666" />
-            )}
+            <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color="#666" />
             <Text style={[styles.dayLabel, day.isFuture && styles.futureDayLabel]}>{day.label}</Text>
           {day.items.length > 0 && (
             <View style={[styles.badge, day.isFuture && styles.futureBadge]}>
