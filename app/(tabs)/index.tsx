@@ -281,10 +281,11 @@ export default function HomeScreen() {
     return filtered;
   };
 
-  // Process days - today first, then past (newest first), exclude future
+  // Process days - today first, then past (newest first), exclude future and empty
   const allDays = days
     .filter(d => !d.isFuture) // Only today and past
     .map(d => ({ ...d, items: processItems(d.items) }))
+    .filter(d => d.items.length > 0) // Hide empty days
     .sort((a, b) => {
       // Today comes first
       if (a.isToday && !b.isToday) return -1;
@@ -356,10 +357,6 @@ export default function HomeScreen() {
         
         {isExpanded && (
           <View style={styles.dayContent}>
-            {day.items.length === 0 && (
-              <Text style={styles.emptyText}>No items</Text>
-            )}
-            
             {/* Tasks */}
             {tasks.length > 0 && (
               <View style={styles.typeGroup}>
