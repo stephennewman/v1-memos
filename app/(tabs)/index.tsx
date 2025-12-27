@@ -389,8 +389,8 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
-  const renderDaySection = (day: DayData, canAdd: boolean) => {
-    const isExpanded = expandedDays.has(day.dateKey) || day.isToday;
+  const renderDaySection = (day: DayData, canAdd: boolean, hideHeader: boolean = false) => {
+    const isExpanded = expandedDays.has(day.dateKey) || day.isToday || hideHeader;
     const isAddingHere = isAdding && addingToDay === day.dateKey;
     
     // Group by type
@@ -400,26 +400,38 @@ export default function HomeScreen() {
     
     return (
       <View key={day.dateKey} style={styles.daySection}>
-        <TouchableOpacity 
-          style={styles.dayHeader}
-          onPress={() => !day.isToday && toggleDayExpanded(day.dateKey)}
-          activeOpacity={day.isToday ? 1 : 0.7}
-        >
-          {!day.isToday && (
-            <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color="#666" />
-          )}
-          <Text style={[styles.dayLabel, day.isFuture && styles.futureDayLabel]}>{day.label}</Text>
-          {day.items.length > 0 && (
-            <View style={[styles.badge, day.isFuture && styles.futureBadge]}>
-              <Text style={styles.badgeText}>{day.items.length}</Text>
-            </View>
-          )}
-          {canAdd && (
+        {!hideHeader && (
+          <TouchableOpacity 
+            style={styles.dayHeader}
+            onPress={() => !day.isToday && toggleDayExpanded(day.dateKey)}
+            activeOpacity={day.isToday ? 1 : 0.7}
+          >
+            {!day.isToday && (
+              <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color="#666" />
+            )}
+            <Text style={[styles.dayLabel, day.isFuture && styles.futureDayLabel]}>{day.label}</Text>
+            {day.items.length > 0 && (
+              <View style={[styles.badge, day.isFuture && styles.futureBadge]}>
+                <Text style={styles.badgeText}>{day.items.length}</Text>
+              </View>
+            )}
+            {canAdd && (
+              <TouchableOpacity style={styles.addBtn} onPress={() => startAdding(day.dateKey)}>
+                <Ionicons name="add" size={20} color="#666" />
+              </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+        )}
+        
+        {/* Add button when header is hidden */}
+        {hideHeader && canAdd && (
+          <View style={styles.addRow}>
             <TouchableOpacity style={styles.addBtn} onPress={() => startAdding(day.dateKey)}>
               <Ionicons name="add" size={20} color="#666" />
+              <Text style={styles.addBtnText}>Add item</Text>
             </TouchableOpacity>
-          )}
-        </TouchableOpacity>
+          </View>
+        )}
         
         {isExpanded && (
           <View style={styles.dayContent}>
@@ -571,7 +583,7 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#c4dfc4" />}
       >
-        {selectedTab === 'today' && todayProcessed && renderDaySection(todayProcessed, true)}
+        {selectedTab === 'today' && todayProcessed && renderDaySection(todayProcessed, true, true)}
         
         {selectedTab === 'past' && (
           pastDays.length === 0 ? (
@@ -755,12 +767,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   addBtn: {
-    width: 32,
-    height: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 16,
     backgroundColor: '#1a1a1a',
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  addBtnText: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
+  },
+  addRow: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
   dayContent: {
     paddingBottom: 12,
