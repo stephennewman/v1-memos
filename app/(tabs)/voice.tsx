@@ -31,6 +31,7 @@ export default function VoiceScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
+  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
 
   // Sort entries
   const filteredEntries = React.useMemo(() => {
@@ -78,11 +79,22 @@ export default function VoiceScreen() {
   );
 
 
+  const toggleEntryExpanded = (id: string) => {
+    setExpandedEntries(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const renderEntry = ({ item }: { item: VoiceEntry }) => {
     const config = ENTRY_TYPE_CONFIG[item.entry_type] || ENTRY_TYPE_CONFIG.freeform;
     const isProcessing = !item.is_processed;
     const taskCount = item.extracted_todos?.length || 0;
-    const peopleList = item.extracted_people || [];
+    const noteCount = item.extracted_notes?.length || 0;
+    const hasItems = taskCount > 0 || noteCount > 0;
+    const isExpanded = expandedEntries.has(item.id);
 
     // Title: AI summary > transcript snippet > date/time fallback
     const getTitle = () => {
@@ -95,68 +107,83 @@ export default function VoiceScreen() {
     const title = getTitle();
 
     return (
-      <TouchableOpacity
-        style={styles.entryCard}
-        onPress={() => router.push(`/entry/${item.id}`)}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.entryIcon, { backgroundColor: `${config.color}20` }]}>
-          <Ionicons name={config.icon as any} size={18} color={config.color} />
-        </View>
-        <View style={styles.entryContent}>
-          {/* Title or Skeleton */}
-          {isProcessing ? (
-            <View style={styles.skeletonTitle} />
-          ) : (
-            <Text style={styles.entryText} numberOfLines={2}>
-              {title}
-            </Text>
-          )}
+      <View style={styles.entryWrapper}>
+        <TouchableOpacity
+          style={styles.entryCard}
+          onPress={() => hasItems ? toggleEntryExpanded(item.id) : router.push(`/entry/${item.id}`)}
+          onLongPress={() => router.push(`/entry/${item.id}`)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.entryIcon, { backgroundColor: `${config.color}20` }]}>
+            <Ionicons name={config.icon as any} size={18} color={config.color} />
+          </View>
+          <View style={styles.entryContent}>
+            {/* Title or Skeleton */}
+            {isProcessing ? (
+              <View style={styles.skeletonTitle} />
+            ) : (
+              <Text style={styles.entryText} numberOfLines={2}>
+                {title}
+              </Text>
+            )}
 
-          {/* Meta row: date, tasks, people */}
-          <View style={styles.entryMeta}>
-            <Text style={styles.entryDate}>{formatRelativeDate(item.created_at)}</Text>
+            {/* Meta row: date, tasks, notes */}
+            <View style={styles.entryMeta}>
+              <Text style={styles.entryDate}>{formatRelativeDate(item.created_at)}</Text>
 
-            {/* Tasks count */}
-            <View style={styles.tasksBadge}>
-              {isProcessing ? (
-                <View style={styles.skeletonBadge} />
-              ) : (
-                <>
-                  <Ionicons name="checkbox-outline" size={12} color={taskCount > 0 ? '#c4dfc4' : '#444'} />
-                  <Text style={[styles.tasksBadgeText, taskCount > 0 && styles.tasksBadgeTextActive]}>
-                    {taskCount}
-                  </Text>
-                </>
+              {/* Tasks count */}
+              {taskCount > 0 && (
+                <View style={styles.tasksBadge}>
+                  <Ionicons name="checkbox-outline" size={12} color="#3b82f6" />
+                  <Text style={[styles.tasksBadgeText, { color: '#3b82f6' }]}>{taskCount}</Text>
+                </View>
+              )}
+
+              {/* Notes count */}
+              {noteCount > 0 && (
+                <View style={styles.tasksBadge}>
+                  <Ionicons name="document-text-outline" size={12} color="#a78bfa" />
+                  <Text style={[styles.tasksBadgeText, { color: '#a78bfa' }]}>{noteCount}</Text>
+                </View>
               )}
             </View>
-
-            {/* People badges */}
-            {isProcessing ? (
-              <View style={styles.skeletonBadge} />
-            ) : peopleList.length > 0 ? (
-              <View style={styles.peopleBadges}>
-                {peopleList.slice(0, 2).map((person, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={styles.personBadge}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      router.push(`/person/${encodeURIComponent(person)}`);
-                    }}
-                  >
-                    <Text style={styles.personBadgeText}>{person}</Text>
-                  </TouchableOpacity>
-                ))}
-                {peopleList.length > 2 && (
-                  <Text style={styles.morepeople}>+{peopleList.length - 2}</Text>
-                )}
-              </View>
-            ) : null}
           </View>
-        </View>
-        <Ionicons name="chevron-forward" size={16} color="#444" />
-      </TouchableOpacity>
+          <Ionicons 
+            name={hasItems ? (isExpanded ? 'chevron-down' : 'chevron-forward') : 'chevron-forward'} 
+            size={16} 
+            color="#444" 
+          />
+        </TouchableOpacity>
+
+        {/* Expanded nested items */}
+        {isExpanded && hasItems && (
+          <View style={styles.nestedItems}>
+            {/* Tasks */}
+            {item.extracted_todos?.map((todo, idx) => (
+              <View key={`task-${idx}`} style={styles.nestedItem}>
+                <Ionicons name="checkbox-outline" size={14} color="#3b82f6" />
+                <Text style={styles.nestedItemText}>{todo.text}</Text>
+              </View>
+            ))}
+            
+            {/* Notes */}
+            {item.extracted_notes?.map((note, idx) => (
+              <View key={`note-${idx}`} style={styles.nestedItem}>
+                <Ionicons name="document-text-outline" size={14} color="#a78bfa" />
+                <Text style={styles.nestedItemText}>{note}</Text>
+              </View>
+            ))}
+
+            {/* View full memo link */}
+            <TouchableOpacity 
+              style={styles.viewFullLink}
+              onPress={() => router.push(`/entry/${item.id}`)}
+            >
+              <Text style={styles.viewFullLinkText}>View full memo →</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     );
   };
 
@@ -393,7 +420,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#111',
     borderRadius: 10,
     padding: 12,
-    marginBottom: 8,
   },
   entryIcon: {
     width: 36,
@@ -472,5 +498,40 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#555',
+  },
+  entryWrapper: {
+    marginBottom: 8,
+  },
+  nestedItems: {
+    backgroundColor: '#0d0d0d',
+    borderRadius: 8,
+    marginTop: -4,
+    marginLeft: 46,
+    marginRight: 8,
+    padding: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: '#22c55e',
+  },
+  nestedItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 6,
+  },
+  nestedItemText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#ccc',
+    lineHeight: 18,
+  },
+  viewFullLink: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#1a1a1a',
+  },
+  viewFullLinkText: {
+    fontSize: 12,
+    color: '#22c55e',
   },
 });
