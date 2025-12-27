@@ -60,24 +60,6 @@ export default function NoteDetailScreen() {
     }
   };
 
-  const toggleArchive = async () => {
-    if (!note) return;
-    
-    const newArchived = !note.is_archived;
-    
-    try {
-      const { error } = await supabase
-        .from('voice_notes')
-        .update({ is_archived: newArchived })
-        .eq('id', note.id);
-
-      if (error) throw error;
-      setNote({ ...note, is_archived: newArchived });
-    } catch (error) {
-      console.error('Error updating archive status:', error);
-    }
-  };
-
   const saveChanges = async () => {
     if (!note) return;
     
@@ -134,8 +116,6 @@ export default function NoteDetailScreen() {
     );
   }
 
-  const isArchived = note.is_archived;
-
   return (
     <KeyboardAvoidingView 
       style={[styles.container, { paddingTop: insets.top }]}
@@ -163,20 +143,6 @@ export default function NoteDetailScreen() {
           />
         }
       >
-        {/* Archive Toggle */}
-        <TouchableOpacity style={styles.statusRow} onPress={toggleArchive}>
-          <View style={[styles.archiveIcon, isArchived && styles.archiveIconActive]}>
-            <Ionicons 
-              name={isArchived ? "archive" : "archive-outline"} 
-              size={18} 
-              color={isArchived ? "#0a0a0a" : "#666"} 
-            />
-          </View>
-          <Text style={[styles.statusText, isArchived && styles.statusTextArchived]}>
-            {isArchived ? 'Archived' : 'Archive this note'}
-          </Text>
-        </TouchableOpacity>
-
         {/* Note Text */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -197,7 +163,7 @@ export default function NoteDetailScreen() {
               placeholderTextColor="#444"
             />
           ) : (
-            <Text style={[styles.noteText, isArchived && styles.noteTextArchived]}>
+            <Text style={styles.noteText}>
               {note.text}
             </Text>
           )}
@@ -316,38 +282,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-  },
-  archiveIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#444',
-    marginRight: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  archiveIconActive: {
-    backgroundColor: '#c4dfc4',
-    borderColor: '#c4dfc4',
-  },
-  statusText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '500',
-  },
-  statusTextArchived: {
-    color: '#c4dfc4',
-  },
   section: {
     marginBottom: 24,
   },
@@ -367,9 +301,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#fff',
     lineHeight: 26,
-  },
-  noteTextArchived: {
-    color: '#666',
   },
   textInput: {
     backgroundColor: '#111',
