@@ -494,14 +494,12 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingTop: 80,
   },
   emptyText: {
     color: '#666',
-    fontSize: 15,
+    fontSize: 14,
   },
   searchContainer: {
     flexDirection: 'row',

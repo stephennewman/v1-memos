@@ -359,10 +359,8 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingTop: 80,
   },
   emptyText: {
     fontSize: 14,
