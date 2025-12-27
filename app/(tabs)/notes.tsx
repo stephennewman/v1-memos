@@ -237,14 +237,11 @@ export default function NotesScreen() {
           />
         }
         ListEmptyComponent={
-          <EmptyState
-            icon="document-text-outline"
-            title={filter === 'archived' ? "No archived notes" : "No notes yet"}
-            description={filter === 'archived'
-              ? "Archived notes will appear here"
-              : "Notes extracted from your voice recordings will appear here"
-            }
-          />
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              {filter === 'archived' ? 'No archived notes' : 'Create note below'}
+            </Text>
+          </View>
         }
       />
     </View>
@@ -358,6 +355,17 @@ const styles = StyleSheet.create({
   },
   toggleTextActive: {
     color: '#fff',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
   listContent: {
     padding: 16,
