@@ -121,7 +121,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           setTabs({ ...defaultTabs, ...parsed.tabs });
           setButtons({ ...defaultButtons, ...parsed.buttons });
           setButtonBarVisibility({ ...defaultButtonBarVisibility, ...parsed.buttonBarVisibility });
-          setButtonLabels({ ...defaultButtonLabels, ...parsed.buttonLabels });
+          // Always use default labels (app-defined, not user-customizable)
+          setButtonLabels(defaultButtonLabels);
           // Load order if saved, otherwise use defaults
           if (parsed.tabOrder && Array.isArray(parsed.tabOrder)) {
             // Ensure all keys are present (in case new tabs were added)
