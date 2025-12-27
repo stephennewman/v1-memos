@@ -28,6 +28,7 @@ export default function NotesScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
   const [timeTab, setTimeTab] = useState<'past' | 'today' | 'future'>('today');
+  const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
 
   const loadNotes = useCallback(async () => {
     if (!user) return;
@@ -97,7 +98,7 @@ export default function NotesScreen() {
     const tomorrowStart = new Date(todayStart);
     tomorrowStart.setDate(tomorrowStart.getDate() + 1);
     
-    return notes.filter(note => {
+    const filtered = notes.filter(note => {
       const created = new Date(note.created_at);
       if (timeTab === 'today') {
         return created >= todayStart && created < tomorrowStart;
@@ -107,7 +108,16 @@ export default function NotesScreen() {
         return created >= tomorrowStart;
       }
     });
-  }, [notes, timeTab]);
+    
+    // Apply sort
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return sort === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+    
+    return filtered;
+  }, [notes, timeTab, sort]);
 
   const renderNote = ({ item }: { item: VoiceNote }) => (
     <TouchableOpacity
@@ -173,24 +183,43 @@ export default function NotesScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Filter Tabs */}
-      <View style={styles.filterRow}>
-        <TouchableOpacity
-          style={[styles.filterTab, filter === 'all' && styles.filterTabActive]}
-          onPress={() => setFilter('all')}
-        >
-          <Text style={[styles.filterTabText, filter === 'all' && styles.filterTabTextActive]}>
-            All
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterTab, filter === 'archived' && styles.filterTabActive]}
-          onPress={() => setFilter('archived')}
-        >
-          <Text style={[styles.filterTabText, filter === 'archived' && styles.filterTabTextActive]}>
-            Archived
-          </Text>
-        </TouchableOpacity>
+      {/* Sort & Filter Row */}
+      <View style={styles.filterSortRow}>
+        {/* Sort Options */}
+        <View style={styles.sortGroup}>
+          <TouchableOpacity
+            style={[styles.sortBtn, sort === 'newest' && styles.sortBtnActive]}
+            onPress={() => setSort('newest')}
+          >
+            <Text style={[styles.sortBtnText, sort === 'newest' && styles.sortBtnTextActive]}>Newest</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sortBtn, sort === 'oldest' && styles.sortBtnActive]}
+            onPress={() => setSort('oldest')}
+          >
+            <Text style={[styles.sortBtnText, sort === 'oldest' && styles.sortBtnTextActive]}>Oldest</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Filter Toggle */}
+        <View style={styles.toggleGroup}>
+          <TouchableOpacity
+            style={[styles.togglePill, filter === 'all' && styles.togglePillActive]}
+            onPress={() => setFilter('all')}
+          >
+            <Text style={[styles.toggleText, filter === 'all' && styles.toggleTextActive]}>
+              All
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.togglePill, filter === 'archived' && styles.togglePillActive]}
+            onPress={() => setFilter('archived')}
+          >
+            <Text style={[styles.toggleText, filter === 'archived' && styles.toggleTextActive]}>
+              Archived
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Notes List */}
@@ -279,28 +308,56 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#fff',
   },
-  filterRow: {
+  filterSortRow: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    gap: 8,
-  },
-  filterTab: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 8,
+    gap: 8,
+  },
+  sortGroup: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  sortBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
     backgroundColor: '#111',
   },
-  filterTabActive: {
-    backgroundColor: '#1a2a1a',
+  sortBtnActive: {
+    backgroundColor: '#1a3a1a',
   },
-  filterTabText: {
-    fontSize: 13,
+  sortBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#666',
-    fontWeight: '500',
   },
-  filterTabTextActive: {
-    color: '#c4dfc4',
+  sortBtnTextActive: {
+    color: '#fff',
+  },
+  toggleGroup: {
+    flexDirection: 'row',
+    backgroundColor: '#111',
+    borderRadius: 8,
+    padding: 2,
+  },
+  togglePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  togglePillActive: {
+    backgroundColor: '#1a3a1a',
+  },
+  toggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  toggleTextActive: {
+    color: '#fff',
   },
   listContent: {
     padding: 16,

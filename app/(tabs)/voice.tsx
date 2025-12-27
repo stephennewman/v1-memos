@@ -32,6 +32,7 @@ export default function VoiceScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
   const [timeTab, setTimeTab] = useState<'past' | 'today' | 'future'>('today');
+  const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
 
   // Get unique people from all entries
   const allPeople = React.useMemo(() => {
@@ -70,8 +71,15 @@ export default function VoiceScreen() {
       }
     });
     
+    // Apply sort
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return sort === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+    
     return filtered;
-  }, [entries, selectedPerson, timeTab]);
+  }, [entries, selectedPerson, timeTab, sort]);
 
   const loadEntries = useCallback(async (userId: string) => {
     try {
@@ -249,6 +257,22 @@ export default function VoiceScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Sort Row */}
+      <View style={styles.sortRow}>
+        <TouchableOpacity
+          style={[styles.sortBtn, sort === 'newest' && styles.sortBtnActive]}
+          onPress={() => setSort('newest')}
+        >
+          <Text style={[styles.sortBtnText, sort === 'newest' && styles.sortBtnTextActive]}>Newest</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.sortBtn, sort === 'oldest' && styles.sortBtnActive]}
+          onPress={() => setSort('oldest')}
+        >
+          <Text style={[styles.sortBtnText, sort === 'oldest' && styles.sortBtnTextActive]}>Oldest</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* People Filter */}
       {allPeople.length > 0 && (
         <View style={styles.filterSection}>
@@ -384,6 +408,29 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   tabTextActive: {
+    color: '#fff',
+  },
+  sortRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  sortBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#111',
+  },
+  sortBtnActive: {
+    backgroundColor: '#1a3a1a',
+  },
+  sortBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  sortBtnTextActive: {
     color: '#fff',
   },
   searchSection: {
