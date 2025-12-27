@@ -483,14 +483,14 @@ export default function HomeScreen() {
           style={[styles.tab, selectedTab === 'past' && styles.tabActive]}
           onPress={() => setSelectedTab('past')}
         >
-          <Ionicons name="arrow-back" size={16} color={selectedTab === 'past' ? '#fff' : '#666'} />
+          <Ionicons name="arrow-back" size={14} color={selectedTab === 'past' ? '#fff' : '#666'} />
           <Text style={[styles.tabText, selectedTab === 'past' && styles.tabTextActive]}>Past</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.tab, styles.tabCenter, selectedTab === 'today' && styles.tabActive]}
           onPress={() => setSelectedTab('today')}
         >
-          <Ionicons name="today" size={16} color={selectedTab === 'today' ? '#fff' : '#666'} />
+          <Ionicons name="today" size={14} color={selectedTab === 'today' ? '#fff' : '#666'} />
           <Text style={[styles.tabText, selectedTab === 'today' && styles.tabTextActive]}>Today</Text>
         </TouchableOpacity>
         <TouchableOpacity 
@@ -498,7 +498,7 @@ export default function HomeScreen() {
           onPress={() => setSelectedTab('future')}
         >
           <Text style={[styles.tabText, selectedTab === 'future' && styles.tabTextActive]}>Future</Text>
-          <Ionicons name="arrow-forward" size={16} color={selectedTab === 'future' ? '#fff' : '#666'} />
+          <Ionicons name="arrow-forward" size={14} color={selectedTab === 'future' ? '#fff' : '#666'} />
         </TouchableOpacity>
       </View>
 
