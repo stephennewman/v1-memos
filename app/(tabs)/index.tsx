@@ -76,7 +76,6 @@ export default function HomeScreen() {
   const [days, setDays] = useState<DayData[]>([]);
   const { timeTab: selectedTab, setTimeTab: setSelectedTab } = useSettings();
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
-  const [typeFilter, setTypeFilter] = useState<'all' | 'tasks' | 'notes'>('all');
   const [statusFilter, setStatusFilter] = useState<'todo' | 'done'>('todo');
 
   const loadData = useCallback(async () => {
@@ -276,17 +275,8 @@ export default function HomeScreen() {
 
   // Helper to filter and sort items
   const processItems = (items: Item[]) => {
-    let filtered = items;
-    
-    // Filter by type
-    if (typeFilter === 'tasks') {
-      filtered = items.filter(i => i.type === 'task');
-    } else if (typeFilter === 'notes') {
-      filtered = items.filter(i => i.type === 'note');
-    }
-    
     // Filter tasks by status (notes and voice always show)
-    filtered = filtered.filter(i => {
+    let filtered = items.filter(i => {
       if (i.type !== 'task') return true; // Always show notes and voice
       if (statusFilter === 'todo') return i.status !== 'completed';
       return i.status === 'completed';
@@ -470,28 +460,6 @@ export default function HomeScreen() {
             onPress={collapseAll}
           >
             <Text style={styles.sortBtnText}>Collapse</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Type Filter */}
-        <View style={styles.toggleGroup}>
-          <TouchableOpacity
-            style={[styles.togglePill, typeFilter === 'all' && styles.togglePillActive]}
-            onPress={() => setTypeFilter('all')}
-          >
-            <Text style={[styles.toggleText, typeFilter === 'all' && styles.toggleTextActive]}>All</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.togglePill, typeFilter === 'tasks' && styles.togglePillActive]}
-            onPress={() => setTypeFilter('tasks')}
-          >
-            <Text style={[styles.toggleText, typeFilter === 'tasks' && styles.toggleTextActive]}>Tasks</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.togglePill, typeFilter === 'notes' && styles.togglePillActive]}
-            onPress={() => setTypeFilter('notes')}
-          >
-            <Text style={[styles.toggleText, typeFilter === 'notes' && styles.toggleTextActive]}>Notes</Text>
           </TouchableOpacity>
         </View>
 

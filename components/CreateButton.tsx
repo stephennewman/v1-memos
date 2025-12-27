@@ -1,50 +1,21 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSettings, ButtonKey } from '@/lib/settings-context';
 
-export type QuickActionContext = 'home' | 'topics' | 'voice' | 'tasks' | 'notes' | 'insights' | 'settings' | 'other';
+export type QuickActionContext = 'home' | 'voice' | 'settings' | 'other';
 
 interface QuickActionsProps {
   onVoice: () => void;
   onTask: () => void;
-  onTopic: () => void;
-  onNote: () => void;
   context?: QuickActionContext;
 }
 
-export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home' }: QuickActionsProps) {
-  const { buttons, buttonOrder, buttonLabels } = useSettings();
-  
-  const buttonConfig: Record<ButtonKey, { onPress: () => void; style: any; icon: string; label: string }> = {
-    topic: { onPress: onTopic, style: styles.topicButton, icon: 'bookmark', label: `Add ${buttonLabels?.topic || 'Card'}` },
-    voice: { onPress: onVoice, style: styles.voiceButton, icon: 'mic', label: `Add ${buttonLabels?.voice || 'Memo'}` },
-    task: { onPress: onTask, style: styles.taskButton, icon: 'add', label: `Add ${buttonLabels?.task || 'Task'}` },
-    note: { onPress: onNote, style: styles.noteButton, icon: 'document-text', label: `Add ${buttonLabels?.note || 'Note'}` },
-  };
-  
-  // Cards page: only show Card button (full width) if enabled
-  if (context === 'topics') {
-    if (!buttons?.topic) return null;
-    return (
-      <View style={styles.container}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.topicButton, styles.fullWidth]}
-          onPress={onTopic}
-          activeOpacity={0.85}
-        >
-          <View style={styles.iconWrapper}>
-            <Ionicons name="bookmark" size={18} color="#fff" />
-          </View>
-          <Text style={styles.buttonLabel}>Add {buttonLabels?.topic || 'Card'}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+export function QuickActions({ onVoice, onTask, context = 'home' }: QuickActionsProps) {
+  // Don't show on settings
+  if (context === 'settings') return null;
 
-  // Voice/Memo page: only show Memo button (full width) if enabled
+  // Voice/Memo page: only show Memo button (full width)
   if (context === 'voice') {
-    if (!buttons?.voice) return null;
     return (
       <View style={styles.container}>
         <TouchableOpacity
@@ -55,117 +26,36 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
           <View style={styles.iconWrapper}>
             <Ionicons name="mic" size={18} color="#fff" />
           </View>
-          <Text style={styles.buttonLabel}>Add {buttonLabels?.voice || 'Memo'}</Text>
+          <Text style={styles.buttonLabel}>Add Memo</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  // Tasks page: only show Task button (full width) if enabled
-  if (context === 'tasks') {
-    if (!buttons?.task) return null;
-    return (
-      <View style={styles.container}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.taskButton, styles.fullWidth]}
-          onPress={onTask}
-          activeOpacity={0.85}
-        >
-          <View style={styles.iconWrapper}>
-            <Ionicons name="add" size={18} color="#fff" />
-          </View>
-          <Text style={styles.buttonLabel}>Add {buttonLabels?.task || 'Task'}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // Notes page: only show Note button (full width) if enabled
-  if (context === 'notes') {
-    if (!buttons?.note) return null;
-    return (
-      <View style={styles.container}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.noteButton, styles.fullWidth]}
-          onPress={onNote}
-          activeOpacity={0.85}
-        >
-          <View style={styles.iconWrapper}>
-            <Ionicons name="document-text" size={18} color="#fff" />
-          </View>
-          <Text style={styles.buttonLabel}>Add {buttonLabels?.note || 'Note'}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // Insights page: show all enabled buttons
-  if (context === 'insights') {
-    const orderedEnabledButtons = buttonOrder
-      .filter(key => buttons?.[key])
-      .map(key => ({ key, ...buttonConfig[key] }));
-    if (orderedEnabledButtons.length === 0) return null;
-    return (
-      <View style={styles.container}>
-        {orderedEnabledButtons.map((btn) => (
-          <TouchableOpacity
-            key={btn.key}
-            style={[styles.actionButton, btn.style]}
-            onPress={btn.onPress}
-            activeOpacity={0.85}
-          >
-            <View style={styles.iconWrapper}>
-              <Ionicons name={btn.icon as any} size={16} color="#fff" />
-            </View>
-            <Text style={styles.buttonLabelSmall}>{btn.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    );
-  }
-
-  // Home & other: show enabled buttons in custom order
-  const orderedEnabledButtons = buttonOrder
-    .filter(key => buttons?.[key])
-    .map(key => ({ key, ...buttonConfig[key] }));
-
-  // If no buttons enabled, don't render the container
-  if (orderedEnabledButtons.length === 0) return null;
-
+  // Home & other: show Memo + Task buttons
   return (
     <View style={styles.container}>
-      {orderedEnabledButtons.map((btn) => (
-        <TouchableOpacity
-          key={btn.key}
-          style={[styles.actionButton, btn.style]}
-          onPress={btn.onPress}
-          activeOpacity={0.85}
-        >
-          <View style={styles.iconWrapper}>
-            <Ionicons name={btn.icon as any} size={16} color="#fff" />
-          </View>
-          <Text style={styles.buttonLabelSmall}>{btn.label}</Text>
-        </TouchableOpacity>
-      ))}
+      <TouchableOpacity
+        style={[styles.actionButton, styles.voiceButton]}
+        onPress={onVoice}
+        activeOpacity={0.85}
+      >
+        <View style={styles.iconWrapper}>
+          <Ionicons name="mic" size={16} color="#fff" />
+        </View>
+        <Text style={styles.buttonLabelSmall}>Add Memo</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.actionButton, styles.taskButton]}
+        onPress={onTask}
+        activeOpacity={0.85}
+      >
+        <View style={styles.iconWrapper}>
+          <Ionicons name="add" size={16} color="#fff" />
+        </View>
+        <Text style={styles.buttonLabelSmall}>Add Task</Text>
+      </TouchableOpacity>
     </View>
-  );
-}
-
-// Legacy single button for backwards compatibility
-interface CreateButtonProps {
-  onPress: () => void;
-  isOpen?: boolean;
-}
-
-export function CreateButton({ onPress, isOpen = false }: CreateButtonProps) {
-  return (
-    <TouchableOpacity
-      style={styles.fab}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
-      <Ionicons name="add" size={28} color="#0a0a0a" />
-    </TouchableOpacity>
   );
 }
 
@@ -222,28 +112,5 @@ const styles = StyleSheet.create({
   },
   taskButton: {
     backgroundColor: '#3b82f6',
-  },
-  topicButton: {
-    backgroundColor: '#f59e0b',
-  },
-  noteButton: {
-    backgroundColor: '#a78bfa',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 100,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#c4dfc4',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 100,
   },
 });
