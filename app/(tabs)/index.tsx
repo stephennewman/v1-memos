@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#fff',
+    color: '#f472b6',
   },
   headerSubtitle: {
     fontSize: 14,
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 8,
     backgroundColor: '#111',
   },
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a3a1a',
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#666',
   },

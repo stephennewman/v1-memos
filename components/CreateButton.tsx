@@ -55,7 +55,7 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
           <View style={styles.iconWrapper}>
             <Ionicons name="mic" size={18} color="#fff" />
           </View>
-          <Text style={styles.buttonLabel}>Record {buttonLabels?.voice || 'Voice'} Note</Text>
+          <Text style={styles.buttonLabel}>New {buttonLabels?.voice || 'Voice'} Note</Text>
         </TouchableOpacity>
       </View>
     );
