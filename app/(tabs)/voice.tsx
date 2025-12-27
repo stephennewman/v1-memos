@@ -31,6 +31,7 @@ export default function VoiceScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
+  const [timeTab, setTimeTab] = useState<'past' | 'today' | 'future'>('today');
 
   // Get unique people from all entries
   const allPeople = React.useMemo(() => {
@@ -41,13 +42,36 @@ export default function VoiceScreen() {
     return Array.from(peopleSet).sort();
   }, [entries]);
 
-  // Filter entries by selected person
+  // Filter entries by selected person and time
   const filteredEntries = React.useMemo(() => {
-    if (!selectedPerson) return entries;
-    return entries.filter(entry =>
-      (entry.extracted_people || []).includes(selectedPerson)
-    );
-  }, [entries, selectedPerson]);
+    let filtered = entries;
+    
+    // Filter by person
+    if (selectedPerson) {
+      filtered = filtered.filter(entry =>
+        (entry.extracted_people || []).includes(selectedPerson)
+      );
+    }
+    
+    // Filter by time
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    
+    filtered = filtered.filter(entry => {
+      const created = new Date(entry.created_at);
+      if (timeTab === 'today') {
+        return created >= todayStart && created < tomorrowStart;
+      } else if (timeTab === 'past') {
+        return created < todayStart;
+      } else {
+        return created >= tomorrowStart;
+      }
+    });
+    
+    return filtered;
+  }, [entries, selectedPerson, timeTab]);
 
   const loadEntries = useCallback(async (userId: string) => {
     try {
@@ -200,7 +224,30 @@ export default function VoiceScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Search Bar */}
+      {/* Time Tabs */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          style={[styles.tab, timeTab === 'past' && styles.tabActive]}
+          onPress={() => setTimeTab('past')}
+        >
+          <Ionicons name="arrow-back" size={14} color={timeTab === 'past' ? '#fff' : '#666'} />
+          <Text style={[styles.tabText, timeTab === 'past' && styles.tabTextActive]}>Past</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, styles.tabCenter, timeTab === 'today' && styles.tabActive]}
+          onPress={() => setTimeTab('today')}
+        >
+          <Ionicons name="today" size={14} color={timeTab === 'today' ? '#fff' : '#666'} />
+          <Text style={[styles.tabText, timeTab === 'today' && styles.tabTextActive]}>Today</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, timeTab === 'future' && styles.tabActive]}
+          onPress={() => setTimeTab('future')}
+        >
+          <Text style={[styles.tabText, timeTab === 'future' && styles.tabTextActive]}>Future</Text>
+          <Ionicons name="arrow-forward" size={14} color={timeTab === 'future' ? '#fff' : '#666'} />
+        </TouchableOpacity>
+      </View>
 
       {/* People Filter */}
       {allPeople.length > 0 && (
@@ -306,6 +353,38 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#111',
+  },
+  tabCenter: {
+    flex: 1.2,
+  },
+  tabActive: {
+    backgroundColor: '#1a3a1a',
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+  },
+  tabTextActive: {
+    color: '#fff',
   },
   searchSection: {
     paddingHorizontal: 16,

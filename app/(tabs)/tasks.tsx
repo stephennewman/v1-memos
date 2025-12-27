@@ -289,6 +289,7 @@ export default function TasksScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('todo');
   const [sort, setSort] = useState<SortType>('newest');
+  const [timeTab, setTimeTab] = useState<'past' | 'today' | 'future'>('today');
 
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -475,7 +476,27 @@ export default function TasksScreen() {
   const pendingCount = allPending.length;
   const completedCount = allCompleted.length;
   
-  const displayTodos = filter === 'todo' ? allPending : allCompleted;
+  // Filter by time period
+  const getTimeFilteredTodos = (todoList: VoiceTodo[]) => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    
+    return todoList.filter(t => {
+      const created = new Date(t.created_at);
+      if (timeTab === 'today') {
+        return created >= todayStart && created < tomorrowStart;
+      } else if (timeTab === 'past') {
+        return created < todayStart;
+      } else {
+        return created >= tomorrowStart;
+      }
+    });
+  };
+  
+  const statusFiltered = filter === 'todo' ? allPending : allCompleted;
+  const displayTodos = getTimeFilteredTodos(statusFiltered);
 
   if (isLoading || authLoading) {
     return (
@@ -506,6 +527,31 @@ export default function TasksScreen() {
           onPress={() => router.push('/(tabs)/settings')}
         >
           <Ionicons name="person-circle-outline" size={26} color="#666" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Time Tabs */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          style={[styles.tab, timeTab === 'past' && styles.tabActive]}
+          onPress={() => setTimeTab('past')}
+        >
+          <Ionicons name="arrow-back" size={14} color={timeTab === 'past' ? '#fff' : '#666'} />
+          <Text style={[styles.tabText, timeTab === 'past' && styles.tabTextActive]}>Past</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, styles.tabCenter, timeTab === 'today' && styles.tabActive]}
+          onPress={() => setTimeTab('today')}
+        >
+          <Ionicons name="today" size={14} color={timeTab === 'today' ? '#fff' : '#666'} />
+          <Text style={[styles.tabText, timeTab === 'today' && styles.tabTextActive]}>Today</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, timeTab === 'future' && styles.tabActive]}
+          onPress={() => setTimeTab('future')}
+        >
+          <Text style={[styles.tabText, timeTab === 'future' && styles.tabTextActive]}>Future</Text>
+          <Ionicons name="arrow-forward" size={14} color={timeTab === 'future' ? '#fff' : '#666'} />
         </TouchableOpacity>
       </View>
 
@@ -625,6 +671,38 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#111',
+  },
+  tabCenter: {
+    flex: 1.2,
+  },
+  tabActive: {
+    backgroundColor: '#1a3a1a',
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+  },
+  tabTextActive: {
+    color: '#fff',
   },
   headerTitle: {
     fontSize: 28,

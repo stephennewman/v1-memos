@@ -27,6 +27,7 @@ export default function NotesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
+  const [timeTab, setTimeTab] = useState<'past' | 'today' | 'future'>('today');
 
   const loadNotes = useCallback(async () => {
     if (!user) return;
@@ -89,7 +90,24 @@ export default function NotesScreen() {
     }
   };
 
-  // Notes are already filtered by the loadNotes query based on filter state
+  // Filter by time
+  const displayNotes = React.useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    
+    return notes.filter(note => {
+      const created = new Date(note.created_at);
+      if (timeTab === 'today') {
+        return created >= todayStart && created < tomorrowStart;
+      } else if (timeTab === 'past') {
+        return created < todayStart;
+      } else {
+        return created >= tomorrowStart;
+      }
+    });
+  }, [notes, timeTab]);
 
   const renderNote = ({ item }: { item: VoiceNote }) => (
     <TouchableOpacity
@@ -126,9 +144,34 @@ export default function NotesScreen() {
     <View style={styles.container}>
       <TabHeader
         title="Notes"
-        subtitle={`${notes.length} note${notes.length !== 1 ? 's' : ''}`}
+        subtitle={`${displayNotes.length} note${displayNotes.length !== 1 ? 's' : ''}`}
         titleColor="#a78bfa"
       />
+
+      {/* Time Tabs */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          style={[styles.tab, timeTab === 'past' && styles.tabActive]}
+          onPress={() => setTimeTab('past')}
+        >
+          <Ionicons name="arrow-back" size={14} color={timeTab === 'past' ? '#fff' : '#666'} />
+          <Text style={[styles.tabText, timeTab === 'past' && styles.tabTextActive]}>Past</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, styles.tabCenter, timeTab === 'today' && styles.tabActive]}
+          onPress={() => setTimeTab('today')}
+        >
+          <Ionicons name="today" size={14} color={timeTab === 'today' ? '#fff' : '#666'} />
+          <Text style={[styles.tabText, timeTab === 'today' && styles.tabTextActive]}>Today</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, timeTab === 'future' && styles.tabActive]}
+          onPress={() => setTimeTab('future')}
+        >
+          <Text style={[styles.tabText, timeTab === 'future' && styles.tabTextActive]}>Future</Text>
+          <Ionicons name="arrow-forward" size={14} color={timeTab === 'future' ? '#fff' : '#666'} />
+        </TouchableOpacity>
+      </View>
 
       {/* Filter Tabs */}
       <View style={styles.filterRow}>
@@ -152,7 +195,7 @@ export default function NotesScreen() {
 
       {/* Notes List */}
       <FlatList
-        data={notes}
+        data={displayNotes}
         renderItem={renderNote}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
@@ -202,6 +245,38 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
+    color: '#fff',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#111',
+  },
+  tabCenter: {
+    flex: 1.2,
+  },
+  tabActive: {
+    backgroundColor: '#1a3a1a',
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+  },
+  tabTextActive: {
     color: '#fff',
   },
   filterRow: {
