@@ -16,8 +16,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth-context';
-import { useSettings } from '@/lib/settings-context';
 import { supabase } from '@/lib/supabase';
+import { autoGenerateTags, getAllUniqueTags, getTagColor } from '@/lib/auto-tags';
 
 interface Item {
   id: string;
@@ -25,6 +25,7 @@ interface Item {
   text: string;
   status?: 'pending' | 'completed';
   created_at: string;
+  tags?: string[];
 }
 
 interface DayData {
@@ -76,6 +77,8 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [days, setDays] = useState<DayData[]>([]);
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   
   // Inline add state - tracks which day and type
   const [addingTo, setAddingTo] = useState<{ dayKey: string; type: 'task' | 'note' } | null>(null);
@@ -88,10 +91,14 @@ export default function HomeScreen() {
     // Use the day's date for created_at
     const targetDate = new Date(addingTo.dayKey + 'T12:00:00');
     
+    // Auto-generate tags from the text
+    const tags = autoGenerateTags(addingText.trim());
+    
     const { error } = await supabase.from('voice_todos').insert({
       user_id: user.id,
       text: addingText.trim(),
       status: 'pending',
+      tags,
       created_at: targetDate.toISOString(),
     });
     
@@ -110,10 +117,14 @@ export default function HomeScreen() {
     // Use the day's date for created_at
     const targetDate = new Date(addingTo.dayKey + 'T12:00:00');
     
+    // Auto-generate tags from the text
+    const tags = autoGenerateTags(addingText.trim());
+    
     const { error } = await supabase.from('voice_notes').insert({
       user_id: user.id,
       text: addingText.trim(),
       is_archived: false,
+      tags,
       created_at: targetDate.toISOString(),
     });
     
@@ -135,14 +146,14 @@ export default function HomeScreen() {
 
       const { data: tasks } = await supabase
         .from('voice_todos')
-        .select('id, text, status, created_at')
+        .select('id, text, status, created_at, tags')
         .eq('user_id', user.id)
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
 
       const { data: notes } = await supabase
         .from('voice_notes')
-        .select('id, text, created_at')
+        .select('id, text, created_at, tags')
         .eq('user_id', user.id)
         .eq('is_archived', false)
         .gte('created_at', thirtyDaysAgo.toISOString())
@@ -195,21 +206,29 @@ export default function HomeScreen() {
       }
 
       // Add tasks to days
+      const allItems: Item[] = [];
       (tasks || []).forEach(t => {
         const key = getDateKey(new Date(t.created_at));
         const day = dayMap.get(key);
+        const item: Item = { id: t.id, type: 'task', text: t.text, status: t.status, created_at: t.created_at, tags: t.tags || [] };
         if (day) {
-          day.items.push({ id: t.id, type: 'task', text: t.text, status: t.status, created_at: t.created_at });
+          day.items.push(item);
         }
+        allItems.push(item);
       });
 
       (notes || []).forEach(n => {
         const key = getDateKey(new Date(n.created_at));
         const day = dayMap.get(key);
+        const item: Item = { id: n.id, type: 'note', text: n.text, created_at: n.created_at, tags: n.tags || [] };
         if (day) {
-          day.items.push({ id: n.id, type: 'note', text: n.text, created_at: n.created_at });
+          day.items.push(item);
         }
+        allItems.push(item);
       });
+      
+      // Extract all unique tags
+      setAllTags(getAllUniqueTags(allItems));
 
       // Sort items within each day by created_at (newest first)
       daysArray.forEach(day => {
@@ -315,9 +334,12 @@ export default function HomeScreen() {
 
   // Helper to filter and sort items
   const processItems = (items: Item[]) => {
-    // Filter tasks by status (notes and voice always show)
-    // Show all items (completed tasks show with strikethrough)
     let filtered = [...items];
+    
+    // Filter by selected tag if any
+    if (selectedTag) {
+      filtered = filtered.filter(item => item.tags?.includes(selectedTag));
+    }
     
     // Sort by newest first
     filtered.sort((a, b) => {
@@ -368,9 +390,24 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
       {item.type === 'note' && <Ionicons name="document-text" size={18} color="#a78bfa" />}
-      <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]} numberOfLines={2}>
-        {item.text}
-      </Text>
+      <View style={styles.itemContent}>
+        <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]} numberOfLines={2}>
+          {item.text}
+        </Text>
+        {item.tags && item.tags.length > 0 && (
+          <View style={styles.itemTags}>
+            {item.tags.slice(0, 3).map(tag => (
+              <TouchableOpacity 
+                key={tag} 
+                style={[styles.itemTag, { backgroundColor: `${getTagColor(tag)}20` }]}
+                onPress={() => setSelectedTag(tag)}
+              >
+                <Text style={[styles.itemTagText, { color: getTagColor(tag) }]}>#{tag}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
       <Ionicons name="chevron-forward" size={16} color="#333" />
     </TouchableOpacity>
   );
@@ -531,6 +568,42 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      
+      {/* Tag Filter Row */}
+      {allTags.length > 0 && (
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.tagFilterRow}
+          contentContainerStyle={styles.tagFilterContent}
+        >
+          <TouchableOpacity
+            style={[styles.tagChip, !selectedTag && styles.tagChipActive]}
+            onPress={() => setSelectedTag(null)}
+          >
+            <Text style={[styles.tagChipText, !selectedTag && styles.tagChipTextActive]}>All</Text>
+          </TouchableOpacity>
+          {allTags.map(tag => (
+            <TouchableOpacity
+              key={tag}
+              style={[
+                styles.tagChip, 
+                selectedTag === tag && styles.tagChipActive,
+                { borderColor: getTagColor(tag) }
+              ]}
+              onPress={() => setSelectedTag(selectedTag === tag ? null : tag)}
+            >
+              <Text style={[
+                styles.tagChipText, 
+                selectedTag === tag && styles.tagChipTextActive,
+                { color: selectedTag === tag ? '#fff' : getTagColor(tag) }
+              ]}>
+                #{tag}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
       {/* Content */}
       <ScrollView
@@ -798,5 +871,55 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     fontSize: 13,
     color: '#666',
+  },
+  tagFilterRow: {
+    maxHeight: 44,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  tagFilterContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  tagChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#111',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  tagChipActive: {
+    backgroundColor: '#1a3a1a',
+    borderColor: '#4ade80',
+  },
+  tagChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#888',
+  },
+  tagChipTextActive: {
+    color: '#fff',
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 4,
+  },
+  itemTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  itemTagText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
 });
