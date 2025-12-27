@@ -88,17 +88,22 @@ export default function HomeScreen() {
     // Use the day's date for created_at
     const targetDate = new Date(addingTo.dayKey + 'T12:00:00');
     
-    await supabase.from('voice_todos').insert({
+    const { error } = await supabase.from('voice_todos').insert({
       user_id: user.id,
       text: addingText.trim(),
       status: 'pending',
+      is_archived: false,
       created_at: targetDate.toISOString(),
     });
     
+    if (error) {
+      console.error('Error adding task:', error);
+    }
+    
     setAddingText('');
     setAddingTo(null);
-    loadData();
-  }, [addingText, user, addingTo]);
+    await loadData();
+  }, [addingText, user, addingTo, loadData]);
 
   const handleAddNote = useCallback(async () => {
     if (!addingText.trim() || !user || !addingTo) return;
@@ -106,16 +111,21 @@ export default function HomeScreen() {
     // Use the day's date for created_at
     const targetDate = new Date(addingTo.dayKey + 'T12:00:00');
     
-    await supabase.from('voice_notes').insert({
+    const { error } = await supabase.from('voice_notes').insert({
       user_id: user.id,
       text: addingText.trim(),
+      is_archived: false,
       created_at: targetDate.toISOString(),
     });
     
+    if (error) {
+      console.error('Error adding note:', error);
+    }
+    
     setAddingText('');
     setAddingTo(null);
-    loadData();
-  }, [addingText, user, addingTo]);
+    await loadData();
+  }, [addingText, user, addingTo, loadData]);
 
   const loadData = useCallback(async () => {
     if (!user) return;
