@@ -370,6 +370,11 @@ export default function HomeScreen() {
     const isExpanded = expandedDays.has(day.dateKey) || day.isToday;
     const isAddingHere = isAdding && addingToDay === day.dateKey;
     
+    // Group by type
+    const tasks = day.items.filter(i => i.type === 'task');
+    const notes = day.items.filter(i => i.type === 'note');
+    const voices = day.items.filter(i => i.type === 'voice');
+    
     return (
       <View key={day.dateKey} style={styles.daySection}>
         <TouchableOpacity 
@@ -411,10 +416,34 @@ export default function HomeScreen() {
                 />
               </View>
             )}
+            
             {day.items.length === 0 && !isAddingHere && (
               <Text style={styles.emptyText}>No items</Text>
             )}
-            {day.items.map(renderItem)}
+            
+            {/* Tasks */}
+            {tasks.length > 0 && (
+              <View style={styles.typeGroup}>
+                <Text style={styles.typeLabel}>Tasks</Text>
+                {tasks.map(renderItem)}
+              </View>
+            )}
+            
+            {/* Notes */}
+            {notes.length > 0 && (
+              <View style={styles.typeGroup}>
+                <Text style={[styles.typeLabel, { color: '#a78bfa' }]}>Notes</Text>
+                {notes.map(renderItem)}
+              </View>
+            )}
+            
+            {/* Voice */}
+            {voices.length > 0 && (
+              <View style={styles.typeGroup}>
+                <Text style={[styles.typeLabel, { color: '#22c55e' }]}>Voice</Text>
+                {voices.map(renderItem)}
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -654,6 +683,19 @@ const styles = StyleSheet.create({
     color: '#444',
     paddingHorizontal: 20,
     paddingVertical: 8,
+  },
+  typeGroup: {
+    marginBottom: 8,
+  },
+  typeLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#3b82f6',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   empty: {
     flex: 1,
