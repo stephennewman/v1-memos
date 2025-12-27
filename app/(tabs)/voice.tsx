@@ -30,37 +30,17 @@ export default function VoiceScreen() {
   const [entries, setEntries] = useState<VoiceEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
   const [timeTab, setTimeTab] = useState<'past' | 'today' | 'future'>('today');
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
 
-  // Get unique people from all entries
-  const allPeople = React.useMemo(() => {
-    const peopleSet = new Set<string>();
-    entries.forEach(entry => {
-      (entry.extracted_people || []).forEach(person => peopleSet.add(person));
-    });
-    return Array.from(peopleSet).sort();
-  }, [entries]);
-
-  // Filter entries by selected person and time
+  // Filter entries by time
   const filteredEntries = React.useMemo(() => {
-    let filtered = entries;
-    
-    // Filter by person
-    if (selectedPerson) {
-      filtered = filtered.filter(entry =>
-        (entry.extracted_people || []).includes(selectedPerson)
-      );
-    }
-    
-    // Filter by time
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrowStart = new Date(todayStart);
     tomorrowStart.setDate(tomorrowStart.getDate() + 1);
     
-    filtered = filtered.filter(entry => {
+    const filtered = entries.filter(entry => {
       const created = new Date(entry.created_at);
       if (timeTab === 'today') {
         return created >= todayStart && created < tomorrowStart;
@@ -79,7 +59,7 @@ export default function VoiceScreen() {
     });
     
     return filtered;
-  }, [entries, selectedPerson, timeTab, sort]);
+  }, [entries, timeTab, sort]);
 
   const loadEntries = useCallback(async (userId: string) => {
     try {
@@ -273,56 +253,14 @@ export default function VoiceScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* People Filter */}
-      {allPeople.length > 0 && (
-        <View style={styles.filterSection}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScroll}
-          >
-            <TouchableOpacity
-              style={[styles.filterChip, !selectedPerson && styles.filterChipActive]}
-              onPress={() => setSelectedPerson(null)}
-            >
-              <Text style={[styles.filterChipText, !selectedPerson && styles.filterChipTextActive]}>
-                All
-              </Text>
-            </TouchableOpacity>
-            {allPeople.map(person => (
-              <TouchableOpacity
-                key={person}
-                style={[styles.filterChip, selectedPerson === person && styles.filterChipActive]}
-                onPress={() => setSelectedPerson(selectedPerson === person ? null : person)}
-              >
-                <Ionicons
-                  name="person"
-                  size={12}
-                  color={selectedPerson === person ? '#0a0a0a' : '#888'}
-                  style={{ marginRight: 4 }}
-                />
-                <Text style={[styles.filterChipText, selectedPerson === person && styles.filterChipTextActive]}>
-                  {person}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
 
       {/* Entries List */}
       <View style={styles.listSection}>
-        <Text style={styles.listHeader}>
-          {selectedPerson ? `${selectedPerson}'s mentions` : 'Recent'}
-        </Text>
+        <Text style={styles.listHeader}>Recent</Text>
 
         {filteredEntries.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              {selectedPerson 
-                ? `No recordings with ${selectedPerson}` 
-                : 'Create Voice Note below'}
-            </Text>
+            <Text style={styles.emptyText}>Create Voice Note below</Text>
           </View>
         ) : (
           <FlatList
@@ -459,38 +397,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 2,
-  },
-  filterSection: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
-    paddingVertical: 12,
-  },
-  filterScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#222',
-    marginRight: 8,
-  },
-  filterChipActive: {
-    backgroundColor: '#c4dfc4',
-    borderColor: '#c4dfc4',
-  },
-  filterChipText: {
-    fontSize: 13,
-    color: '#888',
-    fontWeight: '500',
-  },
-  filterChipTextActive: {
-    color: '#0a0a0a',
   },
   listSection: {
     flex: 1,
