@@ -317,17 +317,13 @@ export default function VoiceScreen() {
         </Text>
 
         {filteredEntries.length === 0 ? (
-          <EmptyState
-            icon={selectedPerson ? 'person-outline' : 'mic-outline'}
-            title={selectedPerson ? `No recordings with ${selectedPerson}` : 'Start your voice journal'}
-            description={
-              selectedPerson
-                ? `Record a note mentioning ${selectedPerson} and it will appear here`
-                : 'Capture your thoughts, ideas, and tasks with voice. AI will transcribe and extract key information.'
-            }
-            actionLabel={!selectedPerson ? 'Record First Note' : undefined}
-            onAction={!selectedPerson ? () => router.push('/record') : undefined}
-          />
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              {selectedPerson 
+                ? `No recordings with ${selectedPerson}` 
+                : 'Create Voice Note below'}
+            </Text>
+          </View>
         ) : (
           <FlatList
             data={filteredEntries}
@@ -508,6 +504,17 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
   listContent: {
     paddingHorizontal: 16,
