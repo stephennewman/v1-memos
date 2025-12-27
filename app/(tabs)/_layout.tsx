@@ -67,15 +67,9 @@ function TabsContent() {
             ),
           }}
         />
-        <Tabs.Screen
-          name="settings"
-          options={{
-            title: 'Settings',
-            tabBarIcon: ({ focused }) => (
-              <Ionicons name="settings" size={22} color={focused ? '#888' : '#666'} />
-            ),
-          }}
-        />
+        
+        {/* Settings hidden from tab bar - accessible via profile icon */}
+        <Tabs.Screen name="settings" options={{ href: null }} />
         
         {/* Hidden screens - not in tab bar */}
         <Tabs.Screen name="tasks" options={{ href: null }} />

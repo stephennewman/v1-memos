@@ -31,7 +31,6 @@ export default function VoiceScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
-  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
 
   // Sort entries
   const filteredEntries = React.useMemo(() => {
@@ -79,111 +78,63 @@ export default function VoiceScreen() {
   );
 
 
-  const toggleEntryExpanded = (id: string) => {
-    setExpandedEntries(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   const renderEntry = ({ item }: { item: VoiceEntry }) => {
     const config = ENTRY_TYPE_CONFIG[item.entry_type] || ENTRY_TYPE_CONFIG.freeform;
     const isProcessing = !item.is_processed;
     const taskCount = item.extracted_todos?.length || 0;
     const noteCount = item.extracted_notes?.length || 0;
     const hasItems = taskCount > 0 || noteCount > 0;
-    const isExpanded = expandedEntries.has(item.id);
 
     // Title: AI summary > transcript snippet > date/time fallback
     const getTitle = () => {
-      if (isProcessing) return null; // Show skeleton
+      if (isProcessing) return null;
       if (item.summary) return item.summary;
-      if (item.transcript) return item.transcript.slice(0, 60) + (item.transcript.length > 60 ? '...' : '');
+      if (item.transcript) return item.transcript.slice(0, 80) + (item.transcript.length > 80 ? '...' : '');
       return formatDateTime(item.created_at);
     };
 
     const title = getTitle();
 
     return (
-      <View style={styles.entryWrapper}>
-        <TouchableOpacity
-          style={styles.entryCard}
-          onPress={() => hasItems ? toggleEntryExpanded(item.id) : router.push(`/entry/${item.id}`)}
-          onLongPress={() => router.push(`/entry/${item.id}`)}
-          activeOpacity={0.7}
-        >
+      <TouchableOpacity
+        style={styles.entryCard}
+        onPress={() => router.push(`/entry/${item.id}`)}
+        activeOpacity={0.7}
+      >
+        {/* Header with icon, title, date */}
+        <View style={styles.entryHeader}>
           <View style={[styles.entryIcon, { backgroundColor: `${config.color}20` }]}>
-            <Ionicons name={config.icon as any} size={18} color={config.color} />
+            <Ionicons name={config.icon as any} size={16} color={config.color} />
           </View>
-          <View style={styles.entryContent}>
-            {/* Title or Skeleton */}
+          <View style={styles.entryHeaderContent}>
             {isProcessing ? (
               <View style={styles.skeletonTitle} />
             ) : (
-              <Text style={styles.entryText} numberOfLines={2}>
-                {title}
-              </Text>
+              <Text style={styles.entryText} numberOfLines={2}>{title}</Text>
             )}
-
-            {/* Meta row: date, tasks, notes */}
-            <View style={styles.entryMeta}>
-              <Text style={styles.entryDate}>{formatRelativeDate(item.created_at)}</Text>
-
-              {/* Tasks count */}
-              {taskCount > 0 && (
-                <View style={styles.tasksBadge}>
-                  <Ionicons name="checkbox-outline" size={12} color="#3b82f6" />
-                  <Text style={[styles.tasksBadgeText, { color: '#3b82f6' }]}>{taskCount}</Text>
-                </View>
-              )}
-
-              {/* Notes count */}
-              {noteCount > 0 && (
-                <View style={styles.tasksBadge}>
-                  <Ionicons name="document-text-outline" size={12} color="#a78bfa" />
-                  <Text style={[styles.tasksBadgeText, { color: '#a78bfa' }]}>{noteCount}</Text>
-                </View>
-              )}
-            </View>
+            <Text style={styles.entryDate}>{formatRelativeDate(item.created_at)}</Text>
           </View>
-          <Ionicons 
-            name={hasItems ? (isExpanded ? 'chevron-down' : 'chevron-forward') : 'chevron-forward'} 
-            size={16} 
-            color="#444" 
-          />
-        </TouchableOpacity>
+          <Ionicons name="chevron-forward" size={16} color="#333" />
+        </View>
 
-        {/* Expanded nested items */}
-        {isExpanded && hasItems && (
-          <View style={styles.nestedItems}>
-            {/* Tasks */}
+        {/* Always show extracted items if present */}
+        {hasItems && (
+          <View style={styles.extractedItems}>
             {item.extracted_todos?.map((todo, idx) => (
-              <View key={`task-${idx}`} style={styles.nestedItem}>
+              <View key={`task-${idx}`} style={styles.extractedItem}>
                 <Ionicons name="checkbox-outline" size={14} color="#3b82f6" />
-                <Text style={styles.nestedItemText}>{todo.text}</Text>
+                <Text style={styles.extractedItemText} numberOfLines={1}>{todo.text}</Text>
               </View>
             ))}
-            
-            {/* Notes */}
             {item.extracted_notes?.map((note, idx) => (
-              <View key={`note-${idx}`} style={styles.nestedItem}>
+              <View key={`note-${idx}`} style={styles.extractedItem}>
                 <Ionicons name="document-text-outline" size={14} color="#a78bfa" />
-                <Text style={styles.nestedItemText}>{note}</Text>
+                <Text style={styles.extractedItemText} numberOfLines={1}>{note}</Text>
               </View>
             ))}
-
-            {/* View full memo link */}
-            <TouchableOpacity 
-              style={styles.viewFullLink}
-              onPress={() => router.push(`/entry/${item.id}`)}
-            >
-              <Text style={styles.viewFullLinkText}>View full memo →</Text>
-            </TouchableOpacity>
           </View>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -240,8 +191,6 @@ export default function VoiceScreen() {
 
       {/* Entries List */}
       <View style={styles.listSection}>
-        <Text style={styles.listHeader}>Recent</Text>
-
         {filteredEntries.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Add Memo below</Text>
@@ -415,67 +364,34 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   entryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#111',
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  entryHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
   },
   entryIcon: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
   },
-  entryContent: {
+  entryHeaderContent: {
     flex: 1,
   },
   entryText: {
     fontSize: 14,
     color: '#fff',
-    lineHeight: 18,
+    lineHeight: 19,
+    marginBottom: 4,
   },
   entryDate: {
     fontSize: 11,
-    color: '#555',
-  },
-  entryMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    gap: 10,
-  },
-  tasksBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  tasksBadgeText: {
-    fontSize: 11,
-    color: '#444',
-  },
-  tasksBadgeTextActive: {
-    color: '#c4dfc4',
-  },
-  peopleBadges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  personBadge: {
-    backgroundColor: '#1a1a1a',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  personBadgeText: {
-    fontSize: 10,
-    color: '#888',
-  },
-  morepeople: {
-    fontSize: 10,
     color: '#555',
   },
   skeletonTitle: {
@@ -485,11 +401,22 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginBottom: 4,
   },
-  skeletonBadge: {
-    height: 14,
-    width: 30,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 4,
+  extractedItems: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#1a1a1a',
+    gap: 8,
+  },
+  extractedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  extractedItemText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#aaa',
   },
   emptyState: {
     padding: 40,
@@ -498,40 +425,5 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#555',
-  },
-  entryWrapper: {
-    marginBottom: 8,
-  },
-  nestedItems: {
-    backgroundColor: '#0d0d0d',
-    borderRadius: 8,
-    marginTop: -4,
-    marginLeft: 46,
-    marginRight: 8,
-    padding: 12,
-    borderLeftWidth: 2,
-    borderLeftColor: '#22c55e',
-  },
-  nestedItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    paddingVertical: 6,
-  },
-  nestedItemText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#ccc',
-    lineHeight: 18,
-  },
-  viewFullLink: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#1a1a1a',
-  },
-  viewFullLinkText: {
-    fontSize: 12,
-    color: '#22c55e',
   },
 });

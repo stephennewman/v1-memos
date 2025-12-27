@@ -325,12 +325,6 @@ export default function HomeScreen() {
     });
   };
 
-  const expandAll = () => setCollapsedDays(new Set());
-  
-  const collapseAll = () => {
-    const allDayKeys = days.map(d => d.dateKey);
-    setCollapsedDays(new Set(allDayKeys));
-  };
 
   // Helper to filter and sort items
   const processItems = (items: Item[]) => {
@@ -341,11 +335,11 @@ export default function HomeScreen() {
       filtered = filtered.filter(item => item.tags?.includes(selectedTag));
     }
     
-    // Sort by newest first
+    // Sort by oldest first (new items go to bottom)
     filtered.sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
-      return dateB - dateA;
+      return dateA - dateB;
     });
     return filtered;
   };
@@ -550,24 +544,6 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Sort & Filter Row */}
-      <View style={styles.filterSortRow}>
-        {/* Expand/Collapse */}
-        <View style={styles.sortGroup}>
-          <TouchableOpacity
-            style={styles.sortBtn}
-            onPress={expandAll}
-          >
-            <Text style={styles.sortBtnText}>Expand</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.sortBtn}
-            onPress={collapseAll}
-          >
-            <Text style={styles.sortBtnText}>Collapse</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
       
       {/* Tag Filter Row */}
       {allTags.length > 0 && (
@@ -689,35 +665,6 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   tabTextActive: {
-    color: '#fff',
-  },
-  filterSortRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 8,
-  },
-  sortGroup: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  sortBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#111',
-  },
-  sortBtnActive: {
-    backgroundColor: '#1a3a1a',
-  },
-  sortBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-  },
-  sortBtnTextActive: {
     color: '#fff',
   },
   scrollView: {
