@@ -377,10 +377,10 @@ export default function HomeScreen() {
             onPress={() => toggleDayExpanded(day.dateKey)}
             activeOpacity={0.7}
           >
-            <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color="#666" />
-            <Text style={[styles.dayLabel, day.isFuture && styles.futureDayLabel]}>{day.label}</Text>
+            <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color="#0a0a0a" />
+            <Text style={styles.dayLabel}>{day.label}</Text>
           {day.items.length > 0 && (
-            <View style={[styles.badge, day.isFuture && styles.futureBadge]}>
+            <View style={styles.badge}>
               <Text style={styles.badgeText}>{day.items.length}</Text>
             </View>
           )}
@@ -687,28 +687,23 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 20,
     gap: 8,
+    backgroundColor: '#f472b6',
   },
   dayLabel: {
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-    color: '#e5e5e5',
-  },
-  futureDayLabel: {
-    color: '#4ade80',
+    color: '#0a0a0a',
   },
   badge: {
-    backgroundColor: '#333',
+    backgroundColor: 'rgba(0,0,0,0.2)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
   },
-  futureBadge: {
-    backgroundColor: '#166534',
-  },
   badgeText: {
     fontSize: 12,
-    color: '#fff',
+    color: '#0a0a0a',
     fontWeight: '600',
   },
   addBtn: {
