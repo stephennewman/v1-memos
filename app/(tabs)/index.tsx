@@ -348,6 +348,12 @@ export default function HomeScreen() {
   const allDays = days
     .filter(d => !d.isFuture) // Only today and past
     .map(d => ({ ...d, items: processItems(d.items) }))
+    .filter(d => {
+      // When filtering by tag, hide days with no matching items
+      if (selectedTag) return d.items.length > 0;
+      // Otherwise show all days
+      return true;
+    })
     .sort((a, b) => {
       // Today comes first
       if (a.isToday && !b.isToday) return -1;
