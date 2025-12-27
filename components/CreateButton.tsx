@@ -32,28 +32,18 @@ export function QuickActions({ onVoice, onTask, context = 'home' }: QuickActions
     );
   }
 
-  // Home & other: show Memo + Task buttons
+  // Home & other: show only Memo button (full width)
   return (
     <View style={styles.container}>
       <TouchableOpacity
-        style={[styles.actionButton, styles.voiceButton]}
+        style={[styles.actionButton, styles.voiceButton, styles.fullWidth]}
         onPress={onVoice}
         activeOpacity={0.85}
       >
         <View style={styles.iconWrapper}>
-          <Ionicons name="mic" size={16} color="#fff" />
+          <Ionicons name="mic" size={18} color="#fff" />
         </View>
-        <Text style={styles.buttonLabelSmall}>Add Memo</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.actionButton, styles.taskButton]}
-        onPress={onTask}
-        activeOpacity={0.85}
-      >
-        <View style={styles.iconWrapper}>
-          <Ionicons name="add" size={16} color="#fff" />
-        </View>
-        <Text style={styles.buttonLabelSmall}>Add Task</Text>
+        <Text style={styles.buttonLabel}>Add Memo</Text>
       </TouchableOpacity>
     </View>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -76,6 +77,38 @@ export default function HomeScreen() {
   const [days, setDays] = useState<DayData[]>([]);
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<'todo' | 'done'>('todo');
+  
+  // Inline add state
+  const [addingType, setAddingType] = useState<'task' | 'note' | null>(null);
+  const [addingText, setAddingText] = useState('');
+  const inputRef = useRef<TextInput>(null);
+
+  const handleAddTask = useCallback(async () => {
+    if (!addingText.trim() || !user) return;
+    
+    await supabase.from('voice_todos').insert({
+      user_id: user.id,
+      text: addingText.trim(),
+      status: 'pending',
+    });
+    
+    setAddingText('');
+    setAddingType(null);
+    loadData();
+  }, [addingText, user]);
+
+  const handleAddNote = useCallback(async () => {
+    if (!addingText.trim() || !user) return;
+    
+    await supabase.from('voice_notes').insert({
+      user_id: user.id,
+      text: addingText.trim(),
+    });
+    
+    setAddingText('');
+    setAddingType(null);
+    loadData();
+  }, [addingText, user]);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -356,25 +389,63 @@ export default function HomeScreen() {
         
         {isExpanded && (
           <View style={styles.dayContent}>
-            {day.items.length === 0 && (
-              <Text style={styles.emptyText}>No items</Text>
-            )}
-            
             {/* Tasks */}
-            {tasks.length > 0 && (
-              <View style={styles.typeGroup}>
-                <Text style={styles.typeLabel}>Tasks</Text>
-                {tasks.map(renderItem)}
-              </View>
-            )}
+            <View style={styles.typeGroup}>
+              <Text style={styles.typeLabel}>Tasks</Text>
+              {tasks.map(renderItem)}
+              {addingType === 'task' ? (
+                <View style={styles.inlineInputRow}>
+                  <TextInput
+                    ref={inputRef}
+                    style={styles.inlineInput}
+                    value={addingText}
+                    onChangeText={setAddingText}
+                    placeholder="Enter task..."
+                    placeholderTextColor="#666"
+                    autoFocus
+                    onSubmitEditing={handleAddTask}
+                    onBlur={() => { setAddingType(null); setAddingText(''); }}
+                    returnKeyType="done"
+                  />
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  style={styles.addLink} 
+                  onPress={() => setAddingType('task')}
+                >
+                  <Text style={styles.addLinkText}>+ Add task</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             
             {/* Notes */}
-            {notes.length > 0 && (
-              <View style={styles.typeGroup}>
-                <Text style={[styles.typeLabel, { color: '#a78bfa' }]}>Notes</Text>
-                {notes.map(renderItem)}
-              </View>
-            )}
+            <View style={styles.typeGroup}>
+              <Text style={[styles.typeLabel, { color: '#a78bfa' }]}>Notes</Text>
+              {notes.map(renderItem)}
+              {addingType === 'note' ? (
+                <View style={styles.inlineInputRow}>
+                  <TextInput
+                    ref={inputRef}
+                    style={styles.inlineInput}
+                    value={addingText}
+                    onChangeText={setAddingText}
+                    placeholder="Enter note..."
+                    placeholderTextColor="#666"
+                    autoFocus
+                    onSubmitEditing={handleAddNote}
+                    onBlur={() => { setAddingType(null); setAddingText(''); }}
+                    returnKeyType="done"
+                  />
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  style={styles.addLink} 
+                  onPress={() => setAddingType('note')}
+                >
+                  <Text style={[styles.addLinkText, { color: '#a78bfa' }]}>+ Add note</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
       </View>
@@ -698,5 +769,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#666',
+  },
+  addLink: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  addLinkText: {
+    fontSize: 13,
+    color: '#3b82f6',
+    opacity: 0.7,
+  },
+  inlineInputRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  inlineInput: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#fff',
+    borderWidth: 1,
+    borderColor: '#333',
   },
 });
