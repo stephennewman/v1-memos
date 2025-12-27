@@ -281,11 +281,10 @@ export default function HomeScreen() {
     return filtered;
   };
 
-  // Process days - today first, then past (newest first), exclude future and empty
+  // Process days - today first, then past (newest first), exclude future
   const allDays = days
     .filter(d => !d.isFuture) // Only today and past
     .map(d => ({ ...d, items: processItems(d.items) }))
-    .filter(d => d.items.length > 0) // Hide empty days
     .sort((a, b) => {
       // Today comes first
       if (a.isToday && !b.isToday) return -1;
@@ -330,8 +329,8 @@ export default function HomeScreen() {
   );
 
   const renderDaySection = (day: DayData, hideHeader: boolean = false) => {
-    // All sections expanded by default - user can collapse manually
-    const isExpanded = !collapsedDays.has(day.dateKey);
+    // Empty days are collapsed by default, others expanded
+    const isExpanded = day.items.length > 0 ? !collapsedDays.has(day.dateKey) : collapsedDays.has(day.dateKey);
     
     // Group by type
     const tasks = day.items.filter(i => i.type === 'task');
@@ -357,6 +356,10 @@ export default function HomeScreen() {
         
         {isExpanded && (
           <View style={styles.dayContent}>
+            {day.items.length === 0 && (
+              <Text style={styles.emptyText}>No items</Text>
+            )}
+            
             {/* Tasks */}
             {tasks.length > 0 && (
               <View style={styles.typeGroup}>
