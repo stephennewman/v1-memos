@@ -90,7 +90,7 @@ const defaultButtonBarVisibility: ButtonBarVisibility = {
 };
 
 const defaultButtonLabels: ButtonLabels = {
-  topic: 'Snippet',
+  topic: 'Card',
   voice: 'Memo',
   task: 'Task',
   note: 'Note',

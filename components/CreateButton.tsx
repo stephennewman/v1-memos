@@ -17,13 +17,13 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
   const { buttons, buttonOrder, buttonLabels } = useSettings();
   
   const buttonConfig: Record<ButtonKey, { onPress: () => void; style: any; icon: string; label: string }> = {
-    topic: { onPress: onTopic, style: styles.topicButton, icon: 'bookmark', label: `Add ${buttonLabels?.topic || 'Snippet'}` },
+    topic: { onPress: onTopic, style: styles.topicButton, icon: 'bookmark', label: `Add ${buttonLabels?.topic || 'Card'}` },
     voice: { onPress: onVoice, style: styles.voiceButton, icon: 'mic', label: `Add ${buttonLabels?.voice || 'Memo'}` },
     task: { onPress: onTask, style: styles.taskButton, icon: 'add', label: `Add ${buttonLabels?.task || 'Task'}` },
     note: { onPress: onNote, style: styles.noteButton, icon: 'document-text', label: `Add ${buttonLabels?.note || 'Note'}` },
   };
   
-  // Topics/Snippets page: only show Snippet button (full width) if enabled
+  // Cards page: only show Card button (full width) if enabled
   if (context === 'topics') {
     if (!buttons?.topic) return null;
     return (
@@ -36,7 +36,7 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
           <View style={styles.iconWrapper}>
             <Ionicons name="bookmark" size={18} color="#fff" />
           </View>
-          <Text style={styles.buttonLabel}>Add {buttonLabels?.topic || 'Snippet'}</Text>
+          <Text style={styles.buttonLabel}>Add {buttonLabels?.topic || 'Card'}</Text>
         </TouchableOpacity>
       </View>
     );

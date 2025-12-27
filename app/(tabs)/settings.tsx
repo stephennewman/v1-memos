@@ -17,7 +17,7 @@ import { useSettings, TabSettings, ButtonSettings, TabKey, ButtonKey, ButtonBarS
 
 // Label presets for each button type
 const labelPresets: Record<ButtonKey, string[]> = {
-  topic: ['Snippet', 'New Snippet', '+ Snippet'],
+  topic: ['Card', 'New Card', '+ Card'],
   voice: ['Memo', 'New Memo', '+ Memo'],
   task: ['Task', 'New Task', '+ Task', 'To-Do'],
   note: ['Note', 'New Note', '+ Note'],
@@ -43,13 +43,13 @@ export default function SettingsScreen() {
     voice: { icon: 'mic', label: 'Memos' },
     tasks: { icon: 'checkbox-outline', label: 'Tasks' },
     notes: { icon: 'document-text', label: 'Notes' },
-    topics: { icon: 'bookmark', label: 'Snippets' },
+    topics: { icon: 'bookmark', label: 'Cards' },
     insights: { icon: 'analytics', label: 'Insights' },
     forms: { icon: 'reader-outline', label: 'Forms' },
   };
 
   const buttonItemsMap: Record<ButtonKey, { icon: string; label: string; color: string }> = {
-    topic: { icon: 'bookmark', label: buttonLabels?.topic || 'Snippet', color: '#f59e0b' },
+    topic: { icon: 'bookmark', label: buttonLabels?.topic || 'Card', color: '#f59e0b' },
     voice: { icon: 'mic', label: buttonLabels?.voice || 'Memo', color: '#22c55e' },
     task: { icon: 'add', label: buttonLabels?.task || 'Task', color: '#3b82f6' },
     note: { icon: 'document-text', label: buttonLabels?.note || 'Note', color: '#a78bfa' },
@@ -60,7 +60,7 @@ export default function SettingsScreen() {
     voice: { icon: 'mic', label: 'Memos' },
     tasks: { icon: 'checkbox-outline', label: 'Tasks' },
     notes: { icon: 'document-text', label: 'Notes' },
-    topics: { icon: 'bookmark', label: 'Snippets' },
+    topics: { icon: 'bookmark', label: 'Cards' },
     insights: { icon: 'analytics', label: 'Insights' },
     detailPages: { icon: 'reader-outline', label: 'Detail Pages' },
   };
@@ -284,7 +284,7 @@ export default function SettingsScreen() {
           <View style={styles.card}>
             <View style={styles.row}>
               <Ionicons name="bookmark-outline" size={20} color="#666" />
-              <Text style={styles.rowLabel}>Snippets</Text>
+              <Text style={styles.rowLabel}>Cards</Text>
               <Text style={styles.rowValue}>{topicCount} / {MAX_FREE_TOPICS}</Text>
             </View>
             <View style={styles.progressBar}>
@@ -297,7 +297,7 @@ export default function SettingsScreen() {
             </View>
             <Text style={styles.usageHint}>
               {topicCount >= MAX_FREE_TOPICS
-                ? 'Snippet limit reached. More coming soon!'
+                ? 'Card limit reached. More coming soon!'
                 : `${MAX_FREE_TOPICS - topicCount} topics remaining`
               }
             </Text>

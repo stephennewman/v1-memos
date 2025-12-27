@@ -227,9 +227,9 @@ export default function LibraryScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Snippets</Text>
+          <Text style={styles.headerTitle}>Cards</Text>
           <Text style={styles.headerSubtitle}>
-            {topicCount}/{MAX_FREE_TOPICS} snippets
+            {topicCount}/{MAX_FREE_TOPICS} cards
           </Text>
         </View>
         <TouchableOpacity
