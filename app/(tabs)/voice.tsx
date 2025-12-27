@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import { useSettings } from '@/lib/settings-context';
 import EmptyState from '@/components/EmptyState';
 import type { VoiceEntry } from '@/lib/types';
 import { ENTRY_TYPE_CONFIG } from '@/lib/types';
@@ -31,36 +30,16 @@ export default function VoiceScreen() {
   const [entries, setEntries] = useState<VoiceEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { timeTab, setTimeTab } = useSettings();
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
 
-  // Filter entries by time
+  // Sort entries
   const filteredEntries = React.useMemo(() => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-    
-    const filtered = entries.filter(entry => {
-      const created = new Date(entry.created_at);
-      if (timeTab === 'today') {
-        return created >= todayStart && created < tomorrowStart;
-      } else if (timeTab === 'past') {
-        return created < todayStart;
-      } else {
-        return created >= tomorrowStart;
-      }
-    });
-    
-    // Apply sort
-    filtered.sort((a, b) => {
+    return [...entries].sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
       return sort === 'newest' ? dateB - dateA : dateA - dateB;
     });
-    
-    return filtered;
-  }, [entries, timeTab, sort]);
+  }, [entries, sort]);
 
   const loadEntries = useCallback(async (userId: string) => {
     try {
@@ -210,31 +189,6 @@ export default function VoiceScreen() {
           onPress={() => router.push('/(tabs)/settings')}
         >
           <Ionicons name="person-circle-outline" size={26} color="#666" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Time Tabs */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity 
-          style={[styles.tab, timeTab === 'past' && styles.tabActive]}
-          onPress={() => setTimeTab('past')}
-        >
-          <Ionicons name="arrow-back" size={14} color={timeTab === 'past' ? '#fff' : '#666'} />
-          <Text style={[styles.tabText, timeTab === 'past' && styles.tabTextActive]}>Past</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, styles.tabCenter, timeTab === 'today' && styles.tabActive]}
-          onPress={() => setTimeTab('today')}
-        >
-          <Ionicons name="today" size={14} color={timeTab === 'today' ? '#fff' : '#666'} />
-          <Text style={[styles.tabText, timeTab === 'today' && styles.tabTextActive]}>Today</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, timeTab === 'future' && styles.tabActive]}
-          onPress={() => setTimeTab('future')}
-        >
-          <Text style={[styles.tabText, timeTab === 'future' && styles.tabTextActive]}>Future</Text>
-          <Ionicons name="arrow-forward" size={14} color={timeTab === 'future' ? '#fff' : '#666'} />
         </TouchableOpacity>
       </View>
 

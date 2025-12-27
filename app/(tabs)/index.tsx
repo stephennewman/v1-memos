@@ -74,7 +74,6 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [days, setDays] = useState<DayData[]>([]);
-  const { timeTab: selectedTab, setTimeTab: setSelectedTab } = useSettings();
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<'todo' | 'done'>('todo');
 
@@ -291,15 +290,19 @@ export default function HomeScreen() {
     return filtered;
   };
 
-  // Split and process days
-  const futureDays = days.filter(d => d.isFuture).reverse().map(d => ({ ...d, items: processItems(d.items) }));
-  const today = days.find(d => d.isToday);
-  const todayProcessed = today ? { ...today, items: processItems(today.items) } : null;
-  const pastDays = days.filter(d => !d.isToday && !d.isFuture).map(d => ({ ...d, items: processItems(d.items) }));
+  // Process days - today first, then past (newest first), exclude future
+  const allDays = days
+    .filter(d => !d.isFuture) // Only today and past
+    .map(d => ({ ...d, items: processItems(d.items) }))
+    .sort((a, b) => {
+      // Today comes first
+      if (a.isToday && !b.isToday) return -1;
+      if (!a.isToday && b.isToday) return 1;
+      // Then sort by date descending (newest first)
+      return new Date(b.dateKey).getTime() - new Date(a.dateKey).getTime();
+    });
   
-  const todayItemCount = todayProcessed?.items.length || 0;
-  const pastItemsCount = pastDays.reduce((sum, d) => sum + d.items.length, 0);
-  const futureItemsCount = futureDays.reduce((sum, d) => sum + d.items.length, 0);
+  const totalItems = allDays.reduce((sum, d) => sum + d.items.length, 0);
 
   if (isLoading || authLoading) {
     return (
@@ -407,9 +410,7 @@ export default function HomeScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Home</Text>
           <Text style={styles.headerSubtitle}>
-            {selectedTab === 'today' && `${todayItemCount} item${todayItemCount !== 1 ? 's' : ''} today`}
-            {selectedTab === 'past' && `${pastItemsCount} item${pastItemsCount !== 1 ? 's' : ''}`}
-            {selectedTab === 'future' && `${futureItemsCount} planned`}
+            {totalItems} item{totalItems !== 1 ? 's' : ''}
           </Text>
         </View>
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/search')}>
@@ -417,31 +418,6 @@ export default function HomeScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/(tabs)/settings')}>
           <Ionicons name="person-circle-outline" size={26} color="#666" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Tabs */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity 
-          style={[styles.tab, selectedTab === 'past' && styles.tabActive]}
-          onPress={() => setSelectedTab('past')}
-        >
-          <Ionicons name="arrow-back" size={14} color={selectedTab === 'past' ? '#fff' : '#666'} />
-          <Text style={[styles.tabText, selectedTab === 'past' && styles.tabTextActive]}>Past</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, styles.tabCenter, selectedTab === 'today' && styles.tabActive]}
-          onPress={() => setSelectedTab('today')}
-        >
-          <Ionicons name="today" size={14} color={selectedTab === 'today' ? '#fff' : '#666'} />
-          <Text style={[styles.tabText, selectedTab === 'today' && styles.tabTextActive]}>Today</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, selectedTab === 'future' && styles.tabActive]}
-          onPress={() => setSelectedTab('future')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'future' && styles.tabTextActive]}>Future</Text>
-          <Ionicons name="arrow-forward" size={14} color={selectedTab === 'future' ? '#fff' : '#666'} />
         </TouchableOpacity>
       </View>
 
@@ -487,28 +463,12 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#c4dfc4" />}
       >
-        {selectedTab === 'today' && todayProcessed && renderDaySection(todayProcessed)}
-        
-        {selectedTab === 'past' && (
-          pastDays.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="time-outline" size={48} color="#333" />
-              <Text style={styles.emptyTitle}>No history</Text>
-            </View>
-          ) : (
-            pastDays.map(day => renderDaySection(day))
-          )
-        )}
-        
-        {selectedTab === 'future' && (
-          futureDays.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="calendar-outline" size={48} color="#333" />
-              <Text style={styles.emptyTitle}>Plan ahead</Text>
-            </View>
-          ) : (
-            futureDays.map(day => renderDaySection(day))
-          )
+        {allDays.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>Add Memo below</Text>
+          </View>
+        ) : (
+          allDays.map(day => renderDaySection(day))
         )}
         
         <View style={{ height: 120 }} />
