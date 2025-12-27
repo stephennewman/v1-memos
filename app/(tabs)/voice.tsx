@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,7 +8,6 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
-  TextInput,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,9 +31,6 @@ export default function VoiceScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<VoiceEntry[] | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
 
   // Get unique people from all entries
   const allPeople = React.useMemo(() => {
@@ -45,76 +41,13 @@ export default function VoiceScreen() {
     return Array.from(peopleSet).sort();
   }, [entries]);
 
-  // Filter entries by selected person and search
+  // Filter entries by selected person
   const filteredEntries = React.useMemo(() => {
-    // If we have search results, use those instead
-    if (searchResults !== null) return searchResults;
-
-    let filtered = entries;
-
-    // Filter by person
-    if (selectedPerson) {
-      filtered = filtered.filter(entry =>
-        (entry.extracted_people || []).includes(selectedPerson)
-      );
-    }
-
-    // Local search if query is short (< 3 chars)
-    if (searchQuery && searchQuery.length < 3) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(entry =>
-        (entry.summary || '').toLowerCase().includes(q) ||
-        (entry.transcript || '').toLowerCase().includes(q)
-      );
-    }
-
-    return filtered;
-  }, [entries, selectedPerson, searchQuery, searchResults]);
-
-  // Search function
-  const performSearch = useCallback(async (query: string) => {
-    if (!user || query.length < 3) {
-      setSearchResults(null);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const response = await fetch(
-        `${API_URL}/api/voice/search?q=${encodeURIComponent(query)}&user_id=${user.id}&limit=50`
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        // Map search results to VoiceEntry format (partial)
-        const results = data.results.map((r: any) => ({
-          id: r.id,
-          summary: r.title,
-          created_at: r.created_at,
-          extracted_people: r.people,
-          // Other fields will be null/undefined
-        }));
-        setSearchResults(results);
-      }
-    } catch (error) {
-      console.error('Search failed:', error);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [user]);
-
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchQuery.length >= 3) {
-        performSearch(searchQuery);
-      } else {
-        setSearchResults(null);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery, performSearch]);
+    if (!selectedPerson) return entries;
+    return entries.filter(entry =>
+      (entry.extracted_people || []).includes(selectedPerson)
+    );
+  }, [entries, selectedPerson]);
 
   const loadEntries = useCallback(async (userId: string) => {
     try {
@@ -268,27 +201,6 @@ export default function VoiceScreen() {
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchSection}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#555" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search transcripts..."
-            placeholderTextColor="#555"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color="#555" />
-            </TouchableOpacity>
-          )}
-          {isSearching && (
-            <ActivityIndicator size="small" color="#c4dfc4" style={{ marginLeft: 8 }} />
-          )}
-        </View>
-      </View>
 
       {/* People Filter */}
       {allPeople.length > 0 && (
