@@ -76,10 +76,9 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [days, setDays] = useState<DayData[]>([]);
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
-  const [statusFilter, setStatusFilter] = useState<'todo' | 'done'>('todo');
   
-  // Inline add state
-  const [addingType, setAddingType] = useState<'task' | 'note' | null>(null);
+  // Inline add state - tracks which day and type
+  const [addingTo, setAddingTo] = useState<{ dayKey: string; type: 'task' | 'note' } | null>(null);
   const [addingText, setAddingText] = useState('');
   const inputRef = useRef<TextInput>(null);
 
@@ -93,7 +92,7 @@ export default function HomeScreen() {
     });
     
     setAddingText('');
-    setAddingType(null);
+    setAddingTo(null);
     loadData();
   }, [addingText, user]);
 
@@ -106,7 +105,7 @@ export default function HomeScreen() {
     });
     
     setAddingText('');
-    setAddingType(null);
+    setAddingTo(null);
     loadData();
   }, [addingText, user]);
 
@@ -299,11 +298,8 @@ export default function HomeScreen() {
   // Helper to filter and sort items
   const processItems = (items: Item[]) => {
     // Filter tasks by status (notes and voice always show)
-    let filtered = items.filter(i => {
-      if (i.type !== 'task') return true; // Always show notes
-      if (statusFilter === 'todo') return i.status !== 'completed';
-      return i.status === 'completed';
-    });
+    // Show all items (completed tasks show with strikethrough)
+    let filtered = [...items];
     
     // Sort by newest first
     filtered.sort((a, b) => {
@@ -393,7 +389,7 @@ export default function HomeScreen() {
             <View style={styles.typeGroup}>
               <Text style={styles.typeLabel}>Tasks</Text>
               {tasks.map(renderItem)}
-              {addingType === 'task' ? (
+              {addingTo?.dayKey === day.dateKey && addingTo?.type === 'task' ? (
                 <View style={styles.inlineInputRow}>
                   <TextInput
                     ref={inputRef}
@@ -407,7 +403,7 @@ export default function HomeScreen() {
                       if (addingText.trim()) {
                         handleAddTask();
                       } else {
-                        setAddingType(null);
+                        setAddingTo(null);
                       }
                     }}
                     blurOnSubmit={true}
@@ -416,7 +412,7 @@ export default function HomeScreen() {
                   />
                   <TouchableOpacity 
                     style={styles.cancelBtn}
-                    onPress={() => { setAddingType(null); setAddingText(''); }}
+                    onPress={() => { setAddingTo(null); setAddingText(''); }}
                   >
                     <Text style={styles.cancelBtnText}>Cancel</Text>
                   </TouchableOpacity>
@@ -424,7 +420,7 @@ export default function HomeScreen() {
               ) : (
                 <TouchableOpacity 
                   style={styles.addLink} 
-                  onPress={() => setAddingType('task')}
+                  onPress={() => setAddingTo({ dayKey: day.dateKey, type: 'task' })}
                 >
                   <Text style={styles.addLinkText}>+ Add task</Text>
                 </TouchableOpacity>
@@ -435,7 +431,7 @@ export default function HomeScreen() {
             <View style={styles.typeGroup}>
               <Text style={[styles.typeLabel, { color: '#a78bfa' }]}>Notes</Text>
               {notes.map(renderItem)}
-              {addingType === 'note' ? (
+              {addingTo?.dayKey === day.dateKey && addingTo?.type === 'note' ? (
                 <View style={styles.inlineInputRow}>
                   <TextInput
                     ref={inputRef}
@@ -449,7 +445,7 @@ export default function HomeScreen() {
                       if (addingText.trim()) {
                         handleAddNote();
                       } else {
-                        setAddingType(null);
+                        setAddingTo(null);
                       }
                     }}
                     blurOnSubmit={true}
@@ -458,7 +454,7 @@ export default function HomeScreen() {
                   />
                   <TouchableOpacity 
                     style={styles.cancelBtn}
-                    onPress={() => { setAddingType(null); setAddingText(''); }}
+                    onPress={() => { setAddingTo(null); setAddingText(''); }}
                   >
                     <Text style={styles.cancelBtnText}>Cancel</Text>
                   </TouchableOpacity>
@@ -466,7 +462,7 @@ export default function HomeScreen() {
               ) : (
                 <TouchableOpacity 
                   style={styles.addLink} 
-                  onPress={() => setAddingType('note')}
+                  onPress={() => setAddingTo({ dayKey: day.dateKey, type: 'note' })}
                 >
                   <Text style={[styles.addLinkText, { color: '#a78bfa' }]}>+ Add note</Text>
                 </TouchableOpacity>
@@ -501,7 +497,7 @@ export default function HomeScreen() {
 
       {/* Sort & Filter Row */}
       <View style={styles.filterSortRow}>
-        {/* Expand/Collapse - Left */}
+        {/* Expand/Collapse */}
         <View style={styles.sortGroup}>
           <TouchableOpacity
             style={styles.sortBtn}
@@ -514,22 +510,6 @@ export default function HomeScreen() {
             onPress={collapseAll}
           >
             <Text style={styles.sortBtnText}>Collapse</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Status Filter (To Do / Done) */}
-        <View style={styles.toggleGroup}>
-          <TouchableOpacity
-            style={[styles.togglePill, statusFilter === 'todo' && styles.togglePillActive]}
-            onPress={() => setStatusFilter('todo')}
-          >
-            <Text style={[styles.toggleText, statusFilter === 'todo' && styles.toggleTextActive]}>To Do</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.togglePill, statusFilter === 'done' && styles.togglePillDone]}
-            onPress={() => setStatusFilter('done')}
-          >
-            <Text style={[styles.toggleText, statusFilter === 'done' && styles.toggleTextActive]}>Done</Text>
           </TouchableOpacity>
         </View>
       </View>
