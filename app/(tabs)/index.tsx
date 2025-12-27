@@ -92,7 +92,6 @@ export default function HomeScreen() {
       user_id: user.id,
       text: addingText.trim(),
       status: 'pending',
-      is_archived: false,
       created_at: targetDate.toISOString(),
     });
     
@@ -136,7 +135,7 @@ export default function HomeScreen() {
 
       const { data: tasks } = await supabase
         .from('voice_todos')
-        .select('id, text, status, created_at, is_archived')
+        .select('id, text, status, created_at')
         .eq('user_id', user.id)
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
@@ -195,8 +194,8 @@ export default function HomeScreen() {
         dayMap.set(day.dateKey, day);
       }
 
-      // Add items to days (filter out archived)
-      (tasks || []).filter(t => !t.is_archived).forEach(t => {
+      // Add tasks to days
+      (tasks || []).forEach(t => {
         const key = getDateKey(new Date(t.created_at));
         const day = dayMap.get(key);
         if (day) {
@@ -273,10 +272,10 @@ export default function HomeScreen() {
     const label = item.type === 'task' ? 'Task' : 'Note';
     const table = item.type === 'task' ? 'voice_todos' : 'voice_notes';
     
-    Alert.alert(`Archive ${label}`, `Are you sure?`, [
+    Alert.alert(`Delete ${label}`, `Are you sure?`, [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Archive',
+        text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           // Optimistic update - remove from UI immediately
@@ -285,7 +284,13 @@ export default function HomeScreen() {
             items: day.items.filter(i => i.id !== item.id),
           })));
           try {
-            await supabase.from(table).update({ is_archived: true }).eq('id', item.id);
+            if (item.type === 'note') {
+              // Notes have is_archived column
+              await supabase.from(table).update({ is_archived: true }).eq('id', item.id);
+            } else {
+              // Tasks don't have is_archived, so delete
+              await supabase.from(table).delete().eq('id', item.id);
+            }
           } catch (error) {
             // Revert on error
             loadData();
