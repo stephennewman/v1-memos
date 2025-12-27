@@ -100,26 +100,25 @@ export default function NoteDetailScreen() {
     }
   };
 
-  const deleteNote = () => {
+  const archiveNote = () => {
     Alert.alert(
-      'Delete Note',
-      'Are you sure you want to delete this note?',
+      'Archive Note',
+      'Are you sure you want to archive this note?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: 'Archive',
           onPress: async () => {
             try {
               const { error } = await supabase
                 .from('voice_notes')
-                .delete()
+                .update({ is_archived: true })
                 .eq('id', note?.id);
 
               if (error) throw error;
               router.back();
             } catch (error) {
-              console.error('Error deleting:', error);
+              console.error('Error archiving:', error);
             }
           },
         },
@@ -148,8 +147,8 @@ export default function NoteDetailScreen() {
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Note</Text>
-        <TouchableOpacity onPress={deleteNote} style={styles.deleteButton}>
-          <Ionicons name="trash-outline" size={22} color="#ef4444" />
+        <TouchableOpacity onPress={archiveNote} style={styles.archiveButton}>
+          <Ionicons name="archive-outline" size={22} color="#666" />
         </TouchableOpacity>
       </View>
 
@@ -307,7 +306,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#a78bfa',
   },
-  deleteButton: {
+  archiveButton: {
     width: 44,
     height: 44,
     justifyContent: 'center',

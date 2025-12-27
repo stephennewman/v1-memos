@@ -210,22 +210,20 @@ export default function EntryDetailScreen() {
     }
   };
 
-  const deleteEntry = () => {
+  const archiveEntry = () => {
     Alert.alert(
-      'Delete Entry',
-      'Are you sure you want to delete this voice entry?',
+      'Archive Entry',
+      'Are you sure you want to archive this voice entry?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: 'Archive',
           onPress: async () => {
             try {
-              await supabase.from('voice_entries').delete().eq('id', entry?.id);
-              await supabase.from('voice_todos').delete().eq('entry_id', entry?.id);
+              await supabase.from('voice_entries').update({ is_archived: true }).eq('id', entry?.id);
               router.back();
             } catch (error) {
-              console.error('Error deleting entry:', error);
+              console.error('Error archiving entry:', error);
             }
           },
         },
@@ -463,8 +461,8 @@ export default function EntryDetailScreen() {
               <Ionicons name="refresh-outline" size={22} color="#4ade80" />
             )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={deleteEntry} style={styles.actionButton}>
-            <Ionicons name="trash-outline" size={22} color="#666" />
+          <TouchableOpacity onPress={archiveEntry} style={styles.actionButton}>
+            <Ionicons name="archive-outline" size={22} color="#666" />
           </TouchableOpacity>
         </View>
       </View>

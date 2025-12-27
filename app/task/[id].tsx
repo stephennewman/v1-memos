@@ -150,26 +150,25 @@ export default function TaskDetailScreen() {
     }
   };
 
-  const deleteTask = () => {
+  const archiveTask = () => {
     Alert.alert(
-      'Delete Task',
-      'Are you sure you want to delete this task?',
+      'Archive Task',
+      'Are you sure you want to archive this task?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: 'Archive',
           onPress: async () => {
             try {
               const { error } = await supabase
                 .from('voice_todos')
-                .delete()
+                .update({ is_archived: true })
                 .eq('id', task?.id);
 
               if (error) throw error;
               router.back();
             } catch (error) {
-              console.error('Error deleting:', error);
+              console.error('Error archiving:', error);
             }
           },
         },
@@ -197,7 +196,7 @@ export default function TaskDetailScreen() {
   const convertToNote = () => {
     Alert.alert(
       'Convert to Note',
-      'This will delete the task and create a note with the same text. Continue?',
+      'This will archive the task and create a note with the same text. Continue?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -227,13 +226,13 @@ export default function TaskDetailScreen() {
 
               if (noteError) throw noteError;
 
-              // Delete the task
-              const { error: deleteError } = await supabase
+              // Archive the task
+              const { error: archiveError } = await supabase
                 .from('voice_todos')
-                .delete()
+                .update({ is_archived: true })
                 .eq('id', task.id);
 
-              if (deleteError) throw deleteError;
+              if (archiveError) throw archiveError;
 
               Alert.alert('Success', 'Task converted to note');
               router.back();
@@ -268,8 +267,8 @@ export default function TaskDetailScreen() {
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Task</Text>
-        <TouchableOpacity onPress={deleteTask} style={styles.deleteButton}>
-          <Ionicons name="trash-outline" size={22} color="#ef4444" />
+        <TouchableOpacity onPress={archiveTask} style={styles.archiveButton}>
+          <Ionicons name="archive-outline" size={22} color="#666" />
         </TouchableOpacity>
       </View>
 
@@ -466,7 +465,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  deleteButton: {
+  archiveButton: {
     width: 44,
     height: 44,
     justifyContent: 'center',
