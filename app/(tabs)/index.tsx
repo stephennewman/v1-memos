@@ -126,7 +126,7 @@ export default function HomeScreen() {
 
       const { data: tasks } = await supabase
         .from('voice_todos')
-        .select('id, text, status, created_at')
+        .select('id, text, status, created_at, is_archived')
         .eq('user_id', user.id)
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
@@ -185,8 +185,8 @@ export default function HomeScreen() {
         dayMap.set(day.dateKey, day);
       }
 
-      // Add items to days
-      (tasks || []).forEach(t => {
+      // Add items to days (filter out archived)
+      (tasks || []).filter(t => !t.is_archived).forEach(t => {
         const key = getDateKey(new Date(t.created_at));
         const day = dayMap.get(key);
         if (day) {
@@ -260,26 +260,24 @@ export default function HomeScreen() {
   }, [router]);
 
   const handleDeleteItem = useCallback((item: Item) => {
-    const label = item.type === 'task' ? 'Task' : item.type === 'note' ? 'Note' : 'Voice Entry';
+    const label = item.type === 'task' ? 'Task' : 'Note';
     const table = item.type === 'task' ? 'voice_todos' : 'voice_notes';
     
-    Alert.alert(`Delete ${label}`, `Are you sure?`, [
+    Alert.alert(`Archive ${label}`, `Are you sure?`, [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Delete',
+        text: 'Archive',
         style: 'destructive',
         onPress: async () => {
+          // Optimistic update - remove from UI immediately
           setDays(prev => prev.map(day => ({
             ...day,
             items: day.items.filter(i => i.id !== item.id),
           })));
           try {
-            if (item.type === 'note') {
-              await supabase.from(table).update({ is_archived: true }).eq('id', item.id);
-            } else {
-              await supabase.from(table).delete().eq('id', item.id);
-            }
+            await supabase.from(table).update({ is_archived: true }).eq('id', item.id);
           } catch (error) {
+            // Revert on error
             loadData();
           }
         },
