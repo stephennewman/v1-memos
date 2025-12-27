@@ -83,31 +83,39 @@ export default function HomeScreen() {
   const inputRef = useRef<TextInput>(null);
 
   const handleAddTask = useCallback(async () => {
-    if (!addingText.trim() || !user) return;
+    if (!addingText.trim() || !user || !addingTo) return;
+    
+    // Use the day's date for created_at
+    const targetDate = new Date(addingTo.dayKey + 'T12:00:00');
     
     await supabase.from('voice_todos').insert({
       user_id: user.id,
       text: addingText.trim(),
       status: 'pending',
+      created_at: targetDate.toISOString(),
     });
     
     setAddingText('');
     setAddingTo(null);
     loadData();
-  }, [addingText, user]);
+  }, [addingText, user, addingTo]);
 
   const handleAddNote = useCallback(async () => {
-    if (!addingText.trim() || !user) return;
+    if (!addingText.trim() || !user || !addingTo) return;
+    
+    // Use the day's date for created_at
+    const targetDate = new Date(addingTo.dayKey + 'T12:00:00');
     
     await supabase.from('voice_notes').insert({
       user_id: user.id,
       text: addingText.trim(),
+      created_at: targetDate.toISOString(),
     });
     
     setAddingText('');
     setAddingTo(null);
     loadData();
-  }, [addingText, user]);
+  }, [addingText, user, addingTo]);
 
   const loadData = useCallback(async () => {
     if (!user) return;
