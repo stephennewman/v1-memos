@@ -492,7 +492,7 @@ export default function TasksScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Tasks</Text>
           <Text style={styles.headerSubtitle}>
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            {pendingCount} outstanding
           </Text>
         </View>
         <TouchableOpacity
