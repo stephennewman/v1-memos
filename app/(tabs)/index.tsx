@@ -77,6 +77,8 @@ export default function HomeScreen() {
   const [days, setDays] = useState<DayData[]>([]);
   const { timeTab: selectedTab, setTimeTab: setSelectedTab } = useSettings();
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'tasks' | 'notes'>('all');
   
   // Add input state
   const [isAdding, setIsAdding] = useState(false);
@@ -326,12 +328,30 @@ export default function HomeScreen() {
     });
   };
 
-  // Split days
-  const futureDays = days.filter(d => d.isFuture).reverse(); // Tomorrow first
+  // Helper to filter and sort items
+  const processItems = (items: Item[]) => {
+    let filtered = items;
+    if (typeFilter === 'tasks') {
+      filtered = items.filter(i => i.type === 'task');
+    } else if (typeFilter === 'notes') {
+      filtered = items.filter(i => i.type === 'note');
+    }
+    // Sort
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return sort === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+    return filtered;
+  };
+
+  // Split and process days
+  const futureDays = days.filter(d => d.isFuture).reverse().map(d => ({ ...d, items: processItems(d.items) }));
   const today = days.find(d => d.isToday);
-  const pastDays = days.filter(d => !d.isToday && !d.isFuture);
+  const todayProcessed = today ? { ...today, items: processItems(today.items) } : null;
+  const pastDays = days.filter(d => !d.isToday && !d.isFuture).map(d => ({ ...d, items: processItems(d.items) }));
   
-  const todayItemCount = today?.items.length || 0;
+  const todayItemCount = todayProcessed?.items.length || 0;
   const pastItemsCount = pastDays.reduce((sum, d) => sum + d.items.length, 0);
   const futureItemsCount = futureDays.reduce((sum, d) => sum + d.items.length, 0);
 
@@ -503,6 +523,47 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Sort & Filter Row */}
+      <View style={styles.filterSortRow}>
+        {/* Sort Options - Left */}
+        <View style={styles.sortGroup}>
+          <TouchableOpacity
+            style={[styles.sortBtn, sort === 'newest' && styles.sortBtnActive]}
+            onPress={() => setSort('newest')}
+          >
+            <Text style={[styles.sortBtnText, sort === 'newest' && styles.sortBtnTextActive]}>Newest</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sortBtn, sort === 'oldest' && styles.sortBtnActive]}
+            onPress={() => setSort('oldest')}
+          >
+            <Text style={[styles.sortBtnText, sort === 'oldest' && styles.sortBtnTextActive]}>Oldest</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Type Filter - Right */}
+        <View style={styles.toggleGroup}>
+          <TouchableOpacity
+            style={[styles.togglePill, typeFilter === 'all' && styles.togglePillActive]}
+            onPress={() => setTypeFilter('all')}
+          >
+            <Text style={[styles.toggleText, typeFilter === 'all' && styles.toggleTextActive]}>All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.togglePill, typeFilter === 'tasks' && styles.togglePillActive]}
+            onPress={() => setTypeFilter('tasks')}
+          >
+            <Text style={[styles.toggleText, typeFilter === 'tasks' && styles.toggleTextActive]}>Tasks</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.togglePill, typeFilter === 'notes' && styles.togglePillActive]}
+            onPress={() => setTypeFilter('notes')}
+          >
+            <Text style={[styles.toggleText, typeFilter === 'notes' && styles.toggleTextActive]}>Notes</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Content */}
       <ScrollView
         style={styles.scrollView}
@@ -510,7 +571,7 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#c4dfc4" />}
       >
-        {selectedTab === 'today' && today && renderDaySection(today, true)}
+        {selectedTab === 'today' && todayProcessed && renderDaySection(todayProcessed, true)}
         
         {selectedTab === 'past' && (
           pastDays.length === 0 ? (
@@ -603,6 +664,56 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   tabTextActive: {
+    color: '#fff',
+  },
+  filterSortRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  sortGroup: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  sortBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#111',
+  },
+  sortBtnActive: {
+    backgroundColor: '#1a3a1a',
+  },
+  sortBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  sortBtnTextActive: {
+    color: '#fff',
+  },
+  toggleGroup: {
+    flexDirection: 'row',
+    backgroundColor: '#111',
+    borderRadius: 8,
+    padding: 2,
+  },
+  togglePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  togglePillActive: {
+    backgroundColor: '#1a3a1a',
+  },
+  toggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  toggleTextActive: {
     color: '#fff',
   },
   scrollView: {

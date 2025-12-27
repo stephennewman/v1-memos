@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth, MAX_FREE_TOPICS } from '@/lib/auth-context';
+import { useSettings } from '@/lib/settings-context';
 import { generateMemos } from '@/lib/api';
 import EmptyState from '@/components/EmptyState';
 import type { MemoTopic } from '@/lib/types';
@@ -24,6 +25,7 @@ export default function LibraryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isLoading: authLoading, topicCount, canCreateTopic, refreshTopicCount } = useAuth();
+  const { timeTab, setTimeTab } = useSettings();
 
   const [topics, setTopics] = useState<MemoTopic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,6 +34,7 @@ export default function LibraryScreen() {
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [creatingStatus, setCreatingStatus] = useState<string | null>(null);
+  const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
 
   // Load topics function - takes userId to avoid closure issues
   const loadTopics = useCallback(async (userId: string) => {
@@ -186,6 +189,34 @@ export default function LibraryScreen() {
     }
   };
 
+  // Filter and sort topics
+  const filteredTopics = React.useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    
+    let filtered = topics.filter(topic => {
+      const created = new Date(topic.created_at);
+      if (timeTab === 'today') {
+        return created >= todayStart && created < tomorrowStart;
+      } else if (timeTab === 'past') {
+        return created < todayStart;
+      } else {
+        return created >= tomorrowStart;
+      }
+    });
+    
+    // Apply sort
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return sort === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+    
+    return filtered;
+  }, [topics, timeTab, sort]);
+
   const renderTopic = ({ item }: { item: MemoTopic }) => (
     <TouchableOpacity
       style={styles.topicCard}
@@ -246,6 +277,49 @@ export default function LibraryScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Time Tabs */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          style={[styles.tab, timeTab === 'past' && styles.tabActive]}
+          onPress={() => setTimeTab('past')}
+        >
+          <Ionicons name="arrow-back" size={14} color={timeTab === 'past' ? '#fff' : '#666'} />
+          <Text style={[styles.tabText, timeTab === 'past' && styles.tabTextActive]}>Past</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, styles.tabCenter, timeTab === 'today' && styles.tabActive]}
+          onPress={() => setTimeTab('today')}
+        >
+          <Ionicons name="today" size={14} color={timeTab === 'today' ? '#fff' : '#666'} />
+          <Text style={[styles.tabText, timeTab === 'today' && styles.tabTextActive]}>Today</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, timeTab === 'future' && styles.tabActive]}
+          onPress={() => setTimeTab('future')}
+        >
+          <Text style={[styles.tabText, timeTab === 'future' && styles.tabTextActive]}>Future</Text>
+          <Ionicons name="arrow-forward" size={14} color={timeTab === 'future' ? '#fff' : '#666'} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Sort Row */}
+      <View style={styles.filterSortRow}>
+        <View style={styles.sortGroup}>
+          <TouchableOpacity
+            style={[styles.sortBtn, sort === 'newest' && styles.sortBtnActive]}
+            onPress={() => setSort('newest')}
+          >
+            <Text style={[styles.sortBtnText, sort === 'newest' && styles.sortBtnTextActive]}>Newest</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sortBtn, sort === 'oldest' && styles.sortBtnActive]}
+            onPress={() => setSort('oldest')}
+          >
+            <Text style={[styles.sortBtnText, sort === 'oldest' && styles.sortBtnTextActive]}>Oldest</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Create Topic Input */}
       {showCreate && (
         <View style={styles.createContainer}>
@@ -279,17 +353,23 @@ export default function LibraryScreen() {
       )}
 
       {/* Topics List */}
-      {topics.length === 0 ? (
-        <EmptyState
-          icon="bookmark-outline"
-          title="No topics yet"
-          description="Topics help you organize and review key information using spaced repetition"
-          actionLabel="Create Your First Topic"
-          onAction={() => setShowCreate(true)}
-        />
+      {filteredTopics.length === 0 ? (
+        topics.length === 0 ? (
+          <EmptyState
+            icon="bookmark-outline"
+            title="No cards yet"
+            description="Cards help you organize and review key information"
+            actionLabel="Create Your First Card"
+            onAction={() => setShowCreate(true)}
+          />
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No cards in this time period</Text>
+          </View>
+        )
       ) : (
         <FlatList
-          data={topics}
+          data={filteredTopics}
           renderItem={renderTopic}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
@@ -351,6 +431,76 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 2,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#111',
+  },
+  tabCenter: {
+    flex: 1.2,
+  },
+  tabActive: {
+    backgroundColor: '#1a3a1a',
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+  },
+  tabTextActive: {
+    color: '#fff',
+  },
+  filterSortRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  sortGroup: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  sortBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#111',
+  },
+  sortBtnActive: {
+    backgroundColor: '#1a3a1a',
+  },
+  sortBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  sortBtnTextActive: {
+    color: '#fff',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    color: '#666',
+    fontSize: 15,
   },
   searchContainer: {
     flexDirection: 'row',
