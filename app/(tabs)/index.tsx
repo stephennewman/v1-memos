@@ -629,31 +629,6 @@ const styles = StyleSheet.create({
   sortBtnTextActive: {
     color: '#fff',
   },
-  toggleGroup: {
-    flexDirection: 'row',
-    backgroundColor: '#111',
-    borderRadius: 8,
-    padding: 2,
-  },
-  togglePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  togglePillActive: {
-    backgroundColor: '#1a3a1a',
-  },
-  togglePillDone: {
-    backgroundColor: '#166534',
-  },
-  toggleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-  },
-  toggleTextActive: {
-    color: '#fff',
-  },
   scrollView: {
     flex: 1,
   },
