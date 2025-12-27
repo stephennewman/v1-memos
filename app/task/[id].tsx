@@ -283,17 +283,7 @@ export default function TaskDetailScreen() {
           />
         }
       >
-        {/* Status Toggle */}
-        <TouchableOpacity style={styles.statusRow} onPress={toggleStatus}>
-          <View style={[styles.checkbox, isCompleted && styles.checkboxChecked]}>
-            {isCompleted && <Ionicons name="checkmark" size={18} color="#0a0a0a" />}
-          </View>
-          <Text style={[styles.statusText, isCompleted && styles.statusTextCompleted]}>
-            {isCompleted ? 'Completed' : 'Mark as complete'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Task Text */}
+        {/* Task with Checkbox */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>TASK</Text>
@@ -303,20 +293,27 @@ export default function TaskDetailScreen() {
               </TouchableOpacity>
             )}
           </View>
-          {isEditing ? (
-            <TextInput
-              style={styles.textInput}
-              value={editedText}
-              onChangeText={setEditedText}
-              multiline
-              placeholder="Enter task..."
-              placeholderTextColor="#444"
-            />
-          ) : (
-            <Text style={[styles.taskText, isCompleted && styles.taskTextCompleted]}>
-              {task.text}
-            </Text>
-          )}
+          <View style={styles.taskRow}>
+            <TouchableOpacity onPress={toggleStatus} style={styles.checkboxContainer}>
+              <View style={[styles.checkbox, isCompleted && styles.checkboxChecked]}>
+                {isCompleted && <Ionicons name="checkmark" size={18} color="#0a0a0a" />}
+              </View>
+            </TouchableOpacity>
+            {isEditing ? (
+              <TextInput
+                style={[styles.textInput, { flex: 1 }]}
+                value={editedText}
+                onChangeText={setEditedText}
+                multiline
+                placeholder="Enter task..."
+                placeholderTextColor="#444"
+              />
+            ) : (
+              <Text style={[styles.taskText, isCompleted && styles.taskTextCompleted]}>
+                {task.text}
+              </Text>
+            )}
+          </View>
         </View>
 
         {/* Due Date */}
@@ -475,37 +472,26 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  statusRow: {
+  taskRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  checkboxContainer: {
+    paddingTop: 2,
   },
   checkbox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
     borderWidth: 2,
     borderColor: '#444',
-    marginRight: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxChecked: {
     backgroundColor: '#c4dfc4',
     borderColor: '#c4dfc4',
-  },
-  statusText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '500',
-  },
-  statusTextCompleted: {
-    color: '#c4dfc4',
   },
   section: {
     marginBottom: 24,
@@ -527,6 +513,7 @@ const styles = StyleSheet.create({
     color: '#ef4444',
   },
   taskText: {
+    flex: 1,
     fontSize: 18,
     color: '#fff',
     lineHeight: 26,
