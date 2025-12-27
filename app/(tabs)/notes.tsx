@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  TextInput,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,7 +27,6 @@ export default function NotesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
-  const [searchQuery, setSearchQuery] = useState('');
 
   const loadNotes = useCallback(async () => {
     if (!user) return;
@@ -91,10 +89,7 @@ export default function NotesScreen() {
     }
   };
 
-  const filteredNotes = notes.filter(note => {
-    if (!searchQuery) return true;
-    return note.text.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  // Notes are already filtered by the loadNotes query based on filter state
 
   const renderNote = ({ item }: { item: VoiceNote }) => (
     <TouchableOpacity
@@ -131,26 +126,9 @@ export default function NotesScreen() {
     <View style={styles.container}>
       <TabHeader
         title="Notes"
-        subtitle={`${filteredNotes.length} note${filteredNotes.length !== 1 ? 's' : ''}`}
+        subtitle={`${notes.length} note${notes.length !== 1 ? 's' : ''}`}
         titleColor="#a78bfa"
       />
-
-      {/* Search */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={18} color="#555" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search notes..."
-          placeholderTextColor="#444"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={18} color="#555" />
-          </TouchableOpacity>
-        )}
-      </View>
 
       {/* Filter Tabs */}
       <View style={styles.filterRow}>
@@ -174,7 +152,7 @@ export default function NotesScreen() {
 
       {/* Notes List */}
       <FlatList
-        data={filteredNotes}
+        data={notes}
         renderItem={renderNote}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}

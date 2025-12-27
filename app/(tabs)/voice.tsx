@@ -254,10 +254,16 @@ export default function VoiceScreen() {
           </Text>
         </View>
         <TouchableOpacity
-          style={styles.profileButton}
+          style={styles.headerButton}
+          onPress={() => router.push('/search')}
+        >
+          <Ionicons name="search" size={22} color="#666" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.headerButton}
           onPress={() => router.push('/(tabs)/settings')}
         >
-          <Ionicons name="person-circle-outline" size={28} color="#666" />
+          <Ionicons name="person-circle-outline" size={26} color="#666" />
         </TouchableOpacity>
       </View>
 
@@ -383,9 +389,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
   },
-  profileButton: {
-    width: 44,
-    height: 44,
+  headerButton: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
