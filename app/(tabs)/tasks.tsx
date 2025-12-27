@@ -23,7 +23,6 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useSettings } from '@/lib/settings-context';
 import { useCreate } from '@/lib/create-context';
-import EmptyState from '@/components/EmptyState';
 import type { VoiceTodo, TodoStatus } from '@/lib/types';
 import { getDateGroupLabel } from '@/lib/format-date';
 
@@ -596,19 +595,11 @@ export default function TasksScreen() {
 
       {/* Todos List */}
       {displayTodos.length === 0 ? (
-        <EmptyState
-          icon={filter === 'todo' ? 'checkbox-outline' : 'checkmark-circle'}
-          title={filter === 'todo' ? 'All done!' : 'No completed tasks yet'}
-          description={
-            filter === 'todo'
-              ? 'Great job! Record a voice note or add a task to get started'
-              : 'Complete some tasks and they\'ll show up here'
-          }
-          actionLabel={filter === 'todo' ? 'Record a Voice Note' : undefined}
-          onAction={filter === 'todo' ? () => router.push('/record') : undefined}
-          secondaryActionLabel={filter === 'todo' ? 'Add Task' : undefined}
-          onSecondaryAction={filter === 'todo' ? openCreateMenu : undefined}
-        />
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>
+            {filter === 'todo' ? 'Add Task below' : 'No completed tasks'}
+          </Text>
+        </View>
       ) : (
         <ScrollView
           contentContainerStyle={styles.listContent}
@@ -795,6 +786,17 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
   listContent: {
     padding: 16,
