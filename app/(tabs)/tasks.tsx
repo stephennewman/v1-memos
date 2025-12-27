@@ -735,7 +735,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   sortGroup: {
     flexDirection: 'row',
@@ -743,22 +743,24 @@ const styles = StyleSheet.create({
   },
   toggleGroup: {
     flexDirection: 'row',
-    gap: 6,
+    backgroundColor: '#111',
+    borderRadius: 8,
+    padding: 2,
   },
   togglePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#1a1a1a',
   },
   togglePillActive: {
-    backgroundColor: '#333',
+    backgroundColor: '#1a3a1a',
   },
   togglePillDone: {
     backgroundColor: '#166534',
   },
   toggleText: {
     fontSize: 12,
+    fontWeight: '600',
     color: '#666',
   },
   toggleTextActive: {
@@ -766,19 +768,20 @@ const styles = StyleSheet.create({
   },
   sortBtn: {
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#111',
   },
   sortBtnActive: {
-    backgroundColor: '#333',
+    backgroundColor: '#1a3a1a',
   },
   sortBtnText: {
     fontSize: 12,
+    fontWeight: '600',
     color: '#666',
   },
   sortBtnTextActive: {
-    color: '#c4dfc4',
+    color: '#fff',
   },
   dateGroup: {
     marginBottom: 20,

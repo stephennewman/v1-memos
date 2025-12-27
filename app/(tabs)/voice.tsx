@@ -238,19 +238,21 @@ export default function VoiceScreen() {
       </View>
 
       {/* Sort Row */}
-      <View style={styles.sortRow}>
-        <TouchableOpacity
-          style={[styles.sortBtn, sort === 'newest' && styles.sortBtnActive]}
-          onPress={() => setSort('newest')}
-        >
-          <Text style={[styles.sortBtnText, sort === 'newest' && styles.sortBtnTextActive]}>Newest</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.sortBtn, sort === 'oldest' && styles.sortBtnActive]}
-          onPress={() => setSort('oldest')}
-        >
-          <Text style={[styles.sortBtnText, sort === 'oldest' && styles.sortBtnTextActive]}>Oldest</Text>
-        </TouchableOpacity>
+      <View style={styles.filterSortRow}>
+        <View style={styles.sortGroup}>
+          <TouchableOpacity
+            style={[styles.sortBtn, sort === 'newest' && styles.sortBtnActive]}
+            onPress={() => setSort('newest')}
+          >
+            <Text style={[styles.sortBtnText, sort === 'newest' && styles.sortBtnTextActive]}>Newest</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sortBtn, sort === 'oldest' && styles.sortBtnActive]}
+            onPress={() => setSort('oldest')}
+          >
+            <Text style={[styles.sortBtnText, sort === 'oldest' && styles.sortBtnTextActive]}>Oldest</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
 
@@ -344,14 +346,19 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#fff',
   },
-  sortRow: {
+  filterSortRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    gap: 8,
+  },
+  sortGroup: {
+    flexDirection: 'row',
+    gap: 6,
   },
   sortBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,
     backgroundColor: '#111',
