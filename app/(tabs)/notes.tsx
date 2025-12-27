@@ -239,7 +239,7 @@ export default function NotesScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              {filter === 'archived' ? 'No archived notes' : 'Create note below'}
+              {filter === 'archived' ? 'No archived notes' : 'Add Note below'}
             </Text>
           </View>
         }

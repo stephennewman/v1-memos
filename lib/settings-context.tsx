@@ -87,8 +87,8 @@ const defaultButtonBarVisibility: ButtonBarVisibility = {
 };
 
 const defaultButtonLabels: ButtonLabels = {
-  topic: 'Topic',
-  voice: 'Voice',
+  topic: 'Snippet',
+  voice: 'Memo',
   task: 'Task',
   note: 'Note',
 };

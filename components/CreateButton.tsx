@@ -17,13 +17,13 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
   const { buttons, buttonOrder, buttonLabels } = useSettings();
   
   const buttonConfig: Record<ButtonKey, { onPress: () => void; style: any; icon: string; label: string }> = {
-    topic: { onPress: onTopic, style: styles.topicButton, icon: 'bookmark', label: buttonLabels?.topic || 'Topic' },
-    voice: { onPress: onVoice, style: styles.voiceButton, icon: 'mic', label: buttonLabels?.voice || 'Voice' },
-    task: { onPress: onTask, style: styles.taskButton, icon: 'add', label: buttonLabels?.task || 'Task' },
-    note: { onPress: onNote, style: styles.noteButton, icon: 'document-text', label: buttonLabels?.note || 'Note' },
+    topic: { onPress: onTopic, style: styles.topicButton, icon: 'bookmark', label: `Add ${buttonLabels?.topic || 'Snippet'}` },
+    voice: { onPress: onVoice, style: styles.voiceButton, icon: 'mic', label: `Add ${buttonLabels?.voice || 'Memo'}` },
+    task: { onPress: onTask, style: styles.taskButton, icon: 'add', label: `Add ${buttonLabels?.task || 'Task'}` },
+    note: { onPress: onNote, style: styles.noteButton, icon: 'document-text', label: `Add ${buttonLabels?.note || 'Note'}` },
   };
   
-  // Topics page: only show Topic button (full width) if enabled
+  // Topics/Snippets page: only show Snippet button (full width) if enabled
   if (context === 'topics') {
     if (!buttons?.topic) return null;
     return (
@@ -36,13 +36,13 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
           <View style={styles.iconWrapper}>
             <Ionicons name="bookmark" size={18} color="#fff" />
           </View>
-          <Text style={styles.buttonLabel}>New {buttonLabels?.topic || 'Topic'}</Text>
+          <Text style={styles.buttonLabel}>Add {buttonLabels?.topic || 'Snippet'}</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  // Voice page: only show Voice button (full width) if enabled
+  // Voice/Memo page: only show Memo button (full width) if enabled
   if (context === 'voice') {
     if (!buttons?.voice) return null;
     return (
@@ -55,7 +55,7 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
           <View style={styles.iconWrapper}>
             <Ionicons name="mic" size={18} color="#fff" />
           </View>
-          <Text style={styles.buttonLabel}>New {buttonLabels?.voice || 'Voice'} Note</Text>
+          <Text style={styles.buttonLabel}>Add {buttonLabels?.voice || 'Memo'}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -74,7 +74,7 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
           <View style={styles.iconWrapper}>
             <Ionicons name="add" size={18} color="#fff" />
           </View>
-          <Text style={styles.buttonLabel}>New {buttonLabels?.task || 'Task'}</Text>
+          <Text style={styles.buttonLabel}>Add {buttonLabels?.task || 'Task'}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -93,7 +93,7 @@ export function QuickActions({ onVoice, onTask, onTopic, onNote, context = 'home
           <View style={styles.iconWrapper}>
             <Ionicons name="document-text" size={18} color="#fff" />
           </View>
-          <Text style={styles.buttonLabel}>New {buttonLabels?.note || 'Note'}</Text>
+          <Text style={styles.buttonLabel}>Add {buttonLabels?.note || 'Note'}</Text>
         </TouchableOpacity>
       </View>
     );

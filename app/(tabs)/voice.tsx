@@ -193,9 +193,9 @@ export default function VoiceScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Voice</Text>
+          <Text style={styles.headerTitle}>Memos</Text>
           <Text style={styles.headerSubtitle}>
-            {entries.length} recording{entries.length !== 1 ? 's' : ''}
+            {entries.length} memo{entries.length !== 1 ? 's' : ''}
           </Text>
         </View>
         <TouchableOpacity
@@ -262,7 +262,7 @@ export default function VoiceScreen() {
 
         {filteredEntries.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Create Voice Note below</Text>
+            <Text style={styles.emptyText}>Add Memo below</Text>
           </View>
         ) : (
           <FlatList

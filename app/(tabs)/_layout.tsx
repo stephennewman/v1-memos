@@ -10,10 +10,10 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 // Tab configuration for custom tab bar
 const tabConfig: Record<TabKey, { name: string; title: string; icon: string; color: string; route: string }> = {
   home: { name: 'index', title: 'Home', icon: 'home', color: '#f472b6', route: '/' },
-  voice: { name: 'voice', title: 'Voice', icon: 'mic', color: '#22c55e', route: '/voice' },
+  voice: { name: 'voice', title: 'Memos', icon: 'mic', color: '#22c55e', route: '/voice' },
   tasks: { name: 'tasks', title: 'Tasks', icon: 'checkbox', color: '#3b82f6', route: '/tasks' },
   notes: { name: 'notes', title: 'Notes', icon: 'document-text', color: '#a78bfa', route: '/notes' },
-  topics: { name: 'topics', title: 'Topics', icon: 'bookmark', color: '#f59e0b', route: '/topics' },
+  topics: { name: 'topics', title: 'Snippets', icon: 'bookmark', color: '#f59e0b', route: '/topics' },
   insights: { name: 'insights', title: 'Insights', icon: 'analytics', color: '#ec4899', route: '/insights' },
   forms: { name: 'forms', title: 'Forms', icon: 'clipboard', color: '#f97316', route: '/forms' },
 };
