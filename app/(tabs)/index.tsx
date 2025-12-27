@@ -230,9 +230,9 @@ export default function HomeScreen() {
       // Extract all unique tags
       setAllTags(getAllUniqueTags(allItems));
 
-      // Sort items within each day by created_at (newest first)
+      // Sort items within each day by created_at (oldest first - new items at bottom)
       daysArray.forEach(day => {
-        day.items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        day.items.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       });
 
       setDays(daysArray);
