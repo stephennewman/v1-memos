@@ -20,7 +20,7 @@ import { supabase } from '@/lib/supabase';
 
 interface Item {
   id: string;
-  type: 'task' | 'note' | 'voice';
+  type: 'task' | 'note';
   text: string;
   status?: 'pending' | 'completed';
   created_at: string;
@@ -162,14 +162,6 @@ export default function HomeScreen() {
         }
       });
 
-      (voiceEntries || []).forEach(v => {
-        const key = getDateKey(new Date(v.created_at));
-        const day = dayMap.get(key);
-        if (day) {
-          day.items.push({ id: v.id, type: 'voice', text: v.summary || 'Voice Note', created_at: v.created_at });
-        }
-      });
-
       // Sort items within each day by created_at (newest first)
       daysArray.forEach(day => {
         day.items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -223,14 +215,13 @@ export default function HomeScreen() {
   }, []);
 
   const handleItemPress = useCallback((item: Item) => {
-    if (item.type === 'voice') router.push(`/entry/${item.id}`);
-    else if (item.type === 'note') router.push(`/note/${item.id}`);
+    if (item.type === 'note') router.push(`/note/${item.id}`);
     else if (item.type === 'task') router.push(`/task/${item.id}`);
   }, [router]);
 
   const handleDeleteItem = useCallback((item: Item) => {
     const label = item.type === 'task' ? 'Task' : item.type === 'note' ? 'Note' : 'Voice Entry';
-    const table = item.type === 'task' ? 'voice_todos' : item.type === 'note' ? 'voice_notes' : 'voice_entries';
+    const table = item.type === 'task' ? 'voice_todos' : 'voice_notes';
     
     Alert.alert(`Delete ${label}`, `Are you sure?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -276,7 +267,7 @@ export default function HomeScreen() {
   const processItems = (items: Item[]) => {
     // Filter tasks by status (notes and voice always show)
     let filtered = items.filter(i => {
-      if (i.type !== 'task') return true; // Always show notes and voice
+      if (i.type !== 'task') return true; // Always show notes
       if (statusFilter === 'todo') return i.status !== 'completed';
       return i.status === 'completed';
     });
@@ -330,7 +321,6 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
       {item.type === 'note' && <Ionicons name="document-text" size={18} color="#a78bfa" />}
-      {item.type === 'voice' && <Ionicons name="mic" size={18} color="#22c55e" />}
       <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]} numberOfLines={2}>
         {item.text}
       </Text>
@@ -345,7 +335,6 @@ export default function HomeScreen() {
     // Group by type
     const tasks = day.items.filter(i => i.type === 'task');
     const notes = day.items.filter(i => i.type === 'note');
-    const voices = day.items.filter(i => i.type === 'voice');
     
     return (
       <View key={day.dateKey} style={styles.daySection}>
@@ -384,14 +373,6 @@ export default function HomeScreen() {
               <View style={styles.typeGroup}>
                 <Text style={[styles.typeLabel, { color: '#a78bfa' }]}>Notes</Text>
                 {notes.map(renderItem)}
-              </View>
-            )}
-            
-            {/* Voice */}
-            {voices.length > 0 && (
-              <View style={styles.typeGroup}>
-                <Text style={[styles.typeLabel, { color: '#22c55e' }]}>Voice</Text>
-                {voices.map(renderItem)}
               </View>
             )}
           </View>
