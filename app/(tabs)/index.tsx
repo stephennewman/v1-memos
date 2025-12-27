@@ -88,8 +88,8 @@ export default function HomeScreen() {
   const handleAddTask = useCallback(async () => {
     if (!addingText.trim() || !user || !addingTo) return;
     
-    // Use the day's date for created_at
-    const targetDate = new Date(addingTo.dayKey + 'T12:00:00');
+    // Use current timestamp so new items sort to bottom (oldest-first sort)
+    const now = new Date();
     
     // Auto-generate tags from the text
     const tags = autoGenerateTags(addingText.trim());
@@ -99,7 +99,7 @@ export default function HomeScreen() {
       text: addingText.trim(),
       status: 'pending',
       tags,
-      created_at: targetDate.toISOString(),
+      created_at: now.toISOString(),
     });
     
     if (error) {
@@ -114,8 +114,8 @@ export default function HomeScreen() {
   const handleAddNote = useCallback(async () => {
     if (!addingText.trim() || !user || !addingTo) return;
     
-    // Use the day's date for created_at
-    const targetDate = new Date(addingTo.dayKey + 'T12:00:00');
+    // Use current timestamp so new items sort to bottom (oldest-first sort)
+    const now = new Date();
     
     // Auto-generate tags from the text
     const tags = autoGenerateTags(addingText.trim());
@@ -125,7 +125,7 @@ export default function HomeScreen() {
       text: addingText.trim(),
       is_archived: false,
       tags,
-      created_at: targetDate.toISOString(),
+      created_at: now.toISOString(),
     });
     
     if (error) {
