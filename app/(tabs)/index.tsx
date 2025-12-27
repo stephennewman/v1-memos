@@ -269,13 +269,13 @@ export default function HomeScreen() {
   }, [router]);
 
   const handleDeleteItem = useCallback((item: Item) => {
-    const label = item.type === 'task' ? 'Task' : 'Note';
     const table = item.type === 'task' ? 'voice_todos' : 'voice_notes';
+    const action = item.type === 'note' ? 'Archive' : 'Delete';
     
-    Alert.alert(`Delete ${label}`, `Are you sure?`, [
+    Alert.alert(`${action} ${item.type === 'task' ? 'Task' : 'Note'}?`, '', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Delete',
+        text: action,
         style: 'destructive',
         onPress: async () => {
           // Optimistic update - remove from UI immediately
@@ -285,14 +285,11 @@ export default function HomeScreen() {
           })));
           try {
             if (item.type === 'note') {
-              // Notes have is_archived column
               await supabase.from(table).update({ is_archived: true }).eq('id', item.id);
             } else {
-              // Tasks don't have is_archived, so delete
               await supabase.from(table).delete().eq('id', item.id);
             }
           } catch (error) {
-            // Revert on error
             loadData();
           }
         },
