@@ -67,18 +67,24 @@ export function autoGenerateTags(text: string): string[] {
 }
 
 /**
- * Get all unique tags from an array of items
+ * Get all unique tags from an array of items, sorted by frequency (most to least),
+ * then alphabetically for tags with the same count
  */
 export function getAllUniqueTags(items: Array<{ tags?: string[] }>): string[] {
-  const tagSet = new Set<string>();
+  const tagCounts = new Map<string, number>();
   
   for (const item of items) {
     if (item.tags) {
-      item.tags.forEach(tag => tagSet.add(tag));
+      item.tags.forEach(tag => {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
     }
   }
   
-  return Array.from(tagSet).sort();
+  // Sort by count (descending), then alphabetically for ties
+  return Array.from(tagCounts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([tag]) => tag);
 }
 
 /**

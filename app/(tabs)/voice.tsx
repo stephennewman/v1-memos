@@ -4,7 +4,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  FlatList,
   ScrollView,
   ActivityIndicator,
   RefreshControl,
@@ -14,12 +13,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import EmptyState from '@/components/EmptyState';
 import type { VoiceEntry } from '@/lib/types';
-import { ENTRY_TYPE_CONFIG } from '@/lib/types';
-import { formatRelativeDate, formatDateTime } from '@/lib/format-date';
+import { formatDateTime } from '@/lib/format-date';
+import { getTagColor } from '@/lib/auto-tags';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
+interface DayData {
+  dateKey: string;
+  label: string;
+  entries: VoiceEntry[];
+}
 
 export default function VoiceScreen() {
   const router = useRouter();
@@ -30,16 +32,98 @@ export default function VoiceScreen() {
   const [entries, setEntries] = useState<VoiceEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
 
-  // Sort entries
-  const filteredEntries = React.useMemo(() => {
-    return [...entries].sort((a, b) => {
-      const dateA = new Date(a.created_at).getTime();
-      const dateB = new Date(b.created_at).getTime();
-      return sort === 'newest' ? dateB - dateA : dateA - dateB;
+  // Get all unique tags from entries, sorted by frequency (most to least),
+  // then alphabetically for tags with the same count
+  const allTags = React.useMemo(() => {
+    const tagCounts = new Map<string, number>();
+    entries.forEach(entry => {
+      entry.tags?.forEach(tag => {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
     });
-  }, [entries, sort]);
+    return Array.from(tagCounts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag]) => tag);
+  }, [entries]);
+
+  // Get day label for a date
+  const getDayLabel = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffDays = Math.round((today.getTime() - itemDate.getTime()) / 86400000);
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  };
+
+  // Get date key for grouping
+  const getDateKey = (date: Date | string): string => {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  };
+
+  // Generate all days and group entries
+  const groupedDays = React.useMemo(() => {
+    // Filter entries by tag first
+    let filtered = [...entries];
+    if (selectedTag) {
+      filtered = filtered.filter(entry => entry.tags?.includes(selectedTag));
+    }
+
+    // Build days array for last 30 days
+    const daysArray: DayData[] = [];
+    const dayMap = new Map<string, DayData>();
+
+    for (let i = 0; i < 30; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      const dateKey = getDateKey(date);
+      const day: DayData = {
+        dateKey,
+        label: getDayLabel(date.toISOString()),
+        entries: [],
+      };
+      daysArray.push(day);
+      dayMap.set(dateKey, day);
+    }
+
+    // Place entries into their respective days
+    filtered.forEach(entry => {
+      const dateKey = getDateKey(entry.created_at);
+      const day = dayMap.get(dateKey);
+      if (day) {
+        day.entries.push(entry);
+      }
+    });
+
+    // Sort entries within each day (newest first)
+    daysArray.forEach(day => {
+      day.entries.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    });
+
+    return daysArray;
+  }, [entries, selectedTag]);
+
+  const toggleDayExpanded = useCallback((dateKey: string) => {
+    setCollapsedDays(prev => {
+      const next = new Set(prev);
+      if (next.has(dateKey)) {
+        next.delete(dateKey);
+      } else {
+        next.add(dateKey);
+      }
+      return next;
+    });
+  }, []);
 
   const loadEntries = useCallback(async (userId: string) => {
     try {
@@ -52,7 +136,6 @@ export default function VoiceScreen() {
         .limit(50);
 
       if (error) {
-        // Table might not exist yet - that's OK
         console.log('Could not load entries (table may not exist):', error.message);
         setEntries([]);
       } else {
@@ -77,15 +160,12 @@ export default function VoiceScreen() {
     }, [user, authLoading, loadEntries])
   );
 
-
-  const renderEntry = ({ item }: { item: VoiceEntry }) => {
-    const config = ENTRY_TYPE_CONFIG[item.entry_type] || ENTRY_TYPE_CONFIG.freeform;
+  const renderEntry = (item: VoiceEntry) => {
     const isProcessing = !item.is_processed;
     const taskCount = item.extracted_todos?.length || 0;
     const noteCount = item.extracted_notes?.length || 0;
     const hasItems = taskCount > 0 || noteCount > 0;
 
-    // Title: AI summary > transcript snippet > date/time fallback
     const getTitle = () => {
       if (isProcessing) return null;
       if (item.summary) return item.summary;
@@ -97,44 +177,101 @@ export default function VoiceScreen() {
 
     return (
       <TouchableOpacity
+        key={item.id}
         style={styles.entryCard}
         onPress={() => router.push(`/entry/${item.id}`)}
         activeOpacity={0.7}
       >
-        {/* Header with icon, title, date */}
         <View style={styles.entryHeader}>
-          <View style={[styles.entryIcon, { backgroundColor: `${config.color}20` }]}>
-            <Ionicons name={config.icon as any} size={16} color={config.color} />
-          </View>
           <View style={styles.entryHeaderContent}>
             {isProcessing ? (
               <View style={styles.skeletonTitle} />
             ) : (
               <Text style={styles.entryText} numberOfLines={2}>{title}</Text>
             )}
-            <Text style={styles.entryDate}>{formatRelativeDate(item.created_at)}</Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color="#333" />
         </View>
 
-        {/* Always show extracted items if present */}
         {hasItems && (
           <View style={styles.extractedItems}>
             {item.extracted_todos?.map((todo, idx) => (
               <View key={`task-${idx}`} style={styles.extractedItem}>
                 <Ionicons name="checkbox-outline" size={14} color="#3b82f6" />
                 <Text style={styles.extractedItemText} numberOfLines={1}>{todo.text}</Text>
+                {item.tags && item.tags.length > 0 && (
+                  <View style={styles.itemTagsRow}>
+                    {item.tags.slice(0, 2).map(tag => (
+                      <TouchableOpacity 
+                        key={tag}
+                        style={[styles.itemTag, { backgroundColor: `${getTagColor(tag)}20` }]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setSelectedTag(tag);
+                        }}
+                      >
+                        <Text style={[styles.itemTagText, { color: getTagColor(tag) }]}>#{tag}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
             ))}
             {item.extracted_notes?.map((note, idx) => (
               <View key={`note-${idx}`} style={styles.extractedItem}>
                 <Ionicons name="document-text-outline" size={14} color="#a78bfa" />
                 <Text style={styles.extractedItemText} numberOfLines={1}>{note}</Text>
+                {item.tags && item.tags.length > 0 && (
+                  <View style={styles.itemTagsRow}>
+                    {item.tags.slice(0, 2).map(tag => (
+                      <TouchableOpacity 
+                        key={tag}
+                        style={[styles.itemTag, { backgroundColor: `${getTagColor(tag)}20` }]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setSelectedTag(tag);
+                        }}
+                      >
+                        <Text style={[styles.itemTagText, { color: getTagColor(tag) }]}>#{tag}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
             ))}
           </View>
         )}
       </TouchableOpacity>
+    );
+  };
+
+  const renderDaySection = (day: DayData) => {
+    // Empty days collapsed by default, days with entries expanded by default
+    const hasEntries = day.entries.length > 0;
+    const isExpanded = hasEntries ? !collapsedDays.has(day.dateKey) : collapsedDays.has(day.dateKey);
+
+    return (
+      <View key={day.dateKey} style={styles.daySection}>
+        <TouchableOpacity 
+          style={[styles.dayHeader, !hasEntries && styles.dayHeaderEmpty]}
+          onPress={() => toggleDayExpanded(day.dateKey)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color={hasEntries ? '#0a0a0a' : '#666'} />
+          <Text style={[styles.dayLabel, !hasEntries && styles.dayLabelEmpty]}>{day.label}</Text>
+          {hasEntries && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{day.entries.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {isExpanded && hasEntries && (
+          <View style={styles.dayContent}>
+            {day.entries.map(entry => renderEntry(entry))}
+          </View>
+        )}
+      </View>
     );
   };
 
@@ -170,53 +307,73 @@ export default function VoiceScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Sort Row */}
-      <View style={styles.filterSortRow}>
-        <View style={styles.sortGroup}>
-          <TouchableOpacity
-            style={[styles.sortBtn, sort === 'newest' && styles.sortBtnActive]}
-            onPress={() => setSort('newest')}
+      {/* Tag Filter Row */}
+      {allTags.length > 0 && (
+        <View style={styles.tagFilterRow}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tagFilterContent}
+            style={{ flex: 1 }}
           >
-            <Text style={[styles.sortBtnText, sort === 'newest' && styles.sortBtnTextActive]}>Newest</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.sortBtn, sort === 'oldest' && styles.sortBtnActive]}
-            onPress={() => setSort('oldest')}
-          >
-            <Text style={[styles.sortBtnText, sort === 'oldest' && styles.sortBtnTextActive]}>Oldest</Text>
-          </TouchableOpacity>
+            {(selectedTag ? [selectedTag] : allTags).map(tag => (
+              <TouchableOpacity
+                key={tag}
+                style={[
+                  styles.tagChip, 
+                  selectedTag === tag && styles.tagChipActive,
+                  { borderColor: getTagColor(tag) }
+                ]}
+                onPress={() => setSelectedTag(selectedTag === tag ? null : tag)}
+              >
+                <Text style={[
+                  styles.tagChipText, 
+                  selectedTag === tag && styles.tagChipTextActive,
+                  { color: selectedTag === tag ? '#fff' : getTagColor(tag) }
+                ]}>
+                  #{tag}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          {selectedTag && (
+            <TouchableOpacity
+              style={styles.clearFilterBtn}
+              onPress={() => setSelectedTag(null)}
+            >
+              <Text style={styles.clearFilterText}>Clear</Text>
+              <Ionicons name="close-circle" size={14} color="#888" />
+            </TouchableOpacity>
+          )}
         </View>
-      </View>
-
+      )}
 
       {/* Entries List */}
-      <View style={styles.listSection}>
-        {filteredEntries.length === 0 ? (
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => {
+              if (user) {
+                setIsRefreshing(true);
+                loadEntries(user.id);
+              }
+            }}
+            tintColor="#c4dfc4"
+          />
+        }
+      >
+        {groupedDays.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Add Memo below</Text>
           </View>
         ) : (
-          <FlatList
-            data={filteredEntries}
-            renderItem={renderEntry}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={() => {
-                  if (user) {
-                    setIsRefreshing(true);
-                    loadEntries(user.id);
-                  }
-                }}
-                tintColor="#c4dfc4"
-              />
-            }
-          />
+          groupedDays.map(day => renderDaySection(day))
         )}
-      </View>
+        <View style={{ height: 120 }} />
+      </ScrollView>
     </View>
   );
 }
@@ -245,88 +402,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#111',
-  },
-  tabCenter: {
-    flex: 1.2,
-  },
-  tabActive: {
-    backgroundColor: '#1a3a1a',
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#666',
-  },
-  tabTextActive: {
-    color: '#fff',
-  },
-  filterSortRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 8,
-  },
-  sortGroup: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  sortBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#111',
-  },
-  sortBtnActive: {
-    backgroundColor: '#1a3a1a',
-  },
-  sortBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-  },
-  sortBtnTextActive: {
-    color: '#fff',
-  },
-  searchSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#fff',
-    padding: 0,
-  },
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
@@ -337,18 +412,47 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
-  listSection: {
+  scrollView: {
     flex: 1,
   },
-  listHeader: {
-    fontSize: 13,
+  daySection: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  dayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 8,
+    backgroundColor: '#06b6d4',
+  },
+  dayLabel: {
+    flex: 1,
+    fontSize: 16,
     fontWeight: '600',
+    color: '#0a0a0a',
+  },
+  dayHeaderEmpty: {
+    backgroundColor: '#1a1a1a',
+  },
+  dayLabelEmpty: {
     color: '#666',
+  },
+  badge: {
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0a0a0a',
+  },
+  dayContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    paddingVertical: 12,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -358,10 +462,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
   },
   entryCard: {
     backgroundColor: '#111',
@@ -374,13 +474,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 10,
   },
-  entryIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   entryHeaderContent: {
     flex: 1,
   },
@@ -388,11 +481,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fff',
     lineHeight: 19,
-    marginBottom: 4,
-  },
-  entryDate: {
-    fontSize: 11,
-    color: '#555',
   },
   skeletonTitle: {
     height: 16,
@@ -418,12 +506,64 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#aaa',
   },
-  emptyState: {
-    padding: 40,
-    alignItems: 'center',
+  itemTagsRow: {
+    flexDirection: 'row',
+    gap: 4,
   },
-  emptyText: {
-    fontSize: 14,
-    color: '#555',
+  itemTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  itemTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  tagFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxHeight: 44,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  tagFilterContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  clearFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 12,
+    gap: 4,
+  },
+  clearFilterText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#888',
+  },
+  tagChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#111',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  tagChipActive: {
+    backgroundColor: '#06b6d4',
+    borderColor: '#06b6d4',
+  },
+  tagChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#888',
+  },
+  tagChipTextActive: {
+    color: '#fff',
   },
 });

@@ -19,6 +19,7 @@ import { Audio } from 'expo-av';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import type { VoiceEntry, VoiceTodo, VoiceNote as VoiceNoteType } from '@/lib/types';
+import { getTagColor } from '@/lib/auto-tags';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
 
@@ -51,6 +52,9 @@ export default function EntryDetailScreen() {
   const [editedTranscript, setEditedTranscript] = useState('');
   const [newTaskText, setNewTaskText] = useState('');
   const [newNoteText, setNewNoteText] = useState('');
+  const [isEditingTags, setIsEditingTags] = useState(false);
+  const [editedTags, setEditedTags] = useState<string[]>([]);
+  const [newTagText, setNewTagText] = useState('');
 
   // Related notes
   const [relatedNotes, setRelatedNotes] = useState<RelatedNote[]>([]);
@@ -155,6 +159,7 @@ export default function EntryDetailScreen() {
       setEntry(data);
       setEditedSummary(data.summary || '');
       setEditedTranscript(data.transcript || '');
+      setEditedTags(data.tags || []);
     } catch (error) {
       console.error('Error loading entry:', error);
       if (isLoading) {
@@ -313,6 +318,20 @@ export default function EntryDetailScreen() {
       setIsEditingTranscript(false);
     } catch (error) {
       console.error('Error saving transcript:', error);
+    }
+  };
+
+  const saveTags = async () => {
+    if (!entry) return;
+    try {
+      await supabase
+        .from('voice_entries')
+        .update({ tags: editedTags })
+        .eq('id', entry.id);
+      setEntry({ ...entry, tags: editedTags });
+      setIsEditingTags(false);
+    } catch (error) {
+      console.error('Error saving tags:', error);
     }
   };
 
@@ -540,6 +559,91 @@ export default function EntryDetailScreen() {
           )}
         </View>
 
+        {/* Tags Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>TAGS</Text>
+            {!isProcessing && !isEditingTags && (
+              <TouchableOpacity onPress={() => setIsEditingTags(true)}>
+                <Ionicons name="pencil" size={16} color="#666" />
+              </TouchableOpacity>
+            )}
+          </View>
+          {isProcessing ? (
+            <View style={styles.peopleSkeleton}>
+              <View style={styles.skeletonBadge} />
+              <View style={styles.skeletonBadge} />
+            </View>
+          ) : isEditingTags ? (
+            <View>
+              <View style={styles.tagsContainer}>
+                {editedTags.map(tag => (
+                  <TouchableOpacity
+                    key={tag}
+                    style={[styles.tagChip, { backgroundColor: `${getTagColor(tag)}30`, borderColor: getTagColor(tag) }]}
+                    onPress={() => setEditedTags(editedTags.filter(t => t !== tag))}
+                  >
+                    <Text style={[styles.tagChipText, { color: getTagColor(tag) }]}>#{tag}</Text>
+                    <Ionicons name="close" size={14} color={getTagColor(tag)} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.addTagRow}>
+                <TextInput
+                  style={styles.tagInput}
+                  value={newTagText}
+                  onChangeText={setNewTagText}
+                  placeholder="Add tag..."
+                  placeholderTextColor="#444"
+                  onSubmitEditing={() => {
+                    const tag = newTagText.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                    if (tag && !editedTags.includes(tag)) {
+                      setEditedTags([...editedTags, tag]);
+                    }
+                    setNewTagText('');
+                  }}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity
+                  style={styles.addTagBtn}
+                  onPress={() => {
+                    const tag = newTagText.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                    if (tag && !editedTags.includes(tag)) {
+                      setEditedTags([...editedTags, tag]);
+                    }
+                    setNewTagText('');
+                  }}
+                >
+                  <Ionicons name="add" size={20} color="#0a0a0a" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.editActions}>
+                <TouchableOpacity onPress={() => { setIsEditingTags(false); setEditedTags(entry.tags || []); }} style={styles.cancelBtn}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={saveTags} style={styles.saveBtn}>
+                  <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.tagsContainer}>
+              {entry.tags && entry.tags.length > 0 ? (
+                entry.tags.map(tag => (
+                  <View
+                    key={tag}
+                    style={[styles.tagChip, { backgroundColor: `${getTagColor(tag)}20`, borderColor: getTagColor(tag) }]}
+                  >
+                    <Text style={[styles.tagChipText, { color: getTagColor(tag) }]}>#{tag}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noTagsText}>No tags</Text>
+              )}
+            </View>
+          )}
+        </View>
+
         {/* Transcript Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -619,6 +723,18 @@ export default function EntryDetailScreen() {
                       </Text>
                     )}
                   </View>
+                  {task.tags && task.tags.length > 0 && (
+                    <View style={styles.itemTagsRow}>
+                      {task.tags.slice(0, 2).map(tag => (
+                        <View 
+                          key={tag}
+                          style={[styles.itemTag, { backgroundColor: `${getTagColor(tag)}20` }]}
+                        >
+                          <Text style={[styles.itemTagText, { color: getTagColor(tag) }]}>#{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                   <TouchableOpacity
                     onPress={(e) => { e.stopPropagation(); deleteTask(task.id); }}
                     style={styles.deleteTaskBtn}
@@ -674,6 +790,18 @@ export default function EntryDetailScreen() {
                 >
                   <Ionicons name="document-text-outline" size={16} color="#93c5fd" />
                   <Text style={styles.noteText} numberOfLines={2}>{note.text}</Text>
+                  {note.tags && note.tags.length > 0 && (
+                    <View style={styles.itemTagsRow}>
+                      {note.tags.slice(0, 2).map(tag => (
+                        <View 
+                          key={tag}
+                          style={[styles.itemTag, { backgroundColor: `${getTagColor(tag)}20` }]}
+                        >
+                          <Text style={[styles.itemTagText, { color: getTagColor(tag) }]}>#{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                   <TouchableOpacity
                     onPress={(e) => { e.stopPropagation(); deleteNote(note.id); }}
                     style={styles.deleteTaskBtn}
@@ -942,6 +1070,20 @@ const styles = StyleSheet.create({
     color: '#ccc',
     lineHeight: 20,
   },
+  itemTagsRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginRight: 8,
+  },
+  itemTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  itemTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
   noNotesText: {
     fontSize: 14,
     color: '#444',
@@ -1121,5 +1263,52 @@ const styles = StyleSheet.create({
   processingText: {
     fontSize: 14,
     color: '#888',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+  },
+  tagChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  noTagsText: {
+    fontSize: 14,
+    color: '#444',
+  },
+  addTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 8,
+  },
+  tagInput: {
+    flex: 1,
+    backgroundColor: '#111',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#fff',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  addTagBtn: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#c4dfc4',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

@@ -88,53 +88,134 @@ export default function HomeScreen() {
   const handleAddTask = useCallback(async () => {
     if (!addingText.trim() || !user || !addingTo) return;
     
-    // Use current timestamp so new items sort to bottom (oldest-first sort)
-    const now = new Date();
+    // Parse the dayKey to get the target date (format: "YYYY-MM-DD")
+    const [year, month, dayNum] = addingTo.dayKey.split('-').map(Number);
+    // Month is 1-indexed in dayKey but 0-indexed in JS Date
+    const targetDate = new Date(year, month - 1, dayNum);
+    // Set to end of day so it sorts to bottom within that day
+    targetDate.setHours(23, 59, 59, Date.now() % 1000);
     
     // Auto-generate tags from the text
     const tags = autoGenerateTags(addingText.trim());
+    const tempId = `temp-${Date.now()}`;
+    const createdAt = targetDate.toISOString();
     
-    const { error } = await supabase.from('voice_todos').insert({
-      user_id: user.id,
+    // Optimistic update - add item to local state immediately
+    const newItem: Item = {
+      id: tempId,
+      type: 'task',
       text: addingText.trim(),
       status: 'pending',
+      created_at: createdAt,
       tags,
-      created_at: now.toISOString(),
+    };
+    
+    setDays(prevDays => prevDays.map(day => {
+      if (day.dateKey === addingTo.dayKey) {
+        return { ...day, items: [...day.items, newItem] };
+      }
+      return day;
+    }));
+    
+    // Remove from collapsedDays so the day stays expanded
+    setCollapsedDays(prev => {
+      const next = new Set(prev);
+      next.delete(addingTo.dayKey);
+      return next;
     });
     
-    if (error) {
-      console.error('Error adding task:', error);
+    // Update tags if new
+    if (tags.length > 0) {
+      setAllTags(prev => {
+        const tagSet = new Set(prev);
+        tags.forEach(t => tagSet.add(t));
+        return Array.from(tagSet);
+      });
     }
     
     setAddingText('');
     setAddingTo(null);
-    await loadData();
+    
+    // Save to database in background
+    const { error } = await supabase.from('voice_todos').insert({
+      user_id: user.id,
+      text: newItem.text,
+      status: 'pending',
+      tags,
+      created_at: createdAt,
+    });
+    
+    if (error) {
+      console.error('Error adding task:', error);
+      // Revert on error
+      loadData();
+    }
   }, [addingText, user, addingTo, loadData]);
 
   const handleAddNote = useCallback(async () => {
     if (!addingText.trim() || !user || !addingTo) return;
     
-    // Use current timestamp so new items sort to bottom (oldest-first sort)
-    const now = new Date();
+    // Parse the dayKey to get the target date (format: "YYYY-MM-DD")
+    const [year, month, dayNum] = addingTo.dayKey.split('-').map(Number);
+    // Month is 1-indexed in dayKey but 0-indexed in JS Date
+    const targetDate = new Date(year, month - 1, dayNum);
+    // Set to end of day so it sorts to bottom within that day
+    targetDate.setHours(23, 59, 59, Date.now() % 1000);
     
     // Auto-generate tags from the text
     const tags = autoGenerateTags(addingText.trim());
+    const tempId = `temp-${Date.now()}`;
+    const createdAt = targetDate.toISOString();
     
-    const { error } = await supabase.from('voice_notes').insert({
-      user_id: user.id,
+    // Optimistic update - add item to local state immediately
+    const newItem: Item = {
+      id: tempId,
+      type: 'note',
       text: addingText.trim(),
-      is_archived: false,
+      created_at: createdAt,
       tags,
-      created_at: now.toISOString(),
+    };
+    
+    setDays(prevDays => prevDays.map(day => {
+      if (day.dateKey === addingTo.dayKey) {
+        return { ...day, items: [...day.items, newItem] };
+      }
+      return day;
+    }));
+    
+    // Remove from collapsedDays so the day stays expanded
+    setCollapsedDays(prev => {
+      const next = new Set(prev);
+      next.delete(addingTo.dayKey);
+      return next;
     });
     
-    if (error) {
-      console.error('Error adding note:', error);
+    // Update tags if new
+    if (tags.length > 0) {
+      setAllTags(prev => {
+        const tagSet = new Set(prev);
+        tags.forEach(t => tagSet.add(t));
+        return Array.from(tagSet);
+      });
     }
     
     setAddingText('');
     setAddingTo(null);
-    await loadData();
+    
+    // Save to database in background
+    const { error } = await supabase.from('voice_notes').insert({
+      user_id: user.id,
+      text: newItem.text,
+      is_archived: false,
+      tags,
+      created_at: createdAt,
+    });
+    
+    if (error) {
+      console.error('Error adding note:', error);
+      // Revert on error
+      loadData();
+    }
   }, [addingText, user, addingTo, loadData]);
 
   const loadData = useCallback(async () => {
@@ -390,31 +471,30 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
       {item.type === 'note' && <Ionicons name="document-text" size={18} color="#a78bfa" />}
-      <View style={styles.itemContent}>
-        <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]} numberOfLines={2}>
-          {item.text}
-        </Text>
-        {item.tags && item.tags.length > 0 && (
-          <View style={styles.itemTags}>
-            {item.tags.slice(0, 3).map(tag => (
-              <TouchableOpacity 
-                key={tag} 
-                style={[styles.itemTag, { backgroundColor: `${getTagColor(tag)}20` }]}
-                onPress={() => setSelectedTag(tag)}
-              >
-                <Text style={[styles.itemTagText, { color: getTagColor(tag) }]}>#{tag}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
+      <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]} numberOfLines={1}>
+        {item.text}
+      </Text>
+      {item.tags && item.tags.length > 0 && (
+        <View style={styles.itemTagsRow}>
+          {item.tags.slice(0, 3).map(tag => (
+            <TouchableOpacity 
+              key={tag}
+              style={[styles.itemTag, { backgroundColor: `${getTagColor(tag)}20` }]}
+              onPress={() => setSelectedTag(tag)}
+            >
+              <Text style={[styles.itemTagText, { color: getTagColor(tag) }]}>#{tag}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
       <Ionicons name="chevron-forward" size={16} color="#333" />
     </TouchableOpacity>
   );
 
   const renderDaySection = (day: DayData, hideHeader: boolean = false) => {
     // Empty days are collapsed by default, others expanded
-    const isExpanded = day.items.length > 0 ? !collapsedDays.has(day.dateKey) : collapsedDays.has(day.dateKey);
+    const hasItems = day.items.length > 0;
+    const isExpanded = hasItems ? !collapsedDays.has(day.dateKey) : collapsedDays.has(day.dateKey);
     
     // Group by type
     const tasks = day.items.filter(i => i.type === 'task');
@@ -424,13 +504,13 @@ export default function HomeScreen() {
       <View key={day.dateKey} style={styles.daySection}>
         {!hideHeader && (
           <TouchableOpacity 
-            style={styles.dayHeader}
+            style={[styles.dayHeader, !hasItems && styles.dayHeaderEmpty]}
             onPress={() => toggleDayExpanded(day.dateKey)}
             activeOpacity={0.7}
           >
-            <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color="#0a0a0a" />
-            <Text style={styles.dayLabel}>{day.label}</Text>
-          {day.items.length > 0 && (
+            <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color={hasItems ? '#0a0a0a' : '#666'} />
+            <Text style={[styles.dayLabel, !hasItems && styles.dayLabelEmpty]}>{day.label}</Text>
+          {hasItems && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{day.items.length}</Text>
             </View>
@@ -553,38 +633,43 @@ export default function HomeScreen() {
       
       {/* Tag Filter Row */}
       {allTags.length > 0 && (
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.tagFilterRow}
-          contentContainerStyle={styles.tagFilterContent}
-        >
-          <TouchableOpacity
-            style={[styles.tagChip, !selectedTag && styles.tagChipActive]}
-            onPress={() => setSelectedTag(null)}
+        <View style={styles.tagFilterRow}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tagFilterContent}
+            style={{ flex: 1 }}
           >
-            <Text style={[styles.tagChipText, !selectedTag && styles.tagChipTextActive]}>All</Text>
-          </TouchableOpacity>
-          {allTags.map(tag => (
+            {(selectedTag ? [selectedTag] : allTags).map(tag => (
+              <TouchableOpacity
+                key={tag}
+                style={[
+                  styles.tagChip, 
+                  selectedTag === tag && styles.tagChipActive,
+                  { borderColor: getTagColor(tag) }
+                ]}
+                onPress={() => setSelectedTag(selectedTag === tag ? null : tag)}
+              >
+                <Text style={[
+                  styles.tagChipText, 
+                  selectedTag === tag && styles.tagChipTextActive,
+                  { color: selectedTag === tag ? '#fff' : getTagColor(tag) }
+                ]}>
+                  #{tag}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          {selectedTag && (
             <TouchableOpacity
-              key={tag}
-              style={[
-                styles.tagChip, 
-                selectedTag === tag && styles.tagChipActive,
-                { borderColor: getTagColor(tag) }
-              ]}
-              onPress={() => setSelectedTag(selectedTag === tag ? null : tag)}
+              style={styles.clearFilterBtn}
+              onPress={() => setSelectedTag(null)}
             >
-              <Text style={[
-                styles.tagChipText, 
-                selectedTag === tag && styles.tagChipTextActive,
-                { color: selectedTag === tag ? '#fff' : getTagColor(tag) }
-              ]}>
-                #{tag}
-              </Text>
+              <Text style={styles.clearFilterText}>Clear</Text>
+              <Ionicons name="close-circle" size={14} color="#888" />
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          )}
+        </View>
       )}
 
       {/* Content */}
@@ -694,6 +779,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0a0a0a',
   },
+  dayHeaderEmpty: {
+    backgroundColor: '#1a1a1a',
+  },
+  dayLabelEmpty: {
+    color: '#666',
+  },
   badge: {
     backgroundColor: 'rgba(0,0,0,0.2)',
     paddingHorizontal: 8,
@@ -735,7 +826,7 @@ const styles = StyleSheet.create({
   },
   itemText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: '#fff',
   },
   itemTextCompleted: {
@@ -826,6 +917,8 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   tagFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     maxHeight: 44,
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
@@ -836,6 +929,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     gap: 8,
+  },
+  clearFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 12,
+    gap: 4,
+  },
+  clearFilterText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#888',
   },
   tagChip: {
     paddingHorizontal: 12,
@@ -857,14 +963,9 @@ const styles = StyleSheet.create({
   tagChipTextActive: {
     color: '#fff',
   },
-  itemContent: {
-    flex: 1,
-  },
-  itemTags: {
+  itemTagsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 4,
-    marginTop: 4,
   },
   itemTag: {
     paddingHorizontal: 6,
