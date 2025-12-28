@@ -48,6 +48,7 @@ function generateSmartTags(text: string): string[] {
 /**
  * Main auto-tag function
  * Returns unique array of tags extracted from text
+ * Always returns at least one tag (defaults to 'general' if none detected)
  */
 export function autoGenerateTags(text: string): string[] {
   const hashtags = extractHashtags(text);
@@ -55,6 +56,11 @@ export function autoGenerateTags(text: string): string[] {
   
   // Combine and deduplicate
   const allTags = [...new Set([...hashtags, ...smartTags])];
+  
+  // Ensure at least one tag
+  if (allTags.length === 0) {
+    allTags.push('general');
+  }
   
   // Limit to 5 tags max
   return allTags.slice(0, 5);
@@ -92,6 +98,7 @@ export const TAG_COLORS: Record<string, string> = {
   travel: '#06b6d4',    // cyan
   learning: '#6366f1',  // indigo
   urgent: '#ef4444',    // red
+  general: '#9ca3af',   // light gray - default tag
   default: '#6b7280',   // gray
 };
 
