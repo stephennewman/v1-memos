@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import type { VoiceNote } from '@/lib/types';
+import { getTagColor } from '@/lib/auto-tags';
 
 export default function NoteDetailScreen() {
   const router = useRouter();
@@ -27,6 +28,8 @@ export default function NoteDetailScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState('');
+  const [editedTags, setEditedTags] = useState<string[]>([]);
+  const [newTagText, setNewTagText] = useState('');
 
   useEffect(() => {
     loadNote();
@@ -51,6 +54,7 @@ export default function NoteDetailScreen() {
       if (error) throw error;
       setNote(data);
       setEditedText(data.text);
+      setEditedTags(data.tags || []);
     } catch (error) {
       console.error('Error loading note:', error);
       Alert.alert('Error', 'Failed to load note');
@@ -68,13 +72,14 @@ export default function NoteDetailScreen() {
         .from('voice_notes')
         .update({ 
           text: editedText,
+          tags: editedTags,
           updated_at: new Date().toISOString(),
         })
         .eq('id', note.id);
 
       if (error) throw error;
       
-      setNote({ ...note, text: editedText });
+      setNote({ ...note, text: editedText, tags: editedTags });
       setIsEditing(false);
     } catch (error) {
       console.error('Error saving:', error);
@@ -169,6 +174,78 @@ export default function NoteDetailScreen() {
           )}
         </View>
 
+        {/* Tags */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>TAGS</Text>
+            {!isEditing && (
+              <TouchableOpacity onPress={() => setIsEditing(true)}>
+                <Ionicons name="pencil" size={16} color="#666" />
+              </TouchableOpacity>
+            )}
+          </View>
+          {isEditing ? (
+            <View>
+              <View style={styles.tagsContainer}>
+                {editedTags.map(tag => (
+                  <TouchableOpacity
+                    key={tag}
+                    style={[styles.tagChip, { backgroundColor: `${getTagColor(tag)}30`, borderColor: getTagColor(tag) }]}
+                    onPress={() => setEditedTags(editedTags.filter(t => t !== tag))}
+                  >
+                    <Text style={[styles.tagChipText, { color: getTagColor(tag) }]}>#{tag}</Text>
+                    <Ionicons name="close" size={14} color={getTagColor(tag)} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.addTagRow}>
+                <TextInput
+                  style={styles.tagInput}
+                  value={newTagText}
+                  onChangeText={setNewTagText}
+                  placeholder="Add tag..."
+                  placeholderTextColor="#444"
+                  onSubmitEditing={() => {
+                    const tag = newTagText.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                    if (tag && !editedTags.includes(tag)) {
+                      setEditedTags([...editedTags, tag]);
+                    }
+                    setNewTagText('');
+                  }}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity
+                  style={styles.addTagBtn}
+                  onPress={() => {
+                    const tag = newTagText.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                    if (tag && !editedTags.includes(tag)) {
+                      setEditedTags([...editedTags, tag]);
+                    }
+                    setNewTagText('');
+                  }}
+                >
+                  <Ionicons name="add" size={20} color="#666" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.tagsContainer}>
+              {note.tags && note.tags.length > 0 ? (
+                note.tags.map(tag => (
+                  <View
+                    key={tag}
+                    style={[styles.tagChip, { backgroundColor: `${getTagColor(tag)}20`, borderColor: getTagColor(tag) }]}
+                  >
+                    <Text style={[styles.tagChipText, { color: getTagColor(tag) }]}>#{tag}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noTagsText}>No tags</Text>
+              )}
+            </View>
+          )}
+        </View>
+
         {/* Source Entry */}
         {note.entry_id && (
           <View style={styles.section}>
@@ -223,6 +300,7 @@ export default function NoteDetailScreen() {
               onPress={() => {
                 setIsEditing(false);
                 setEditedText(note.text);
+                setEditedTags(note.tags || []);
               }}
             >
               <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -368,6 +446,55 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '600',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+  },
+  tagChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  noTagsText: {
+    fontSize: 14,
+    color: '#444',
+  },
+  addTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 8,
+  },
+  tagInput: {
+    flex: 1,
+    backgroundColor: '#111',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#fff',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  addTagBtn: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#111',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
   },
 });
 
