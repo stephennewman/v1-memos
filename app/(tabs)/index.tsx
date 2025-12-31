@@ -719,7 +719,7 @@ export default function HomeScreen() {
     );
   };
 
-  const renderDaySection = (day: DayData, hideHeader: boolean = false) => {
+  const renderDaySection = (day: DayData, hideHeader: boolean = false, isFirstDay: boolean = false) => {
     // Empty days are collapsed by default, others expanded
     // Today is ALWAYS expanded by default when it has items
     const hasItems = day.items.length > 0 || day.memos.length > 0;
@@ -735,8 +735,13 @@ export default function HomeScreen() {
     const notes = day.items.filter(i => i.type === 'note');
     const memos = day.memos;
     
+    // Calculate min height for Today to fill screen
+    // Screen height - header (60) - safe area top - button bar (100) - yesterday peek (60)
+    const screenHeight = Dimensions.get('window').height;
+    const todayMinHeight = isFirstDay && day.isToday ? screenHeight - insets.top - 220 : undefined;
+    
     return (
-      <View key={day.dateKey} style={styles.daySection}>
+      <View key={day.dateKey} style={[styles.daySection, todayMinHeight && { minHeight: todayMinHeight }]}
         {!hideHeader && (
           <TouchableOpacity 
             style={[styles.dayHeader, !hasItems && styles.dayHeaderEmpty]}
@@ -1005,7 +1010,7 @@ export default function HomeScreen() {
             <Text style={styles.emptyText}>Add Memo below</Text>
           </View>
         ) : (
-          allDays.map(day => renderDaySection(day))
+          allDays.map((day, index) => renderDaySection(day, false, index === 0))
         )}
         
         <View style={{ height: 120 }} />
