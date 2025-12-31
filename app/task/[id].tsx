@@ -418,7 +418,7 @@ export default function TaskDetailScreen() {
               <Ionicons 
                 name="calendar-outline" 
                 size={18} 
-                color={task.due_date ? '#c4dfc4' : '#444'} 
+                color={task.due_date ? '#3b82f6' : '#444'} 
               />
               <Text style={[styles.dateText, !task.due_date && styles.dateTextEmpty]}>
                 {formatDateDisplay(task.due_date)}
@@ -430,13 +430,15 @@ export default function TaskDetailScreen() {
         {/* Source Entry */}
         {task.entry_id && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>SOURCE</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>SOURCE</Text>
+            </View>
             <TouchableOpacity 
               style={styles.sourceRow}
               onPress={() => router.push(`/entry/${task.entry_id}`)}
             >
-              <Ionicons name="mic" size={18} color="#666" />
-              <Text style={styles.sourceText}>View original voice note</Text>
+              <Ionicons name="mic" size={18} color="#22c55e" />
+              <Text style={styles.sourceText}>View original memo</Text>
               <Ionicons name="chevron-forward" size={16} color="#444" />
             </TouchableOpacity>
           </View>
@@ -444,7 +446,9 @@ export default function TaskDetailScreen() {
 
         {/* Metadata */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>INFO</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>INFO</Text>
+          </View>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>Created</Text>
             <Text style={styles.metaValue}>
@@ -473,9 +477,11 @@ export default function TaskDetailScreen() {
           )}
         </View>
 
-        {/* Convert to Note */}
+        {/* Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>ACTIONS</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>ACTIONS</Text>
+          </View>
           <TouchableOpacity style={styles.convertRow} onPress={convertToNote}>
             <Ionicons name="document-text-outline" size={18} color="#a78bfa" />
             <Text style={styles.convertText}>Convert to Note</Text>
@@ -540,7 +546,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#fff',
+    color: '#3b82f6',
   },
   archiveButton: {
     width: 44,
@@ -570,8 +576,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#c4dfc4',
-    borderColor: '#c4dfc4',
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
   },
   section: {
     marginBottom: 24,
@@ -697,11 +703,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 10,
-    backgroundColor: '#c4dfc4',
+    backgroundColor: '#3b82f6',
     alignItems: 'center',
   },
   saveBtnText: {
-    color: '#0a0a0a',
+    color: '#fff',
     fontSize: 15,
     fontWeight: '600',
   },

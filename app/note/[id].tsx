@@ -113,6 +113,59 @@ export default function NoteDetailScreen() {
     );
   };
 
+  const convertToTask = () => {
+    Alert.alert(
+      'Convert to Task',
+      'This will archive the note and create a task with the same text. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Convert',
+          onPress: async () => {
+            if (!note) return;
+            
+            try {
+              // Get user_id from the note
+              const { data: noteData } = await supabase
+                .from('voice_notes')
+                .select('user_id')
+                .eq('id', note.id)
+                .single();
+              
+              if (!noteData) throw new Error('Note not found');
+              
+              // Create the task
+              const { error: taskError } = await supabase
+                .from('voice_todos')
+                .insert({
+                  user_id: noteData.user_id,
+                  text: note.text,
+                  entry_id: note.entry_id || null,
+                  status: 'pending',
+                });
+
+              if (taskError) throw taskError;
+
+              // Archive the note
+              const { error: archiveError } = await supabase
+                .from('voice_notes')
+                .update({ is_archived: true })
+                .eq('id', note.id);
+
+              if (archiveError) throw archiveError;
+
+              Alert.alert('Success', 'Note converted to task');
+              router.back();
+            } catch (error) {
+              console.error('Error converting:', error);
+              Alert.alert('Error', 'Failed to convert note');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (isLoading || !note) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -249,13 +302,15 @@ export default function NoteDetailScreen() {
         {/* Source Entry */}
         {note.entry_id && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>SOURCE</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>SOURCE</Text>
+            </View>
             <TouchableOpacity 
               style={styles.sourceRow}
               onPress={() => router.push(`/entry/${note.entry_id}`)}
             >
-              <Ionicons name="mic" size={18} color="#666" />
-              <Text style={styles.sourceText}>View original voice note</Text>
+              <Ionicons name="mic" size={18} color="#22c55e" />
+              <Text style={styles.sourceText}>View original memo</Text>
               <Ionicons name="chevron-forward" size={16} color="#444" />
             </TouchableOpacity>
           </View>
@@ -263,7 +318,9 @@ export default function NoteDetailScreen() {
 
         {/* Metadata */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>INFO</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>INFO</Text>
+          </View>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>Created</Text>
             <Text style={styles.metaValue}>
@@ -290,6 +347,18 @@ export default function NoteDetailScreen() {
               </Text>
             </View>
           )}
+        </View>
+
+        {/* Actions */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>ACTIONS</Text>
+          </View>
+          <TouchableOpacity style={styles.convertRow} onPress={convertToTask}>
+            <Ionicons name="checkbox-outline" size={18} color="#3b82f6" />
+            <Text style={styles.convertText}>Convert to Task</Text>
+            <Ionicons name="chevron-forward" size={16} color="#444" />
+          </TouchableOpacity>
         </View>
 
         {/* Edit Actions */}
@@ -404,6 +473,21 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#888',
+  },
+  convertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    borderRadius: 10,
+    padding: 14,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+  },
+  convertText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#3b82f6',
   },
   metaRow: {
     flexDirection: 'row',

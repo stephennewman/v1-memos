@@ -468,6 +468,7 @@ export default function EntryDetailScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
+        <Text style={styles.headerTitle}>Memo</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             onPress={reprocessEntry}
@@ -950,6 +951,11 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#22c55e',
   },
   headerActions: {
     flexDirection: 'row',
