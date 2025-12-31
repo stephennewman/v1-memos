@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.outcomeview.memos",
-      "buildNumber": "5",
+      "buildNumber": "12",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -39,7 +39,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "MemoTalk needs microphone access to record voice memos."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

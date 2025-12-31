@@ -309,9 +309,11 @@ export default function TaskDetailScreen() {
                 style={[styles.textInput, { flex: 1 }]}
                 value={editedText}
                 onChangeText={setEditedText}
-                multiline
                 placeholder="Enter task..."
                 placeholderTextColor="#444"
+                returnKeyType="done"
+                blurOnSubmit={true}
+                onSubmitEditing={saveChanges}
               />
             ) : (
               <Text style={[styles.taskText, isCompleted && styles.taskTextCompleted]}>

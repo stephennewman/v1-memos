@@ -27,21 +27,10 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const navigationState = useRootNavigationState();
 
   const checkOnboarding = useCallback(async () => {
-    if (!user) {
-      setIsCheckingOnboarding(false);
-      return;
-    }
-
-    try {
-      const { profile, onboarding_required } = await getProfile();
-      setIsOnboardingComplete(!onboarding_required && !!profile);
-    } catch (error) {
-      console.error('[Onboarding] Check error:', error);
-      setIsOnboardingComplete(false);
-    } finally {
-      setIsCheckingOnboarding(false);
-    }
-  }, [user]);
+    // Skip onboarding entirely - go straight to main app
+    setIsOnboardingComplete(true);
+    setIsCheckingOnboarding(false);
+  }, []);
 
   // Check onboarding status when user changes
   useEffect(() => {

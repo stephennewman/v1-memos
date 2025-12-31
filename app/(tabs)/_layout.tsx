@@ -33,20 +33,7 @@ function TabsContent() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarStyle: {
-            backgroundColor: '#0a0a0a',
-            borderTopWidth: 0,
-            paddingTop: 6,
-            paddingBottom: 30,
-            height: 85,
-          },
-          tabBarActiveTintColor: '#fff',
-          tabBarInactiveTintColor: '#666',
-          tabBarLabelStyle: {
-            fontSize: 10,
-            fontWeight: '600',
-            marginTop: 2,
-          },
+          tabBarStyle: { display: 'none' }, // Hide bottom tab bar - using toggle instead
         }}
       >
         <Tabs.Screen

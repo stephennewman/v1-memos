@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import type { VoiceEntry } from '@/lib/types';
+import type { VoiceEntry, VoiceTodo } from '@/lib/types';
 import { formatDateTime } from '@/lib/format-date';
 import { getTagColor } from '@/lib/auto-tags';
 
@@ -23,6 +23,9 @@ interface DayData {
   entries: VoiceEntry[];
 }
 
+// Map of entry_id -> tasks for that entry
+type TasksByEntry = Map<string, VoiceTodo[]>;
+
 export default function VoiceScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -30,6 +33,7 @@ export default function VoiceScreen() {
 
   // Entries state
   const [entries, setEntries] = useState<VoiceEntry[]>([]);
+  const [tasksByEntry, setTasksByEntry] = useState<TasksByEntry>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -127,6 +131,7 @@ export default function VoiceScreen() {
 
   const loadEntries = useCallback(async (userId: string) => {
     try {
+      // Load entries
       const { data, error } = await supabase
         .from('voice_entries')
         .select('*')
@@ -140,6 +145,27 @@ export default function VoiceScreen() {
         setEntries([]);
       } else {
         setEntries(data || []);
+        
+        // Load tasks for these entries to get current status
+        if (data && data.length > 0) {
+          const entryIds = data.map(e => e.id);
+          const { data: tasksData } = await supabase
+            .from('voice_todos')
+            .select('*')
+            .in('entry_id', entryIds);
+          
+          if (tasksData) {
+            const taskMap = new Map<string, VoiceTodo[]>();
+            tasksData.forEach(task => {
+              if (task.entry_id) {
+                const existing = taskMap.get(task.entry_id) || [];
+                existing.push(task);
+                taskMap.set(task.entry_id, existing);
+              }
+            });
+            setTasksByEntry(taskMap);
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading voice entries:', error);
@@ -162,9 +188,10 @@ export default function VoiceScreen() {
 
   const renderEntry = (item: VoiceEntry) => {
     const isProcessing = !item.is_processed;
-    const taskCount = item.extracted_todos?.length || 0;
+    // Use actual tasks from voice_todos table (with real status) instead of extracted_todos
+    const actualTasks = tasksByEntry.get(item.id) || [];
     const noteCount = item.extracted_notes?.length || 0;
-    const hasItems = taskCount > 0 || noteCount > 0;
+    const hasItems = actualTasks.length > 0 || noteCount > 0;
 
     const getTitle = () => {
       if (isProcessing) return null;
@@ -195,31 +222,46 @@ export default function VoiceScreen() {
 
         {hasItems && (
           <View style={styles.extractedItems}>
-            {item.extracted_todos?.map((todo, idx) => (
-              <View key={`task-${idx}`} style={styles.extractedItem}>
-                <Ionicons name="checkbox-outline" size={14} color="#3b82f6" />
-                <Text style={styles.extractedItemText} numberOfLines={1}>{todo.text}</Text>
-                {item.tags && item.tags.length > 0 && (
-                  <View style={styles.itemTagsRow}>
-                    {item.tags.slice(0, 2).map(tag => (
-                      <TouchableOpacity 
-                        key={tag}
-                        style={[styles.itemTag, { backgroundColor: `${getTagColor(tag)}20` }]}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          setSelectedTag(tag);
-                        }}
-                      >
-                        <Text style={[styles.itemTagText, { color: getTagColor(tag) }]}>#{tag}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ))}
+            {actualTasks.map((task) => {
+              const isCompleted = task.status === 'completed';
+              return (
+                <View key={task.id} style={styles.extractedItem}>
+                  <Ionicons 
+                    name={isCompleted ? "checkbox" : "square-outline"} 
+                    size={20} 
+                    color={isCompleted ? "#4ade80" : "#666"} 
+                  />
+                  <Text 
+                    style={[
+                      styles.extractedItemText, 
+                      isCompleted && styles.extractedItemTextCompleted
+                    ]} 
+                    numberOfLines={1}
+                  >
+                    {task.text}
+                  </Text>
+                  {task.tags && task.tags.length > 0 && (
+                    <View style={styles.itemTagsRow}>
+                      {task.tags.slice(0, 2).map(tag => (
+                        <TouchableOpacity 
+                          key={tag}
+                          style={[styles.itemTag, { backgroundColor: `${getTagColor(tag)}20` }]}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            setSelectedTag(tag);
+                          }}
+                        >
+                          <Text style={[styles.itemTagText, { color: getTagColor(tag) }]}>#{tag}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
             {item.extracted_notes?.map((note, idx) => (
               <View key={`note-${idx}`} style={styles.extractedItem}>
-                <Ionicons name="document-text-outline" size={14} color="#a78bfa" />
+                <Ionicons name="document-text" size={18} color="#a78bfa" />
                 <Text style={styles.extractedItemText} numberOfLines={1}>{note}</Text>
                 {item.tags && item.tags.length > 0 && (
                   <View style={styles.itemTagsRow}>
@@ -287,12 +329,21 @@ export default function VoiceScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Memos</Text>
-          <Text style={styles.headerSubtitle}>
-            {entries.length} memo{entries.length !== 1 ? 's' : ''}
-          </Text>
+        {/* View Toggle */}
+        <View style={styles.viewToggle}>
+          <TouchableOpacity 
+            style={styles.toggleBtn}
+            onPress={() => router.replace('/(tabs)')}
+          >
+            <Ionicons name="list" size={20} color="#666" />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.toggleBtn, styles.toggleBtnActive]}>
+            <Ionicons name="mic" size={20} color="#0a0a0a" />
+          </TouchableOpacity>
         </View>
+        
+        <View style={{ flex: 1 }} />
+        
         <TouchableOpacity
           style={styles.headerButton}
           onPress={() => router.push('/search')}
@@ -389,28 +440,33 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    padding: 3,
+  },
+  toggleBtn: {
+    width: 40,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  toggleBtnActive: {
+    backgroundColor: '#22c55e',
   },
   headerButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#22c55e',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
   },
   scrollView: {
     flex: 1,
@@ -491,20 +547,25 @@ const styles = StyleSheet.create({
   },
   extractedItems: {
     marginTop: 12,
-    paddingTop: 12,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#1a1a1a',
-    gap: 8,
   },
   extractedItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    gap: 12,
   },
   extractedItemText: {
     flex: 1,
-    fontSize: 13,
-    color: '#aaa',
+    fontSize: 14,
+    color: '#fff',
+  },
+  extractedItemTextCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#666',
   },
   itemTagsRow: {
     flexDirection: 'row',

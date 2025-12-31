@@ -172,12 +172,14 @@ export function VoiceRecorder({
 
   const startRecordingInternal = async () => {
     try {
+      console.log('[VoiceRecorder] Setting audio mode...');
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
       });
 
+      console.log('[VoiceRecorder] Creating recording...');
       const { recording } = await Audio.Recording.createAsync(
         {
           ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
@@ -185,6 +187,7 @@ export function VoiceRecorder({
         }
       );
       
+      console.log('[VoiceRecorder] Recording started successfully');
       recordingRef.current = recording;
       setIsRecording(true);
       setIsInitializing(false);
@@ -198,11 +201,21 @@ export function VoiceRecorder({
       // Start metering updates
       meteringRef.current = setInterval(updateMetering, 50);
 
-    } catch (err) {
-      console.error('Failed to start recording:', err);
+    } catch (err: any) {
+      console.error('[VoiceRecorder] Failed to start recording:', err);
+      console.error('[VoiceRecorder] Error details:', JSON.stringify(err, null, 2));
       setIsRecording(false);
       setIsInitializing(false);
-      Alert.alert('Recording Error', 'Failed to start recording. Please try again.');
+      
+      // More specific error message
+      let errorMessage = 'Failed to start recording. Please try again.';
+      if (err?.message?.includes('permission')) {
+        errorMessage = 'Microphone permission was denied. Please enable it in Settings.';
+      } else if (err?.message?.includes('session')) {
+        errorMessage = 'Audio session error. Please restart the app and try again.';
+      }
+      
+      Alert.alert('Recording Error', errorMessage);
     }
   };
 

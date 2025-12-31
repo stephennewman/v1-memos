@@ -316,6 +316,20 @@ export default function HomeScreen() {
         day.items.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       });
 
+      // Ensure today is expanded if it has items
+      const todayKey = getDateKey(new Date());
+      const todayData = dayMap.get(todayKey);
+      if (todayData && todayData.items.length > 0) {
+        setCollapsedDays(prev => {
+          if (prev.has(todayKey)) {
+            const next = new Set(prev);
+            next.delete(todayKey);
+            return next;
+          }
+          return prev;
+        });
+      }
+
       setDays(daysArray);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -493,8 +507,13 @@ export default function HomeScreen() {
 
   const renderDaySection = (day: DayData, hideHeader: boolean = false) => {
     // Empty days are collapsed by default, others expanded
+    // Today is ALWAYS expanded by default when it has items
     const hasItems = day.items.length > 0;
-    const isExpanded = hasItems ? !collapsedDays.has(day.dateKey) : collapsedDays.has(day.dateKey);
+    const isExpanded = day.isToday && hasItems 
+      ? !collapsedDays.has(day.dateKey) // Today with items: expanded unless explicitly collapsed
+      : hasItems 
+        ? !collapsedDays.has(day.dateKey) // Other days with items: expanded unless explicitly collapsed
+        : collapsedDays.has(day.dateKey); // Empty days: collapsed unless explicitly expanded
     
     // Group by type
     const tasks = day.items.filter(i => i.type === 'task');
@@ -616,12 +635,21 @@ export default function HomeScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Home</Text>
-          <Text style={styles.headerSubtitle}>
-            {totalItems} item{totalItems !== 1 ? 's' : ''}
-          </Text>
+        {/* View Toggle */}
+        <View style={styles.viewToggle}>
+          <TouchableOpacity style={[styles.toggleBtn, styles.toggleBtnActive]}>
+            <Ionicons name="list" size={20} color="#0a0a0a" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.toggleBtn}
+            onPress={() => router.replace('/(tabs)/voice')}
+          >
+            <Ionicons name="mic" size={20} color="#666" />
+          </TouchableOpacity>
         </View>
+        
+        <View style={{ flex: 1 }} />
+        
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/search')}>
           <Ionicons name="search" size={22} color="#666" />
         </TouchableOpacity>
@@ -705,20 +733,26 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#f472b6',
+  viewToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    padding: 3,
   },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+  toggleBtn: {
+    width: 40,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  toggleBtnActive: {
+    backgroundColor: '#f472b6',
   },
   headerBtn: {
     width: 40,
