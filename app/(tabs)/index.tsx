@@ -714,7 +714,7 @@ export default function HomeScreen() {
                 style={styles.addLink} 
                 onPress={() => router.push('/record?autoStart=true')}
               >
-                <Text style={[styles.addLinkText, { color: '#22c55e' }]}>+ Add memo</Text>
+                <Text style={[styles.addLinkText, { color: '#22c55e' }]}>+ Add Memo</Text>
               </TouchableOpacity>
             </View>
           </View>
