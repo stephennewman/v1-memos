@@ -100,6 +100,7 @@ export default function HomeScreen() {
   
   // Inline editing state
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingItemType, setEditingItemType] = useState<'task' | 'note' | null>(null);
   const [editingText, setEditingText] = useState('');
   const overlayAnim = useRef(new Animated.Value(0)).current;
   
@@ -508,15 +509,17 @@ export default function HomeScreen() {
     // Tasks now use inline editing - don't navigate
   }, [router]);
 
-  const startEditingTask = useCallback((item: Item) => {
+  const startEditingItem = useCallback((item: Item) => {
     setEditingItemId(item.id);
+    setEditingItemType(item.type as 'task' | 'note');
     setEditingText(item.text);
   }, []);
 
-  const saveTaskEdit = useCallback(async (itemId: string) => {
+  const saveItemEdit = useCallback(async (itemId: string) => {
     const trimmedText = editingText.trim();
     if (!trimmedText) {
       setEditingItemId(null);
+      setEditingItemType(null);
       setEditingText('');
       return;
     }
@@ -529,18 +532,22 @@ export default function HomeScreen() {
       ),
     })));
     
+    const table = editingItemType === 'task' ? 'voice_todos' : 'voice_notes';
+    
     setEditingItemId(null);
+    setEditingItemType(null);
     setEditingText('');
     
     try {
-      await supabase.from('voice_todos').update({ text: trimmedText }).eq('id', itemId);
+      await supabase.from(table).update({ text: trimmedText }).eq('id', itemId);
     } catch (error) {
       loadData(); // Revert on error
     }
-  }, [editingText, loadData]);
+  }, [editingText, editingItemType, loadData]);
 
-  const cancelTaskEdit = useCallback(() => {
+  const cancelItemEdit = useCallback(() => {
     setEditingItemId(null);
+    setEditingItemType(null);
     setEditingText('');
   }, []);
 
@@ -636,28 +643,31 @@ export default function HomeScreen() {
     const displayTags = (item.tags && item.tags.length > 0) ? item.tags : autoGenerateTags(item.text);
     const isEditing = editingItemId === item.id;
     
-    // If editing this task, show inline input
-    if (isEditing && item.type === 'task') {
+    // If editing this item, show inline input
+    if (isEditing) {
       return (
         <View key={item.id} style={styles.item}>
-          <TouchableOpacity onPress={() => handleToggleTask(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons 
-              name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
-              size={20} 
-              color={item.status === 'completed' ? '#4ade80' : '#666'} 
-            />
-          </TouchableOpacity>
+          {item.type === 'task' && (
+            <TouchableOpacity onPress={() => handleToggleTask(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons 
+                name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
+                size={20} 
+                color={item.status === 'completed' ? '#4ade80' : '#666'} 
+              />
+            </TouchableOpacity>
+          )}
+          {item.type === 'note' && <Ionicons name="document-text" size={18} color="#a78bfa" />}
           <TextInput
             style={styles.inlineEditInput}
             value={editingText}
             onChangeText={setEditingText}
             autoFocus
             selectTextOnFocus
-            onSubmitEditing={() => saveTaskEdit(item.id)}
-            onBlur={() => saveTaskEdit(item.id)}
+            onSubmitEditing={() => saveItemEdit(item.id)}
+            onBlur={() => saveItemEdit(item.id)}
             returnKeyType="done"
           />
-          <TouchableOpacity onPress={cancelTaskEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={cancelItemEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="close" size={18} color="#666" />
           </TouchableOpacity>
         </View>
@@ -668,7 +678,7 @@ export default function HomeScreen() {
       <TouchableOpacity
         key={item.id}
         style={styles.item}
-        onPress={() => item.type === 'task' ? startEditingTask(item) : handleItemPress(item)}
+        onPress={() => startEditingItem(item)}
         onLongPress={() => handleDeleteItem(item)}
         delayLongPress={500}
       >
@@ -698,8 +708,7 @@ export default function HomeScreen() {
             ))}
           </View>
         )}
-        {item.type === 'note' && <Ionicons name="chevron-forward" size={16} color="#333" />}
-      </TouchableOpacity>
+        </TouchableOpacity>
     );
   };
 
