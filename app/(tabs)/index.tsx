@@ -172,17 +172,12 @@ export default function HomeScreen() {
   const handleAddTask = useCallback(async () => {
     if (!addingText.trim() || !user || !addingTo) return;
     
-    // Parse the dayKey to get the target date (format: "YYYY-MM-DD")
-    const [year, month, dayNum] = addingTo.dayKey.split('-').map(Number);
-    // Month is 1-indexed in dayKey but 0-indexed in JS Date
-    const targetDate = new Date(year, month - 1, dayNum);
-    // Set to end of day so it sorts to bottom within that day
-    targetDate.setHours(23, 59, 59, Date.now() % 1000);
+    // Use current timestamp - new items always sort to bottom
+    const createdAt = new Date().toISOString();
     
     // Auto-generate tags from the text
     const tags = autoGenerateTags(addingText.trim());
     const tempId = `temp-${Date.now()}`;
-    const createdAt = targetDate.toISOString();
     
     // Optimistic update - add item to local state immediately
     const newItem: Item = {
@@ -196,7 +191,11 @@ export default function HomeScreen() {
     
     setDays(prevDays => prevDays.map(day => {
       if (day.dateKey === addingTo.dayKey) {
-        return { ...day, items: [...day.items, newItem] };
+        // Add and re-sort to maintain order
+        const updatedItems = [...day.items, newItem].sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        return { ...day, items: updatedItems };
       }
       return day;
     }));
@@ -239,17 +238,12 @@ export default function HomeScreen() {
   const handleAddNote = useCallback(async () => {
     if (!addingText.trim() || !user || !addingTo) return;
     
-    // Parse the dayKey to get the target date (format: "YYYY-MM-DD")
-    const [year, month, dayNum] = addingTo.dayKey.split('-').map(Number);
-    // Month is 1-indexed in dayKey but 0-indexed in JS Date
-    const targetDate = new Date(year, month - 1, dayNum);
-    // Set to end of day so it sorts to bottom within that day
-    targetDate.setHours(23, 59, 59, Date.now() % 1000);
+    // Use current timestamp - new items always sort to bottom
+    const createdAt = new Date().toISOString();
     
     // Auto-generate tags from the text
     const tags = autoGenerateTags(addingText.trim());
     const tempId = `temp-${Date.now()}`;
-    const createdAt = targetDate.toISOString();
     
     // Optimistic update - add item to local state immediately
     const newItem: Item = {
@@ -262,7 +256,11 @@ export default function HomeScreen() {
     
     setDays(prevDays => prevDays.map(day => {
       if (day.dateKey === addingTo.dayKey) {
-        return { ...day, items: [...day.items, newItem] };
+        // Add and re-sort to maintain order
+        const updatedItems = [...day.items, newItem].sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        return { ...day, items: updatedItems };
       }
       return day;
     }));
@@ -692,12 +690,9 @@ export default function HomeScreen() {
     }
     
     return (
-      <TouchableOpacity
+      <View
         key={item.id}
         style={styles.item}
-        onPress={() => startEditingItem(item)}
-        onLongPress={() => handleDeleteItem(item)}
-        delayLongPress={500}
       >
         {item.type === 'task' && (
           <TouchableOpacity onPress={() => handleToggleTask(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -709,9 +704,16 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
         {item.type === 'note' && <Ionicons name="document-text" size={18} color="#a78bfa" />}
-        <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]} numberOfLines={1}>
-          {item.text}
-        </Text>
+        <TouchableOpacity 
+          style={styles.itemTextWrapper}
+          onPress={() => startEditingItem(item)}
+          onLongPress={() => handleDeleteItem(item)}
+          delayLongPress={500}
+        >
+          <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]} numberOfLines={1}>
+            {item.text}
+          </Text>
+        </TouchableOpacity>
         {displayTags.length > 0 && (
           <View style={styles.itemTagsRow}>
             {displayTags.slice(0, 2).map(tag => (
@@ -732,7 +734,7 @@ export default function HomeScreen() {
         >
           <Ionicons name="chevron-forward" size={16} color="#444" />
         </TouchableOpacity>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -770,21 +772,14 @@ export default function HomeScreen() {
             >
               <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color={hasItems ? '#0a0a0a' : '#666'} />
               <Text style={[styles.dayLabel, !hasItems && styles.dayLabelEmpty]}>{day.label}</Text>
-              {hasItems && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{totalCount}</Text>
-                </View>
-              )}
             </TouchableOpacity>
-            {!day.isToday && (
-              <TouchableOpacity 
-                style={styles.focusBtn}
-                onPress={() => focusDay(day.dateKey)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="contract-outline" size={18} color={hasItems ? '#0a0a0a' : '#666'} />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity 
+              style={[styles.badge, !hasItems && styles.badgeEmpty]}
+              onPress={() => !day.isToday && focusDay(day.dateKey)}
+              activeOpacity={day.isToday ? 1 : 0.7}
+            >
+              <Text style={[styles.badgeText, !hasItems && styles.badgeTextEmpty]}>{totalCount}</Text>
+            </TouchableOpacity>
           </View>
         )}
         
@@ -1296,9 +1291,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 8,
   },
-  focusBtn: {
-    padding: 4,
-  },
   dayLabel: {
     fontSize: 16,
     fontWeight: '600',
@@ -1320,6 +1312,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#0a0a0a',
     fontWeight: '600',
+  },
+  badgeEmpty: {
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  badgeTextEmpty: {
+    color: '#666',
   },
   addBtn: {
     flexDirection: 'row',
@@ -1349,8 +1347,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 12,
   },
-  itemText: {
+  itemTextWrapper: {
     flex: 1,
+  },
+  itemText: {
     fontSize: 14,
     color: '#fff',
   },

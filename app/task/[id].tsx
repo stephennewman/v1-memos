@@ -27,6 +27,7 @@ export default function TaskDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingDueDate, setIsEditingDueDate] = useState(false);
   const [editedText, setEditedText] = useState('');
   const [editedDueDate, setEditedDueDate] = useState('');
   const [editedTags, setEditedTags] = useState<string[]>([]);
@@ -195,6 +196,32 @@ export default function TaskDetailScreen() {
       setEditedDueDate('');
     } catch (error) {
       console.error('Error clearing date:', error);
+    }
+  };
+
+  const saveDueDate = async () => {
+    if (!task) return;
+    
+    try {
+      let parsedDate = null;
+      if (editedDueDate.trim()) {
+        const date = new Date(editedDueDate);
+        if (!isNaN(date.getTime())) {
+          date.setUTCHours(12, 0, 0, 0);
+          parsedDate = date.toISOString();
+        }
+      }
+
+      const { error } = await supabase
+        .from('voice_todos')
+        .update({ due_date: parsedDate })
+        .eq('id', task.id);
+
+      if (error) throw error;
+      setTask({ ...task, due_date: parsedDate || undefined });
+      setIsEditingDueDate(false);
+    } catch (error) {
+      console.error('Error saving due date:', error);
     }
   };
 
@@ -399,22 +426,49 @@ export default function TaskDetailScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>DUE DATE</Text>
-            {task.due_date && !isEditing && (
+            {task.due_date && !isEditingDueDate && (
               <TouchableOpacity onPress={clearDueDate}>
                 <Text style={styles.clearText}>Clear</Text>
               </TouchableOpacity>
             )}
           </View>
-          {isEditing ? (
-            <TextInput
-              style={styles.dateInput}
-              value={editedDueDate}
-              onChangeText={setEditedDueDate}
-              placeholder="e.g., December 25, 2025"
-              placeholderTextColor="#444"
-            />
+          {isEditing || isEditingDueDate ? (
+            <View style={styles.dueDateEditRow}>
+              <TextInput
+                style={styles.dateInput}
+                value={editedDueDate}
+                onChangeText={setEditedDueDate}
+                placeholder="e.g., Jan 15, 2026 or tomorrow"
+                placeholderTextColor="#444"
+                autoFocus={isEditingDueDate}
+                onSubmitEditing={saveDueDate}
+                returnKeyType="done"
+              />
+              {isEditingDueDate && (
+                <View style={styles.dueDateActions}>
+                  <TouchableOpacity 
+                    style={styles.dueDateCancelBtn}
+                    onPress={() => {
+                      setIsEditingDueDate(false);
+                      setEditedDueDate(formatDateForInput(task.due_date));
+                    }}
+                  >
+                    <Ionicons name="close" size={20} color="#666" />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.dueDateSaveBtn}
+                    onPress={saveDueDate}
+                  >
+                    <Ionicons name="checkmark" size={20} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           ) : (
-            <View style={styles.dateRow}>
+            <TouchableOpacity 
+              style={styles.dateRow}
+              onPress={() => setIsEditingDueDate(true)}
+            >
               <Ionicons 
                 name="calendar-outline" 
                 size={18} 
@@ -423,7 +477,8 @@ export default function TaskDetailScreen() {
               <Text style={[styles.dateText, !task.due_date && styles.dateTextEmpty]}>
                 {formatDateDisplay(task.due_date)}
               </Text>
-            </View>
+              <Ionicons name="pencil" size={14} color="#444" style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
           )}
         </View>
 
@@ -622,13 +677,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    backgroundColor: '#111',
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
   },
   dateText: {
     fontSize: 16,
     color: '#fff',
+    flex: 1,
   },
   dateTextEmpty: {
     color: '#444',
+  },
+  dueDateEditRow: {
+    gap: 10,
   },
   dateInput: {
     backgroundColor: '#111',
@@ -637,7 +701,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#3b82f6',
+  },
+  dueDateActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 10,
+  },
+  dueDateCancelBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#222',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dueDateSaveBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#3b82f6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sourceRow: {
     flexDirection: 'row',
