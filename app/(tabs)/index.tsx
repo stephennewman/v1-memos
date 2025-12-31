@@ -504,9 +504,9 @@ export default function HomeScreen() {
     }
   }, []);
 
-  const handleItemPress = useCallback((item: Item) => {
+  const goToDetailPage = useCallback((item: Item) => {
     if (item.type === 'note') router.push(`/note/${item.id}`);
-    // Tasks now use inline editing - don't navigate
+    else if (item.type === 'task') router.push(`/task/${item.id}`);
   }, [router]);
 
   const startEditingItem = useCallback((item: Item) => {
@@ -708,7 +708,14 @@ export default function HomeScreen() {
             ))}
           </View>
         )}
+        <TouchableOpacity 
+          onPress={() => goToDetailPage(item)} 
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.detailBtn}
+        >
+          <Ionicons name="chevron-forward" size={16} color="#444" />
         </TouchableOpacity>
+      </TouchableOpacity>
     );
   };
 
@@ -1451,6 +1458,10 @@ const styles = StyleSheet.create({
   itemTagText: {
     fontSize: 10,
     fontWeight: '600',
+  },
+  detailBtn: {
+    padding: 4,
+    marginLeft: 4,
   },
   memoCounts: {
     flexDirection: 'row',
