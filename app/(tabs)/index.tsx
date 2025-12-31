@@ -701,6 +701,12 @@ export default function HomeScreen() {
                   <Ionicons name="chevron-forward" size={16} color="#333" />
                 </TouchableOpacity>
               ))}
+              <TouchableOpacity 
+                style={styles.addLink} 
+                onPress={() => router.push('/record?autoStart=true')}
+              >
+                <Text style={[styles.addLinkText, { color: '#22c55e' }]}>+ Add memo</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
