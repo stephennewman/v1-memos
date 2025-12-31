@@ -100,23 +100,38 @@ export default function HomeScreen() {
   const overlayAnim = useRef(new Animated.Value(0)).current;
   
   const toggleDrawer = useCallback(() => {
-    const toValue = isDrawerOpen ? -280 : 0;
-    const overlayTo = isDrawerOpen ? 0 : 0.5;
-    
-    Animated.parallel([
-      Animated.timing(drawerAnim, {
-        toValue,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayAnim, {
-        toValue: overlayTo,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    
-    setIsDrawerOpen(!isDrawerOpen);
+    if (isDrawerOpen) {
+      // Closing
+      Animated.parallel([
+        Animated.timing(drawerAnim, {
+          toValue: -280,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(overlayAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setIsDrawerOpen(false);
+      });
+    } else {
+      // Opening
+      setIsDrawerOpen(true);
+      Animated.parallel([
+        Animated.timing(drawerAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(overlayAnim, {
+          toValue: 0.5,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
   }, [isDrawerOpen, drawerAnim, overlayAnim]);
   
   const selectTagFromDrawer = useCallback((tag: string | null) => {
@@ -125,16 +140,17 @@ export default function HomeScreen() {
     Animated.parallel([
       Animated.timing(drawerAnim, {
         toValue: -280,
-        duration: 250,
+        duration: 200,
         useNativeDriver: true,
       }),
       Animated.timing(overlayAnim, {
         toValue: 0,
-        duration: 250,
+        duration: 200,
         useNativeDriver: true,
       }),
-    ]).start();
-    setIsDrawerOpen(false);
+    ]).start(() => {
+      setIsDrawerOpen(false);
+    });
   }, [drawerAnim, overlayAnim]);
   
   // Inline add state - tracks which day and type
@@ -817,14 +833,12 @@ export default function HomeScreen() {
       </View>
 
       {/* Tag Drawer Overlay */}
-      {isDrawerOpen && (
-        <Pressable 
-          style={styles.drawerOverlay}
-          onPress={toggleDrawer}
-        >
-          <Animated.View style={[styles.drawerOverlayBg, { opacity: overlayAnim }]} />
-        </Pressable>
-      )}
+      <Pressable 
+        style={[styles.drawerOverlay, { pointerEvents: isDrawerOpen ? 'auto' : 'none' }]}
+        onPress={toggleDrawer}
+      >
+        <Animated.View style={[styles.drawerOverlayBg, { opacity: overlayAnim }]} />
+      </Pressable>
 
       {/* Tag Drawer */}
       <Animated.View style={[styles.drawer, { transform: [{ translateX: drawerAnim }] }]}>
