@@ -318,7 +318,9 @@ export default function HomeScreen() {
       (tasks || []).forEach(t => {
         const key = getDateKey(new Date(t.created_at));
         const day = dayMap.get(key);
-        const item: Item = { id: t.id, type: 'task', text: t.text, status: t.status, created_at: t.created_at, tags: t.tags || [] };
+        // Auto-generate tags if not stored in DB
+        const tags = (t.tags && t.tags.length > 0) ? t.tags : autoGenerateTags(t.text);
+        const item: Item = { id: t.id, type: 'task', text: t.text, status: t.status, created_at: t.created_at, tags };
         if (day) {
           day.items.push(item);
         }
@@ -328,7 +330,9 @@ export default function HomeScreen() {
       (notes || []).forEach(n => {
         const key = getDateKey(new Date(n.created_at));
         const day = dayMap.get(key);
-        const item: Item = { id: n.id, type: 'note', text: n.text, created_at: n.created_at, tags: n.tags || [] };
+        // Auto-generate tags if not stored in DB
+        const tags = (n.tags && n.tags.length > 0) ? n.tags : autoGenerateTags(n.text);
+        const item: Item = { id: n.id, type: 'note', text: n.text, created_at: n.created_at, tags };
         if (day) {
           day.items.push(item);
         }
@@ -511,43 +515,48 @@ export default function HomeScreen() {
     );
   }
 
-  const renderItem = (item: Item) => (
-    <TouchableOpacity
-      key={item.id}
-      style={styles.item}
-      onPress={() => handleItemPress(item)}
-      onLongPress={() => handleDeleteItem(item)}
-      delayLongPress={500}
-    >
-      {item.type === 'task' && (
-        <TouchableOpacity onPress={() => handleToggleTask(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons 
-            name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
-            size={20} 
-            color={item.status === 'completed' ? '#4ade80' : '#666'} 
-          />
-        </TouchableOpacity>
-      )}
-      {item.type === 'note' && <Ionicons name="document-text" size={18} color="#a78bfa" />}
-      <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]} numberOfLines={1}>
-        {item.text}
-      </Text>
-      {item.tags && item.tags.length > 0 && (
-        <View style={styles.itemTagsRow}>
-          {item.tags.slice(0, 3).map(tag => (
-            <TouchableOpacity 
-              key={tag}
-              style={[styles.itemTag, { backgroundColor: `${getTagColor(tag)}20` }]}
-              onPress={() => setSelectedTag(tag)}
-            >
-              <Text style={[styles.itemTagText, { color: getTagColor(tag) }]}>#{tag}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-      <Ionicons name="chevron-forward" size={16} color="#333" />
-    </TouchableOpacity>
-  );
+  const renderItem = (item: Item) => {
+    // Auto-generate tags if not present
+    const displayTags = (item.tags && item.tags.length > 0) ? item.tags : autoGenerateTags(item.text);
+    
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={styles.item}
+        onPress={() => handleItemPress(item)}
+        onLongPress={() => handleDeleteItem(item)}
+        delayLongPress={500}
+      >
+        {item.type === 'task' && (
+          <TouchableOpacity onPress={() => handleToggleTask(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons 
+              name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
+              size={20} 
+              color={item.status === 'completed' ? '#4ade80' : '#666'} 
+            />
+          </TouchableOpacity>
+        )}
+        {item.type === 'note' && <Ionicons name="document-text" size={18} color="#a78bfa" />}
+        <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]} numberOfLines={1}>
+          {item.text}
+        </Text>
+        {displayTags.length > 0 && (
+          <View style={styles.itemTagsRow}>
+            {displayTags.slice(0, 2).map(tag => (
+              <TouchableOpacity 
+                key={tag}
+                style={[styles.itemTag, { backgroundColor: `${getTagColor(tag)}20` }]}
+                onPress={() => setSelectedTag(tag)}
+              >
+                <Text style={[styles.itemTagText, { color: getTagColor(tag) }]}>#{tag}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+        <Ionicons name="chevron-forward" size={16} color="#333" />
+      </TouchableOpacity>
+    );
+  };
 
   const renderDaySection = (day: DayData, hideHeader: boolean = false) => {
     // Empty days are collapsed by default, others expanded
