@@ -91,7 +91,7 @@ export default function HomeScreen() {
   const [days, setDays] = useState<DayData[]>([]);
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
   const [allTags, setAllTags] = useState<string[]>([]);
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagCounts, setTagCounts] = useState<Map<string, number>>(new Map());
   
   // Tag drawer state
@@ -144,10 +144,22 @@ export default function HomeScreen() {
     }
   }, [isDrawerOpen, closeDrawer, openDrawer]);
   
-  const selectTagFromDrawer = useCallback((tag: string | null) => {
-    setSelectedTag(tag);
+  const toggleTagFilter = useCallback((tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag) // Remove if already selected
+        : [...prev, tag] // Add if not selected
+    );
+  }, []);
+
+  const clearAllFilters = useCallback(() => {
+    setSelectedTags([]);
     closeDrawer();
   }, [closeDrawer]);
+
+  const removeTagFilter = useCallback((tag: string) => {
+    setSelectedTags(prev => prev.filter(t => t !== tag));
+  }, []);
   
   // Inline add state - tracks which day and type
   const [addingTo, setAddingTo] = useState<{ dayKey: string; type: 'task' | 'note' } | null>(null);
@@ -575,9 +587,11 @@ export default function HomeScreen() {
   const processItems = (items: Item[]) => {
     let filtered = [...items];
     
-    // Filter by selected tag if any
-    if (selectedTag) {
-      filtered = filtered.filter(item => item.tags?.includes(selectedTag));
+    // Filter by selected tags if any (item must have at least one of the selected tags)
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(item => 
+        item.tags?.some(tag => selectedTags.includes(tag))
+      );
     }
     
     // Sort by oldest first (new items go to bottom)
@@ -594,8 +608,8 @@ export default function HomeScreen() {
     .filter(d => !d.isFuture) // Only today and past
     .map(d => ({ ...d, items: processItems(d.items) }))
     .filter(d => {
-      // When filtering by tag, hide days with no matching items (memos don't have tags so hide them too)
-      if (selectedTag) return d.items.length > 0;
+      // When filtering by tags, hide days with no matching items (memos don't have tags so hide them too)
+      if (selectedTags.length > 0) return d.items.length > 0;
       // Otherwise show all days
       return true;
     })
@@ -677,7 +691,7 @@ export default function HomeScreen() {
               <TouchableOpacity 
                 key={tag}
                 style={[styles.itemTag, { backgroundColor: `${getTagColor(tag)}20` }]}
-                onPress={() => setSelectedTag(tag)}
+                onPress={() => toggleTagFilter(tag)}
               >
                 <Text style={[styles.itemTagText, { color: getTagColor(tag) }]}>#{tag}</Text>
               </TouchableOpacity>
@@ -862,10 +876,10 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.menuBtn} onPress={toggleDrawer}>
-          <Ionicons name="menu" size={24} color={selectedTag ? '#22c55e' : '#fff'} />
-          {selectedTag && (
+          <Ionicons name="menu" size={24} color={selectedTags.length > 0 ? '#22c55e' : '#fff'} />
+          {selectedTags.length > 0 && (
             <View style={styles.menuBadge}>
-              <Text style={styles.menuBadgeText}>1</Text>
+              <Text style={styles.menuBadgeText}>{selectedTags.length}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -901,28 +915,38 @@ export default function HomeScreen() {
           </View>
           
           {/* Active Filters Section */}
-          {selectedTag && (
+          {selectedTags.length > 0 && (
             <View style={styles.activeFiltersSection}>
-              <Text style={styles.activeFiltersLabel}>Active</Text>
-              <TouchableOpacity 
-                style={[styles.activeFilterPill, { backgroundColor: `${getTagColor(selectedTag)}25`, borderColor: getTagColor(selectedTag) }]}
-                onPress={() => setSelectedTag(null)}
-              >
-                <Text style={[styles.activeFilterPillText, { color: getTagColor(selectedTag) }]}>#{selectedTag}</Text>
-                <Ionicons name="close-circle" size={16} color={getTagColor(selectedTag)} />
-              </TouchableOpacity>
+              <View style={styles.activeFiltersHeader}>
+                <Text style={styles.activeFiltersLabel}>Active ({selectedTags.length})</Text>
+                <TouchableOpacity onPress={clearAllFilters}>
+                  <Text style={styles.clearAllText}>Clear all</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.activeFiltersList}>
+                {selectedTags.map(tag => (
+                  <TouchableOpacity 
+                    key={tag}
+                    style={[styles.activeFilterPill, { backgroundColor: `${getTagColor(tag)}25`, borderColor: getTagColor(tag) }]}
+                    onPress={() => removeTagFilter(tag)}
+                  >
+                    <Text style={[styles.activeFilterPillText, { color: getTagColor(tag) }]}>#{tag}</Text>
+                    <Ionicons name="close-circle" size={16} color={getTagColor(tag)} />
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           )}
           
           <ScrollView style={styles.drawerScroll} showsVerticalScrollIndicator={false}>
             {/* All items option */}
             <TouchableOpacity 
-              style={[styles.drawerTag, !selectedTag && styles.drawerTagActive]}
-              onPress={() => selectTagFromDrawer(null)}
+              style={[styles.drawerTag, selectedTags.length === 0 && styles.drawerTagActive]}
+              onPress={clearAllFilters}
             >
               <View style={styles.drawerTagLeft}>
                 <View style={[styles.drawerTagDot, { backgroundColor: '#666' }]} />
-                <Text style={[styles.drawerTagText, !selectedTag && styles.drawerTagTextActive]}>All Items</Text>
+                <Text style={[styles.drawerTagText, selectedTags.length === 0 && styles.drawerTagTextActive]}>All Items</Text>
               </View>
               <Text style={styles.drawerTagCount}>{allTags.reduce((sum, t) => sum + (tagCounts.get(t) || 0), 0)}</Text>
             </TouchableOpacity>
@@ -930,15 +954,16 @@ export default function HomeScreen() {
             {/* Individual tags sorted by count */}
             {allTags.map(tag => {
               const count = tagCounts.get(tag) || 0;
-              const isActive = selectedTag === tag;
+              const isActive = selectedTags.includes(tag);
               return (
                 <TouchableOpacity 
                   key={tag}
                   style={[styles.drawerTag, isActive && styles.drawerTagActive]}
-                  onPress={() => selectTagFromDrawer(tag)}
+                  onPress={() => toggleTagFilter(tag)}
                 >
                   <View style={styles.drawerTagLeft}>
-                    <View style={[styles.drawerTagDot, { backgroundColor: getTagColor(tag) }]} />
+                    {isActive && <Ionicons name="checkmark-circle" size={18} color={getTagColor(tag)} style={{ marginRight: 6 }} />}
+                    {!isActive && <View style={[styles.drawerTagDot, { backgroundColor: getTagColor(tag) }]} />}
                     <Text style={[styles.drawerTagText, isActive && styles.drawerTagTextActive]}>#{tag}</Text>
                   </View>
                   <View style={styles.drawerTagRight}>
@@ -1069,13 +1094,27 @@ const styles = StyleSheet.create({
     borderBottomColor: '#222',
     marginBottom: 8,
   },
+  activeFiltersHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   activeFiltersLabel: {
     fontSize: 11,
     fontWeight: '600',
     color: '#666',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
+  },
+  clearAllText: {
+    fontSize: 12,
+    color: '#888',
+  },
+  activeFiltersList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   activeFilterPill: {
     flexDirection: 'row',
