@@ -735,13 +735,8 @@ export default function HomeScreen() {
     const notes = day.items.filter(i => i.type === 'note');
     const memos = day.memos;
     
-    // Calculate min height for Today to fill screen
-    // Screen height - header (60) - safe area top - button bar (100) - yesterday peek (60)
-    const screenHeight = Dimensions.get('window').height;
-    const todayMinHeight = isFirstDay && day.isToday ? screenHeight - insets.top - 220 : undefined;
-    
     return (
-      <View key={day.dateKey} style={[styles.daySection, todayMinHeight && { minHeight: todayMinHeight }]}
+      <View key={day.dateKey} style={styles.daySection}>
         {!hideHeader && (
           <TouchableOpacity 
             style={[styles.dayHeader, !hasItems && styles.dayHeaderEmpty]}
@@ -883,6 +878,11 @@ export default function HomeScreen() {
                 <Text style={[styles.addLinkText, { color: '#22c55e' }]}>+ Add Memo</Text>
               </TouchableOpacity>
             </View>
+            
+            {/* Spacer for Today to push other days down */}
+            {isFirstDay && day.isToday && (
+              <View style={{ height: Dimensions.get('window').height - 500 }} />
+            )}
           </View>
         )}
       </View>
