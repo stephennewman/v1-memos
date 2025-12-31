@@ -879,9 +879,9 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
             
-            {/* Spacer for Today to push other days down */}
+            {/* Spacer for Today - leaves room for Yesterday to peek */}
             {isFirstDay && day.isToday && (
-              <View style={{ height: Dimensions.get('window').height - 500 }} />
+              <View style={{ height: Math.max(Dimensions.get('window').height - 750, 50) }} />
             )}
           </View>
         )}
