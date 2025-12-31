@@ -127,7 +127,6 @@ export default function SettingsScreen() {
 
         {/* Delete Account */}
         <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
-          <Ionicons name="trash-outline" size={20} color="#ef4444" />
           <Text style={styles.deleteText}>Delete Account</Text>
         </TouchableOpacity>
 
@@ -227,20 +226,13 @@ const styles = StyleSheet.create({
     color: '#888',
   },
   deleteButton: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
-    paddingVertical: 14,
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ef4444',
+    marginTop: 24,
+    paddingVertical: 8,
   },
   deleteText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#ef4444',
+    fontSize: 13,
+    color: '#666',
   },
 });
