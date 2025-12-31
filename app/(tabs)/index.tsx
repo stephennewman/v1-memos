@@ -90,6 +90,8 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [days, setDays] = useState<DayData[]>([]);
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
+  const [dayPositions, setDayPositions] = useState<Map<string, number>>(new Map());
+  const scrollViewRef = useRef<ScrollView>(null);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagCounts, setTagCounts] = useState<Map<string, number>>(new Map());
@@ -589,6 +591,21 @@ export default function HomeScreen() {
     });
   };
 
+  const focusDay = useCallback((dateKey: string) => {
+    // Expand the day if collapsed
+    setCollapsedDays(prev => {
+      const next = new Set(prev);
+      next.delete(dateKey); // Remove from collapsed = expand it
+      return next;
+    });
+    
+    // Scroll to the day position
+    const position = dayPositions.get(dateKey);
+    if (position !== undefined && scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: position, animated: true });
+    }
+  }, [dayPositions]);
+
 
   // Helper to filter and sort items
   const processItems = (items: Item[]) => {
@@ -736,22 +753,40 @@ export default function HomeScreen() {
     const memos = day.memos;
     
     return (
-      <View key={day.dateKey} style={styles.daySection}>
+      <View 
+        key={day.dateKey} 
+        style={styles.daySection}
+        onLayout={(e) => {
+          const y = e.nativeEvent.layout.y;
+          setDayPositions(prev => new Map(prev).set(day.dateKey, y));
+        }}
+      >
         {!hideHeader && (
-          <TouchableOpacity 
-            style={[styles.dayHeader, !hasItems && styles.dayHeaderEmpty]}
-            onPress={() => toggleDayExpanded(day.dateKey)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color={hasItems ? '#0a0a0a' : '#666'} />
-            <Text style={[styles.dayLabel, !hasItems && styles.dayLabelEmpty]}>{day.label}</Text>
-          {hasItems && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{totalCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      )}
+          <View style={[styles.dayHeader, !hasItems && styles.dayHeaderEmpty]}>
+            <TouchableOpacity 
+              style={styles.dayHeaderLeft}
+              onPress={() => toggleDayExpanded(day.dateKey)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color={hasItems ? '#0a0a0a' : '#666'} />
+              <Text style={[styles.dayLabel, !hasItems && styles.dayLabelEmpty]}>{day.label}</Text>
+              {hasItems && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{totalCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            {!day.isToday && (
+              <TouchableOpacity 
+                style={styles.focusBtn}
+                onPress={() => focusDay(day.dateKey)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="scan-outline" size={18} color={hasItems ? '#0a0a0a' : '#666'} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
         
         {isExpanded && (
           <View style={styles.dayContent}>
@@ -1000,6 +1035,7 @@ export default function HomeScreen() {
 
       {/* Content */}
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -1249,13 +1285,21 @@ const styles = StyleSheet.create({
   dayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 14,
     paddingHorizontal: 20,
-    gap: 8,
     backgroundColor: '#f472b6',
   },
-  dayLabel: {
+  dayHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
+    gap: 8,
+  },
+  focusBtn: {
+    padding: 4,
+  },
+  dayLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#0a0a0a',
