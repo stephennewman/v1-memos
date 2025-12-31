@@ -782,7 +782,7 @@ export default function HomeScreen() {
                 onPress={() => focusDay(day.dateKey)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="locate-outline" size={20} color={hasItems ? '#0a0a0a' : '#666'} />
+                <Ionicons name="contract-outline" size={18} color={hasItems ? '#0a0a0a' : '#666'} />
               </TouchableOpacity>
             )}
           </View>
