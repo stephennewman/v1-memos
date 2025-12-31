@@ -99,44 +99,23 @@ export default function HomeScreen() {
   const drawerAnim = useRef(new Animated.Value(-280)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
   
-  const toggleDrawer = useCallback(() => {
-    if (isDrawerOpen) {
-      // Closing
-      Animated.parallel([
-        Animated.timing(drawerAnim, {
-          toValue: -280,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(overlayAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setIsDrawerOpen(false);
-      });
-    } else {
-      // Opening
-      setIsDrawerOpen(true);
-      Animated.parallel([
-        Animated.timing(drawerAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(overlayAnim, {
-          toValue: 0.5,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [isDrawerOpen, drawerAnim, overlayAnim]);
-  
-  const selectTagFromDrawer = useCallback((tag: string | null) => {
-    setSelectedTag(tag);
-    // Close drawer after selection
+  const openDrawer = useCallback(() => {
+    setIsDrawerOpen(true);
+    Animated.parallel([
+      Animated.timing(drawerAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(overlayAnim, {
+        toValue: 0.5,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [drawerAnim, overlayAnim]);
+
+  const closeDrawer = useCallback(() => {
     Animated.parallel([
       Animated.timing(drawerAnim, {
         toValue: -280,
@@ -152,6 +131,19 @@ export default function HomeScreen() {
       setIsDrawerOpen(false);
     });
   }, [drawerAnim, overlayAnim]);
+
+  const toggleDrawer = useCallback(() => {
+    if (isDrawerOpen) {
+      closeDrawer();
+    } else {
+      openDrawer();
+    }
+  }, [isDrawerOpen, closeDrawer, openDrawer]);
+  
+  const selectTagFromDrawer = useCallback((tag: string | null) => {
+    setSelectedTag(tag);
+    closeDrawer();
+  }, [closeDrawer]);
   
   // Inline add state - tracks which day and type
   const [addingTo, setAddingTo] = useState<{ dayKey: string; type: 'task' | 'note' } | null>(null);
@@ -835,7 +827,7 @@ export default function HomeScreen() {
       {/* Tag Drawer Overlay */}
       <Pressable 
         style={[styles.drawerOverlay, { pointerEvents: isDrawerOpen ? 'auto' : 'none' }]}
-        onPress={toggleDrawer}
+        onPress={closeDrawer}
       >
         <Animated.View style={[styles.drawerOverlayBg, { opacity: overlayAnim }]} />
       </Pressable>
@@ -845,7 +837,7 @@ export default function HomeScreen() {
         <View style={[styles.drawerContent, { paddingTop: insets.top + 12 }]}>
           <View style={styles.drawerHeader}>
             <Text style={styles.drawerTitle}>Tags</Text>
-            <TouchableOpacity onPress={toggleDrawer}>
+            <TouchableOpacity onPress={closeDrawer}>
               <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
           </View>
