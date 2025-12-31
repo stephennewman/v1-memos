@@ -45,15 +45,9 @@ function TabsContent() {
             ),
           }}
         />
-        <Tabs.Screen
-          name="voice"
-          options={{
-            title: 'Memos',
-            tabBarIcon: ({ focused }) => (
-              <Ionicons name="mic" size={22} color={focused ? '#22c55e' : '#666'} />
-            ),
-          }}
-        />
+        
+        {/* Voice tab hidden - consolidated into Home view */}
+        <Tabs.Screen name="voice" options={{ href: null }} />
         
         {/* Settings hidden from tab bar - accessible via profile icon */}
         <Tabs.Screen name="settings" options={{ href: null }} />

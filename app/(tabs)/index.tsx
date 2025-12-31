@@ -28,6 +28,15 @@ interface Item {
   tags?: string[];
 }
 
+interface MemoItem {
+  id: string;
+  summary: string | null;
+  transcript: string | null;
+  created_at: string;
+  taskCount: number;
+  noteCount: number;
+}
+
 interface DayData {
   date: Date;
   dateKey: string;
@@ -35,6 +44,7 @@ interface DayData {
   isToday: boolean;
   isFuture: boolean;
   items: Item[];
+  memos: MemoItem[];
 }
 
 const getDateKey = (date: Date) => {
@@ -227,14 +237,14 @@ export default function HomeScreen() {
 
       const { data: tasks } = await supabase
         .from('voice_todos')
-        .select('id, text, status, created_at, tags')
+        .select('id, text, status, created_at, tags, entry_id')
         .eq('user_id', user.id)
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
 
       const { data: notes } = await supabase
         .from('voice_notes')
-        .select('id, text, created_at, tags')
+        .select('id, text, created_at, tags, entry_id')
         .eq('user_id', user.id)
         .eq('is_archived', false)
         .gte('created_at', thirtyDaysAgo.toISOString())
@@ -242,10 +252,25 @@ export default function HomeScreen() {
 
       const { data: voiceEntries } = await supabase
         .from('voice_entries')
-        .select('id, summary, created_at')
+        .select('id, summary, transcript, created_at')
         .eq('user_id', user.id)
+        .eq('is_archived', false)
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
+      
+      // Build memo counts from tasks/notes
+      const memoTaskCounts = new Map<string, number>();
+      const memoNoteCounts = new Map<string, number>();
+      (tasks || []).forEach(t => {
+        if (t.entry_id) {
+          memoTaskCounts.set(t.entry_id, (memoTaskCounts.get(t.entry_id) || 0) + 1);
+        }
+      });
+      (notes || []).forEach(n => {
+        if (n.entry_id) {
+          memoNoteCounts.set(n.entry_id, (memoNoteCounts.get(n.entry_id) || 0) + 1);
+        }
+      });
 
       // Build days array
       const daysArray: DayData[] = [];
@@ -263,6 +288,7 @@ export default function HomeScreen() {
           isToday: false,
           isFuture: true,
           items: [],
+          memos: [],
         };
         daysArray.push(day);
         dayMap.set(day.dateKey, day);
@@ -281,6 +307,7 @@ export default function HomeScreen() {
           isToday,
           isFuture: false,
           items: [],
+          memos: [],
         };
         daysArray.push(day);
         dayMap.set(day.dateKey, day);
@@ -306,6 +333,23 @@ export default function HomeScreen() {
           day.items.push(item);
         }
         allItems.push(item);
+      });
+
+      // Add memos to days
+      (voiceEntries || []).forEach(m => {
+        const key = getDateKey(new Date(m.created_at));
+        const day = dayMap.get(key);
+        const memo: MemoItem = {
+          id: m.id,
+          summary: m.summary,
+          transcript: m.transcript,
+          created_at: m.created_at,
+          taskCount: memoTaskCounts.get(m.id) || 0,
+          noteCount: memoNoteCounts.get(m.id) || 0,
+        };
+        if (day) {
+          day.memos.push(memo);
+        }
       });
       
       // Extract all unique tags
@@ -444,7 +488,7 @@ export default function HomeScreen() {
     .filter(d => !d.isFuture) // Only today and past
     .map(d => ({ ...d, items: processItems(d.items) }))
     .filter(d => {
-      // When filtering by tag, hide days with no matching items
+      // When filtering by tag, hide days with no matching items (memos don't have tags so hide them too)
       if (selectedTag) return d.items.length > 0;
       // Otherwise show all days
       return true;
@@ -457,7 +501,7 @@ export default function HomeScreen() {
       return new Date(b.dateKey).getTime() - new Date(a.dateKey).getTime();
     });
   
-  const totalItems = allDays.reduce((sum, d) => sum + d.items.length, 0);
+  const totalItems = allDays.reduce((sum, d) => sum + d.items.length + d.memos.length, 0);
 
   if (isLoading || authLoading) {
     return (
@@ -508,7 +552,8 @@ export default function HomeScreen() {
   const renderDaySection = (day: DayData, hideHeader: boolean = false) => {
     // Empty days are collapsed by default, others expanded
     // Today is ALWAYS expanded by default when it has items
-    const hasItems = day.items.length > 0;
+    const hasItems = day.items.length > 0 || day.memos.length > 0;
+    const totalCount = day.items.length + day.memos.length;
     const isExpanded = day.isToday && hasItems 
       ? !collapsedDays.has(day.dateKey) // Today with items: expanded unless explicitly collapsed
       : hasItems 
@@ -518,6 +563,7 @@ export default function HomeScreen() {
     // Group by type
     const tasks = day.items.filter(i => i.type === 'task');
     const notes = day.items.filter(i => i.type === 'note');
+    const memos = day.memos;
     
     return (
       <View key={day.dateKey} style={styles.daySection}>
@@ -531,7 +577,7 @@ export default function HomeScreen() {
             <Text style={[styles.dayLabel, !hasItems && styles.dayLabelEmpty]}>{day.label}</Text>
           {hasItems && (
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{day.items.length}</Text>
+              <Text style={styles.badgeText}>{totalCount}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -622,6 +668,40 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               )}
             </View>
+
+            {/* Memos */}
+            <View style={styles.typeGroup}>
+              <Text style={[styles.typeLabel, { color: '#22c55e' }]}>Memos</Text>
+              {memos.map(memo => (
+                <TouchableOpacity
+                  key={memo.id}
+                  style={styles.item}
+                  onPress={() => router.push(`/entry/${memo.id}`)}
+                >
+                  <Ionicons name="mic" size={18} color="#22c55e" />
+                  <Text style={styles.itemText} numberOfLines={1}>
+                    {memo.summary || memo.transcript?.slice(0, 50) || 'Voice memo'}
+                  </Text>
+                  {(memo.taskCount > 0 || memo.noteCount > 0) && (
+                    <View style={styles.memoCounts}>
+                      {memo.taskCount > 0 && (
+                        <View style={styles.memoCountBadge}>
+                          <Ionicons name="checkbox-outline" size={12} color="#3b82f6" />
+                          <Text style={styles.memoCountText}>{memo.taskCount}</Text>
+                        </View>
+                      )}
+                      {memo.noteCount > 0 && (
+                        <View style={styles.memoCountBadge}>
+                          <Ionicons name="document-text-outline" size={12} color="#a78bfa" />
+                          <Text style={styles.memoCountText}>{memo.noteCount}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  <Ionicons name="chevron-forward" size={16} color="#333" />
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         )}
       </View>
@@ -635,18 +715,7 @@ export default function HomeScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        {/* View Toggle */}
-        <View style={styles.viewToggle}>
-          <TouchableOpacity style={[styles.toggleBtn, styles.toggleBtnActive]}>
-            <Ionicons name="list" size={20} color="#0a0a0a" />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.toggleBtn}
-            onPress={() => router.replace('/(tabs)/voice')}
-          >
-            <Ionicons name="mic" size={20} color="#666" />
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.headerTitle}>MemoTalk</Text>
         
         <View style={{ flex: 1 }} />
         
@@ -738,21 +807,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
   },
-  viewToggle: {
-    flexDirection: 'row',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    padding: 3,
-  },
-  toggleBtn: {
-    width: 40,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  toggleBtnActive: {
-    backgroundColor: '#f472b6',
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.5,
   },
   headerBtn: {
     width: 40,
@@ -881,9 +940,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     padding: 0,
   },
-  cancelBtn: {
-    padding: 4,
-  },
   emptyText: {
     fontSize: 14,
     color: '#444',
@@ -1009,5 +1065,23 @@ const styles = StyleSheet.create({
   itemTagText: {
     fontSize: 10,
     fontWeight: '600',
+  },
+  memoCounts: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  memoCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#1a1a1a',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  memoCountText: {
+    fontSize: 11,
+    color: '#888',
+    fontWeight: '500',
   },
 });
