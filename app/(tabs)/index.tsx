@@ -97,6 +97,10 @@ export default function HomeScreen() {
   // Tag drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const drawerAnim = useRef(new Animated.Value(-280)).current;
+  
+  // Inline editing state
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
   const overlayAnim = useRef(new Animated.Value(0)).current;
   
   const openDrawer = useCallback(() => {
@@ -489,8 +493,44 @@ export default function HomeScreen() {
 
   const handleItemPress = useCallback((item: Item) => {
     if (item.type === 'note') router.push(`/note/${item.id}`);
-    else if (item.type === 'task') router.push(`/task/${item.id}`);
+    // Tasks now use inline editing - don't navigate
   }, [router]);
+
+  const startEditingTask = useCallback((item: Item) => {
+    setEditingItemId(item.id);
+    setEditingText(item.text);
+  }, []);
+
+  const saveTaskEdit = useCallback(async (itemId: string) => {
+    const trimmedText = editingText.trim();
+    if (!trimmedText) {
+      setEditingItemId(null);
+      setEditingText('');
+      return;
+    }
+    
+    // Optimistic update
+    setDays(prev => prev.map(day => ({
+      ...day,
+      items: day.items.map(item => 
+        item.id === itemId ? { ...item, text: trimmedText } : item
+      ),
+    })));
+    
+    setEditingItemId(null);
+    setEditingText('');
+    
+    try {
+      await supabase.from('voice_todos').update({ text: trimmedText }).eq('id', itemId);
+    } catch (error) {
+      loadData(); // Revert on error
+    }
+  }, [editingText, loadData]);
+
+  const cancelTaskEdit = useCallback(() => {
+    setEditingItemId(null);
+    setEditingText('');
+  }, []);
 
   const handleDeleteItem = useCallback((item: Item) => {
     const table = item.type === 'task' ? 'voice_todos' : 'voice_notes';
@@ -580,12 +620,41 @@ export default function HomeScreen() {
   const renderItem = (item: Item) => {
     // Auto-generate tags if not present
     const displayTags = (item.tags && item.tags.length > 0) ? item.tags : autoGenerateTags(item.text);
+    const isEditing = editingItemId === item.id;
+    
+    // If editing this task, show inline input
+    if (isEditing && item.type === 'task') {
+      return (
+        <View key={item.id} style={styles.item}>
+          <TouchableOpacity onPress={() => handleToggleTask(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons 
+              name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
+              size={20} 
+              color={item.status === 'completed' ? '#4ade80' : '#666'} 
+            />
+          </TouchableOpacity>
+          <TextInput
+            style={styles.inlineEditInput}
+            value={editingText}
+            onChangeText={setEditingText}
+            autoFocus
+            selectTextOnFocus
+            onSubmitEditing={() => saveTaskEdit(item.id)}
+            onBlur={() => saveTaskEdit(item.id)}
+            returnKeyType="done"
+          />
+          <TouchableOpacity onPress={cancelTaskEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close" size={18} color="#666" />
+          </TouchableOpacity>
+        </View>
+      );
+    }
     
     return (
       <TouchableOpacity
         key={item.id}
         style={styles.item}
-        onPress={() => handleItemPress(item)}
+        onPress={() => item.type === 'task' ? startEditingTask(item) : handleItemPress(item)}
         onLongPress={() => handleDeleteItem(item)}
         delayLongPress={500}
       >
@@ -615,7 +684,7 @@ export default function HomeScreen() {
             ))}
           </View>
         )}
-        <Ionicons name="chevron-forward" size={16} color="#333" />
+        {item.type === 'note' && <Ionicons name="chevron-forward" size={16} color="#333" />}
       </TouchableOpacity>
     );
   };
@@ -1184,6 +1253,16 @@ const styles = StyleSheet.create({
   itemTextCompleted: {
     textDecorationLine: 'line-through',
     color: '#666',
+  },
+  inlineEditInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#fff',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 8,
   },
   addInputRow: {
     flexDirection: 'row',
