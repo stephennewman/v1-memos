@@ -11,6 +11,9 @@ import {
   Platform,
   Alert,
   TextInput,
+  Animated,
+  Dimensions,
+  Pressable,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -89,6 +92,50 @@ export default function HomeScreen() {
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
   const [allTags, setAllTags] = useState<string[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [tagCounts, setTagCounts] = useState<Map<string, number>>(new Map());
+  
+  // Tag drawer state
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const drawerAnim = useRef(new Animated.Value(-280)).current;
+  const overlayAnim = useRef(new Animated.Value(0)).current;
+  
+  const toggleDrawer = useCallback(() => {
+    const toValue = isDrawerOpen ? -280 : 0;
+    const overlayTo = isDrawerOpen ? 0 : 0.5;
+    
+    Animated.parallel([
+      Animated.timing(drawerAnim, {
+        toValue,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(overlayAnim, {
+        toValue: overlayTo,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    
+    setIsDrawerOpen(!isDrawerOpen);
+  }, [isDrawerOpen, drawerAnim, overlayAnim]);
+  
+  const selectTagFromDrawer = useCallback((tag: string | null) => {
+    setSelectedTag(tag);
+    // Close drawer after selection
+    Animated.parallel([
+      Animated.timing(drawerAnim, {
+        toValue: -280,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(overlayAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    setIsDrawerOpen(false);
+  }, [drawerAnim, overlayAnim]);
   
   // Inline add state - tracks which day and type
   const [addingTo, setAddingTo] = useState<{ dayKey: string; type: 'task' | 'note' } | null>(null);
@@ -356,7 +403,14 @@ export default function HomeScreen() {
         }
       });
       
-      // Extract all unique tags
+      // Extract all unique tags with counts
+      const counts = new Map<string, number>();
+      allItems.forEach(item => {
+        item.tags?.forEach(tag => {
+          counts.set(tag, (counts.get(tag) || 0) + 1);
+        });
+      });
+      setTagCounts(counts);
       setAllTags(getAllUniqueTags(allItems));
 
       // Sort items within each day by created_at (oldest first - new items at bottom)
@@ -730,7 +784,27 @@ export default function HomeScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity style={styles.menuBtn} onPress={toggleDrawer}>
+          <Ionicons name="menu" size={24} color="#fff" />
+          {allTags.length > 0 && (
+            <View style={styles.menuBadge}>
+              <Text style={styles.menuBadgeText}>{allTags.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        
         <Text style={styles.headerTitle}>MemoTalk</Text>
+        
+        {/* Show active filter indicator */}
+        {selectedTag && (
+          <TouchableOpacity 
+            style={[styles.activeFilterChip, { backgroundColor: `${getTagColor(selectedTag)}30`, borderColor: getTagColor(selectedTag) }]}
+            onPress={() => setSelectedTag(null)}
+          >
+            <Text style={[styles.activeFilterText, { color: getTagColor(selectedTag) }]}>#{selectedTag}</Text>
+            <Ionicons name="close" size={14} color={getTagColor(selectedTag)} />
+          </TouchableOpacity>
+        )}
         
         <View style={{ flex: 1 }} />
         
@@ -742,47 +816,63 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      
-      {/* Tag Filter Row */}
-      {allTags.length > 0 && (
-        <View style={styles.tagFilterRow}>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tagFilterContent}
-            style={{ flex: 1 }}
-          >
-            {(selectedTag ? [selectedTag] : allTags).map(tag => (
-              <TouchableOpacity
-                key={tag}
-                style={[
-                  styles.tagChip, 
-                  selectedTag === tag && styles.tagChipActive,
-                  { borderColor: getTagColor(tag) }
-                ]}
-                onPress={() => setSelectedTag(selectedTag === tag ? null : tag)}
-              >
-                <Text style={[
-                  styles.tagChipText, 
-                  selectedTag === tag && styles.tagChipTextActive,
-                  { color: selectedTag === tag ? '#fff' : getTagColor(tag) }
-                ]}>
-                  #{tag}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          {selectedTag && (
-            <TouchableOpacity
-              style={styles.clearFilterBtn}
-              onPress={() => setSelectedTag(null)}
-            >
-              <Text style={styles.clearFilterText}>Clear</Text>
-              <Ionicons name="close-circle" size={14} color="#888" />
-            </TouchableOpacity>
-          )}
-        </View>
+      {/* Tag Drawer Overlay */}
+      {isDrawerOpen && (
+        <Pressable 
+          style={styles.drawerOverlay}
+          onPress={toggleDrawer}
+        >
+          <Animated.View style={[styles.drawerOverlayBg, { opacity: overlayAnim }]} />
+        </Pressable>
       )}
+
+      {/* Tag Drawer */}
+      <Animated.View style={[styles.drawer, { transform: [{ translateX: drawerAnim }] }]}>
+        <View style={[styles.drawerContent, { paddingTop: insets.top + 12 }]}>
+          <View style={styles.drawerHeader}>
+            <Text style={styles.drawerTitle}>Tags</Text>
+            <TouchableOpacity onPress={toggleDrawer}>
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.drawerScroll} showsVerticalScrollIndicator={false}>
+            {/* All items option */}
+            <TouchableOpacity 
+              style={[styles.drawerTag, !selectedTag && styles.drawerTagActive]}
+              onPress={() => selectTagFromDrawer(null)}
+            >
+              <View style={styles.drawerTagLeft}>
+                <View style={[styles.drawerTagDot, { backgroundColor: '#666' }]} />
+                <Text style={[styles.drawerTagText, !selectedTag && styles.drawerTagTextActive]}>All Items</Text>
+              </View>
+              <Text style={styles.drawerTagCount}>{allTags.reduce((sum, t) => sum + (tagCounts.get(t) || 0), 0)}</Text>
+            </TouchableOpacity>
+            
+            {/* Individual tags sorted by count */}
+            {allTags.map(tag => {
+              const count = tagCounts.get(tag) || 0;
+              const isActive = selectedTag === tag;
+              return (
+                <TouchableOpacity 
+                  key={tag}
+                  style={[styles.drawerTag, isActive && styles.drawerTagActive]}
+                  onPress={() => selectTagFromDrawer(tag)}
+                >
+                  <View style={styles.drawerTagLeft}>
+                    <View style={[styles.drawerTagDot, { backgroundColor: getTagColor(tag) }]} />
+                    <Text style={[styles.drawerTagText, isActive && styles.drawerTagTextActive]}>#{tag}</Text>
+                  </View>
+                  <View style={styles.drawerTagRight}>
+                    <View style={[styles.drawerTagBar, { width: Math.min(count * 8, 60), backgroundColor: `${getTagColor(tag)}40` }]} />
+                    <Text style={styles.drawerTagCount}>{count}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Animated.View>
 
       {/* Content */}
       <ScrollView
@@ -827,6 +917,137 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
     letterSpacing: 0.5,
+  },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  menuBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 2,
+    backgroundColor: '#f472b6',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0a0a0a',
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginLeft: 8,
+  },
+  activeFilterText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  drawerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 998,
+  },
+  drawerOverlayBg: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  drawer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: 280,
+    backgroundColor: '#111',
+    zIndex: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  drawerContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+    marginBottom: 8,
+  },
+  drawerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  drawerScroll: {
+    flex: 1,
+  },
+  drawerTag: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 4,
+  },
+  drawerTagActive: {
+    backgroundColor: '#1a1a1a',
+  },
+  drawerTagLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  drawerTagDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  drawerTagText: {
+    fontSize: 15,
+    color: '#888',
+    fontWeight: '500',
+  },
+  drawerTagTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  drawerTagRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  drawerTagBar: {
+    height: 6,
+    borderRadius: 3,
+  },
+  drawerTagCount: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '600',
+    minWidth: 24,
+    textAlign: 'right',
   },
   headerBtn: {
     width: 40,
