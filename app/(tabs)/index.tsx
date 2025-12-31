@@ -793,26 +793,15 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.menuBtn} onPress={toggleDrawer}>
-          <Ionicons name="menu" size={24} color="#fff" />
-          {allTags.length > 0 && (
+          <Ionicons name="menu" size={24} color={selectedTag ? '#22c55e' : '#fff'} />
+          {selectedTag && (
             <View style={styles.menuBadge}>
-              <Text style={styles.menuBadgeText}>{allTags.length}</Text>
+              <Text style={styles.menuBadgeText}>1</Text>
             </View>
           )}
         </TouchableOpacity>
         
         <Text style={styles.headerTitle}>MemoTalk</Text>
-        
-        {/* Show active filter indicator */}
-        {selectedTag && (
-          <TouchableOpacity 
-            style={[styles.activeFilterChip, { backgroundColor: `${getTagColor(selectedTag)}30`, borderColor: getTagColor(selectedTag) }]}
-            onPress={() => setSelectedTag(null)}
-          >
-            <Text style={[styles.activeFilterText, { color: getTagColor(selectedTag) }]}>#{selectedTag}</Text>
-            <Ionicons name="close" size={14} color={getTagColor(selectedTag)} />
-          </TouchableOpacity>
-        )}
         
         <View style={{ flex: 1 }} />
         
@@ -836,11 +825,25 @@ export default function HomeScreen() {
       <Animated.View style={[styles.drawer, { transform: [{ translateX: drawerAnim }] }]}>
         <View style={[styles.drawerContent, { paddingTop: insets.top + 12 }]}>
           <View style={styles.drawerHeader}>
-            <Text style={styles.drawerTitle}>Tags</Text>
+            <Text style={styles.drawerTitle}>Filters</Text>
             <TouchableOpacity onPress={closeDrawer}>
               <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
           </View>
+          
+          {/* Active Filters Section */}
+          {selectedTag && (
+            <View style={styles.activeFiltersSection}>
+              <Text style={styles.activeFiltersLabel}>Active</Text>
+              <TouchableOpacity 
+                style={[styles.activeFilterPill, { backgroundColor: `${getTagColor(selectedTag)}25`, borderColor: getTagColor(selectedTag) }]}
+                onPress={() => setSelectedTag(null)}
+              >
+                <Text style={[styles.activeFilterPillText, { color: getTagColor(selectedTag) }]}>#{selectedTag}</Text>
+                <Ionicons name="close-circle" size={16} color={getTagColor(selectedTag)} />
+              </TouchableOpacity>
+            </View>
+          )}
           
           <ScrollView style={styles.drawerScroll} showsVerticalScrollIndicator={false}>
             {/* All items option */}
@@ -947,20 +950,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0a0a0a',
   },
-  activeFilterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginLeft: 8,
-  },
-  activeFilterText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
   drawerOverlay: {
     position: 'absolute',
     top: 0,
@@ -1004,6 +993,34 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#fff',
+  },
+  activeFiltersSection: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+    marginBottom: 8,
+  },
+  activeFiltersLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  activeFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 6,
+  },
+  activeFilterPillText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   drawerScroll: {
     flex: 1,
