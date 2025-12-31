@@ -52,12 +52,13 @@ export function QuickActions({ onVoice, onTask, context = 'home' }: QuickActions
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 30,
+    bottom: 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 34,
     gap: 8,
     backgroundColor: '#111111',
     borderTopWidth: 1,
