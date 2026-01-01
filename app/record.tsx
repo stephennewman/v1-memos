@@ -99,13 +99,32 @@ export default function RecordScreen() {
       if (entryError) throw entryError;
 
       setCreatedEntryId(entry.id);
-      setProcessingStep('Processing...');
+      
+      // Show engaging processing steps before navigating
+      const steps = [
+        'Transcribing your voice...',
+        'Understanding context...',
+        'Extracting tasks & notes...',
+        'Organizing your thoughts...',
+        'Almost ready...',
+      ];
+      
+      let stepIndex = 0;
+      setProcessingStep(steps[0]);
+      
+      const stepInterval = setInterval(() => {
+        stepIndex++;
+        if (stepIndex < steps.length) {
+          setProcessingStep(steps[stepIndex]);
+        }
+      }, 1200);
 
       // Navigate to entry detail page after showing the animation
       // The detail page has skeleton loaders and polls for updates
       setTimeout(() => {
+        clearInterval(stepInterval);
         router.replace(`/entry/${entry.id}`);
-      }, 3000);
+      }, 6000);
 
       // Start transcription in background (fire and forget)
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
