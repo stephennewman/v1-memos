@@ -24,6 +24,7 @@ export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   
   const [task, setTask] = useState<VoiceTodo | null>(null);
+  const [relatedTasks, setRelatedTasks] = useState<VoiceTodo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -58,12 +59,65 @@ export default function TaskDetailScreen() {
       setEditedText(data.text);
       setEditedDueDate(formatDateForInput(data.due_date));
       setEditedTags(data.tags || []);
+      
+      // Find related tasks (similar text, excluding this one)
+      await loadRelatedTasks(data);
     } catch (error) {
       console.error('Error loading task:', error);
       Alert.alert('Error', 'Failed to load task');
       router.back();
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  const loadRelatedTasks = async (currentTask: VoiceTodo) => {
+    try {
+      // Get keywords from the task text (words > 3 chars, lowercase)
+      const keywords = currentTask.text
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(word => word.length > 3)
+        .map(word => word.replace(/[^a-z0-9]/g, ''))
+        .filter(word => word.length > 3);
+      
+      if (keywords.length === 0) {
+        setRelatedTasks([]);
+        return;
+      }
+      
+      // Query for tasks containing any of these keywords
+      const { data: allTasks } = await supabase
+        .from('voice_todos')
+        .select('*')
+        .eq('user_id', currentTask.user_id)
+        .neq('id', currentTask.id)
+        .eq('is_archived', false)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      if (!allTasks) {
+        setRelatedTasks([]);
+        return;
+      }
+      
+      // Score and filter tasks by keyword matches
+      const scoredTasks = allTasks.map(task => {
+        const taskWords = task.text.toLowerCase().split(/\s+/);
+        const matchCount = keywords.filter(keyword => 
+          taskWords.some(word => word.includes(keyword) || keyword.includes(word))
+        ).length;
+        return { task, score: matchCount };
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(item => item.task);
+      
+      setRelatedTasks(scoredTasks);
+    } catch (error) {
+      console.error('Error loading related tasks:', error);
+      setRelatedTasks([]);
     }
   };
 
@@ -534,6 +588,41 @@ export default function TaskDetailScreen() {
           )}
         </View>
 
+        {/* Related Tasks */}
+        {relatedTasks.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>RELATED TASKS</Text>
+              <Text style={styles.relatedCount}>({relatedTasks.length})</Text>
+            </View>
+            {relatedTasks.map(relatedTask => (
+              <TouchableOpacity 
+                key={relatedTask.id}
+                style={styles.relatedRow}
+                onPress={() => router.push(`/task/${relatedTask.id}`)}
+              >
+                <Ionicons 
+                  name={relatedTask.status === 'completed' ? 'checkbox' : 'square-outline'} 
+                  size={16} 
+                  color={relatedTask.status === 'completed' ? '#4ade80' : '#666'} 
+                />
+                <Text 
+                  style={[
+                    styles.relatedText,
+                    relatedTask.status === 'completed' && styles.relatedTextCompleted
+                  ]}
+                  numberOfLines={1}
+                >
+                  {relatedTask.text}
+                </Text>
+                <Text style={styles.relatedDate}>
+                  {new Date(relatedTask.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* Actions */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -756,6 +845,34 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#a78bfa',
+  },
+  relatedCount: {
+    fontSize: 12,
+    color: '#666',
+  },
+  relatedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+  },
+  relatedText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#888',
+  },
+  relatedTextCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#555',
+  },
+  relatedDate: {
+    fontSize: 12,
+    color: '#555',
   },
   metaRow: {
     flexDirection: 'row',

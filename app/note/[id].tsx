@@ -24,6 +24,7 @@ export default function NoteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   
   const [note, setNote] = useState<VoiceNote | null>(null);
+  const [relatedNotes, setRelatedNotes] = useState<VoiceNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -55,12 +56,65 @@ export default function NoteDetailScreen() {
       setNote(data);
       setEditedText(data.text);
       setEditedTags(data.tags || []);
+      
+      // Find related notes
+      await loadRelatedNotes(data);
     } catch (error) {
       console.error('Error loading note:', error);
       Alert.alert('Error', 'Failed to load note');
       router.back();
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  const loadRelatedNotes = async (currentNote: VoiceNote) => {
+    try {
+      // Get keywords from the note text (words > 3 chars, lowercase)
+      const keywords = currentNote.text
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(word => word.length > 3)
+        .map(word => word.replace(/[^a-z0-9]/g, ''))
+        .filter(word => word.length > 3);
+      
+      if (keywords.length === 0) {
+        setRelatedNotes([]);
+        return;
+      }
+      
+      // Query for notes containing any of these keywords
+      const { data: allNotes } = await supabase
+        .from('voice_notes')
+        .select('*')
+        .eq('user_id', currentNote.user_id)
+        .neq('id', currentNote.id)
+        .eq('is_archived', false)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      if (!allNotes) {
+        setRelatedNotes([]);
+        return;
+      }
+      
+      // Score and filter notes by keyword matches
+      const scoredNotes = allNotes.map(note => {
+        const noteWords = note.text.toLowerCase().split(/\s+/);
+        const matchCount = keywords.filter(keyword => 
+          noteWords.some(word => word.includes(keyword) || keyword.includes(word))
+        ).length;
+        return { note, score: matchCount };
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(item => item.note);
+      
+      setRelatedNotes(scoredNotes);
+    } catch (error) {
+      console.error('Error loading related notes:', error);
+      setRelatedNotes([]);
     }
   };
 
@@ -351,6 +405,31 @@ export default function NoteDetailScreen() {
           )}
         </View>
 
+        {/* Related Notes */}
+        {relatedNotes.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>RELATED NOTES</Text>
+              <Text style={styles.relatedCount}>({relatedNotes.length})</Text>
+            </View>
+            {relatedNotes.map(relatedNote => (
+              <TouchableOpacity 
+                key={relatedNote.id}
+                style={styles.relatedRow}
+                onPress={() => router.push(`/note/${relatedNote.id}`)}
+              >
+                <Ionicons name="document-text" size={16} color="#a78bfa" />
+                <Text style={styles.relatedText} numberOfLines={1}>
+                  {relatedNote.text}
+                </Text>
+                <Text style={styles.relatedDate}>
+                  {new Date(relatedNote.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* Actions */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -490,6 +569,30 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#3b82f6',
+  },
+  relatedCount: {
+    fontSize: 12,
+    color: '#666',
+  },
+  relatedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+  },
+  relatedText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#888',
+  },
+  relatedDate: {
+    fontSize: 12,
+    color: '#555',
   },
   metaRow: {
     flexDirection: 'row',
