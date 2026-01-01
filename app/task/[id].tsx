@@ -246,7 +246,7 @@ export default function TaskDetailScreen() {
               
               if (!taskData) throw new Error('Task not found');
               
-              // Create the note
+              // Create the note with the same created_at date as the task
               const { error: noteError } = await supabase
                 .from('voice_notes')
                 .insert({
@@ -254,6 +254,8 @@ export default function TaskDetailScreen() {
                   text: task.text,
                   entry_id: task.entry_id || null,
                   is_archived: false,
+                  created_at: task.created_at, // Preserve original date
+                  tags: task.tags || [],
                 });
 
               if (noteError) throw noteError;

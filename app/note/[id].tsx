@@ -134,7 +134,7 @@ export default function NoteDetailScreen() {
               
               if (!noteData) throw new Error('Note not found');
               
-              // Create the task
+              // Create the task with the same created_at date as the note
               const { error: taskError } = await supabase
                 .from('voice_todos')
                 .insert({
@@ -142,6 +142,8 @@ export default function NoteDetailScreen() {
                   text: note.text,
                   entry_id: note.entry_id || null,
                   status: 'pending',
+                  created_at: note.created_at, // Preserve original date
+                  tags: note.tags || [],
                 });
 
               if (taskError) throw taskError;
