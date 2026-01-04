@@ -176,19 +176,29 @@ export default function HomeScreen() {
   // Scroll to input when it becomes visible (keyboard handling)
   useEffect(() => {
     if (addingTo && scrollViewRef.current) {
-      // Get the day's Y position and scroll to it
-      const dayY = dayPositions.get(addingTo.dayKey);
-      if (dayY !== undefined) {
-        // Small delay to ensure layout is complete and keyboard is shown
-        setTimeout(() => {
-          // Add offset for the type group (tasks vs notes)
-          const typeOffset = addingTo.type === 'task' ? 60 : 150;
-          scrollViewRef.current?.scrollTo({ 
-            y: Math.max(0, dayY + typeOffset), 
-            animated: true 
+      // Small delay to ensure layout is complete and keyboard is shown
+      setTimeout(() => {
+        // Use measureLayout to find actual input position
+        if (inputRowRef.current) {
+          inputRowRef.current.measureInWindow((x, y, width, height) => {
+            // Get screen height and keyboard approximate height (~300px on iOS)
+            const screenHeight = Dimensions.get('window').height;
+            const keyboardHeight = 320;
+            const visibleHeight = screenHeight - keyboardHeight;
+            
+            // If input is below visible area, scroll to it
+            if (y > visibleHeight - 100) {
+              const dayY = dayPositions.get(addingTo.dayKey) || 0;
+              // Calculate how much we need to scroll
+              const scrollAmount = y - visibleHeight + 150;
+              scrollViewRef.current?.scrollTo({ 
+                y: Math.max(0, dayY + scrollAmount), 
+                animated: true 
+              });
+            }
           });
-        }, 150);
-      }
+        }
+      }, 200);
     }
   }, [addingTo, dayPositions]);
 
