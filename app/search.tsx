@@ -160,7 +160,7 @@ export default function SearchScreen() {
     switch (type) {
       case 'task': return { name: 'checkbox', color: '#3b82f6' };
       case 'note': return { name: 'ellipse', color: '#a78bfa' };
-      case 'voice': return { name: 'mic', color: '#22c55e' };
+      case 'voice': return { name: 'play', color: '#22c55e' };
       case 'topic': return { name: 'bookmark', color: '#f59e0b' };
     }
   };

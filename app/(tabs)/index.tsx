@@ -975,7 +975,7 @@ export default function HomeScreen() {
                   style={styles.item}
                   onPress={() => router.push(`/entry/${memo.id}`)}
                 >
-                  <Ionicons name="mic" size={18} color="#22c55e" />
+                  <Ionicons name="play" size={16} color="#22c55e" />
                   <Text style={styles.itemText} numberOfLines={1}>
                     {memo.summary || memo.transcript?.slice(0, 50) || 'Voice memo'}
                   </Text>

@@ -276,7 +276,7 @@ export default function InsightsScreen() {
           <Text style={styles.sectionTitle}>OVERVIEW</Text>
           <View style={styles.overviewGrid}>
             <View style={styles.overviewCard}>
-              <Ionicons name="mic" size={20} color="#c4dfc4" />
+              <Ionicons name="play" size={18} color="#22c55e" />
               <Text style={styles.overviewNumber}>{analytics.totalEntries}</Text>
               <Text style={styles.overviewLabel}>Recordings</Text>
             </View>

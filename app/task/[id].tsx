@@ -606,7 +606,7 @@ export default function TaskDetailScreen() {
               style={styles.sourceRow}
               onPress={() => router.push(`/entry/${task.entry_id}`)}
             >
-              <Ionicons name="mic" size={18} color="#22c55e" />
+              <Ionicons name="play" size={16} color="#22c55e" />
               <Text style={styles.sourceText}>View original memo</Text>
               <Ionicons name="chevron-forward" size={16} color="#444" />
             </TouchableOpacity>

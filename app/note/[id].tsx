@@ -365,7 +365,7 @@ export default function NoteDetailScreen() {
               style={styles.sourceRow}
               onPress={() => router.push(`/entry/${note.entry_id}`)}
             >
-              <Ionicons name="mic" size={18} color="#22c55e" />
+              <Ionicons name="play" size={16} color="#22c55e" />
               <Text style={styles.sourceText}>View original memo</Text>
               <Ionicons name="chevron-forward" size={16} color="#444" />
             </TouchableOpacity>

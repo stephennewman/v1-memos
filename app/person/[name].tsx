@@ -206,7 +206,7 @@ export default function PersonDetailScreen() {
                 style={styles.entryItem}
                 onPress={() => router.push(`/entry/${entry.id}`)}
               >
-                <Ionicons name="mic" size={18} color="#c4dfc4" />
+                <Ionicons name="play" size={16} color="#22c55e" />
                 <View style={styles.entryContent}>
                   <Text style={styles.entryTitle} numberOfLines={1}>
                     {entry.summary || 'Voice Note'}
