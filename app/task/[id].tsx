@@ -10,10 +10,12 @@ import {
   Platform,
   KeyboardAvoidingView,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
 import type { VoiceTodo } from '@/lib/types';
 import { getTagColor } from '@/lib/auto-tags';
@@ -29,8 +31,10 @@ export default function TaskDetailScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingDueDate, setIsEditingDueDate] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [editedText, setEditedText] = useState('');
   const [editedDueDate, setEditedDueDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [editedTags, setEditedTags] = useState<string[]>([]);
   const [newTagText, setNewTagText] = useState('');
 
@@ -58,6 +62,12 @@ export default function TaskDetailScreen() {
       setTask(data);
       setEditedText(data.text);
       setEditedDueDate(formatDateForInput(data.due_date));
+      // Set selected date for date picker
+      if (data.due_date) {
+        setSelectedDate(new Date(data.due_date));
+      } else {
+        setSelectedDate(new Date());
+      }
       setEditedTags(data.tags || []);
       
       // Find related tasks (similar text, excluding this one)
@@ -279,6 +289,48 @@ export default function TaskDetailScreen() {
     }
   };
 
+  const handleDateChange = async (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    if (event.type === 'dismissed') {
+      setShowDatePicker(false);
+      return;
+    }
+    
+    if (date && task) {
+      setSelectedDate(date);
+      
+      // Save immediately on date selection
+      try {
+        const dateToSave = new Date(date);
+        dateToSave.setUTCHours(12, 0, 0, 0);
+        const parsedDate = dateToSave.toISOString();
+
+        const { error } = await supabase
+          .from('voice_todos')
+          .update({ due_date: parsedDate })
+          .eq('id', task.id);
+
+        if (error) throw error;
+        setTask({ ...task, due_date: parsedDate });
+        setEditedDueDate(formatDateForInput(parsedDate));
+        
+        if (Platform.OS === 'ios') {
+          // Keep picker open on iOS for potential adjustment
+        }
+      } catch (error) {
+        console.error('Error saving due date:', error);
+        Alert.alert('Error', 'Failed to save due date');
+      }
+    }
+  };
+
+  const confirmAndCloseDatePicker = () => {
+    setShowDatePicker(false);
+  };
+
   const convertToNote = () => {
     Alert.alert(
       'Convert to Note',
@@ -482,61 +534,67 @@ export default function TaskDetailScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>DUE DATE</Text>
-            {task.due_date && !isEditingDueDate && (
+            {task.due_date && (
               <TouchableOpacity onPress={clearDueDate}>
                 <Text style={styles.clearText}>Clear</Text>
               </TouchableOpacity>
             )}
           </View>
-          {isEditing || isEditingDueDate ? (
-            <View style={styles.dueDateEditRow}>
-              <TextInput
-                style={styles.dateInput}
-                value={editedDueDate}
-                onChangeText={setEditedDueDate}
-                placeholder="e.g., Jan 15, 2026 or tomorrow"
-                placeholderTextColor="#444"
-                autoFocus={isEditingDueDate}
-                onSubmitEditing={saveDueDate}
-                returnKeyType="done"
-              />
-              {isEditingDueDate && (
-                <View style={styles.dueDateActions}>
-                  <TouchableOpacity 
-                    style={styles.dueDateCancelBtn}
-                    onPress={() => {
-                      setIsEditingDueDate(false);
-                      setEditedDueDate(formatDateForInput(task.due_date));
-                    }}
-                  >
-                    <Ionicons name="close" size={20} color="#666" />
+          <TouchableOpacity 
+            style={styles.dateRow}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Ionicons 
+              name="calendar-outline" 
+              size={18} 
+              color={task.due_date ? '#3b82f6' : '#444'} 
+            />
+            <Text style={[styles.dateText, !task.due_date && styles.dateTextEmpty]}>
+              {formatDateDisplay(task.due_date)}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color="#444" style={{ marginLeft: 'auto' }} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Date Picker Modal */}
+        {Platform.OS === 'ios' ? (
+          <Modal
+            visible={showDatePicker}
+            transparent
+            animationType="slide"
+          >
+            <View style={styles.datePickerModal}>
+              <View style={styles.datePickerContainer}>
+                <View style={styles.datePickerHeader}>
+                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                    <Text style={styles.datePickerCancel}>Cancel</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.dueDateSaveBtn}
-                    onPress={saveDueDate}
-                  >
-                    <Ionicons name="checkmark" size={20} color="#fff" />
+                  <Text style={styles.datePickerTitle}>Select Due Date</Text>
+                  <TouchableOpacity onPress={confirmAndCloseDatePicker}>
+                    <Text style={styles.datePickerDone}>Done</Text>
                   </TouchableOpacity>
                 </View>
-              )}
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={handleDateChange}
+                  textColor="#fff"
+                  style={styles.datePicker}
+                />
+              </View>
             </View>
-          ) : (
-            <TouchableOpacity 
-              style={styles.dateRow}
-              onPress={() => setIsEditingDueDate(true)}
-            >
-              <Ionicons 
-                name="calendar-outline" 
-                size={18} 
-                color={task.due_date ? '#3b82f6' : '#444'} 
-              />
-              <Text style={[styles.dateText, !task.due_date && styles.dateTextEmpty]}>
-                {formatDateDisplay(task.due_date)}
-              </Text>
-              <Ionicons name="pencil" size={14} color="#444" style={{ marginLeft: 'auto' }} />
-            </TouchableOpacity>
-          )}
-        </View>
+          </Modal>
+        ) : (
+          showDatePicker && (
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display="default"
+              onChange={handleDateChange}
+            />
+          )
+        )}
 
         {/* Source Entry */}
         {task.entry_id && (
@@ -964,6 +1022,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#333',
+  },
+  datePickerModal: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  datePickerContainer: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 40,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  datePickerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  datePickerCancel: {
+    fontSize: 16,
+    color: '#888',
+  },
+  datePickerDone: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  datePicker: {
+    height: 200,
   },
 });
 

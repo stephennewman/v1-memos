@@ -167,23 +167,40 @@ export default function HomeScreen() {
   // Inline add state - tracks which day and type
   const [addingTo, setAddingTo] = useState<{ dayKey: string; type: 'task' | 'note' } | null>(null);
   const [addingText, setAddingText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   const handleAddTask = useCallback(async () => {
-    if (!addingText.trim() || !user || !addingTo) return;
+    if (!addingText.trim() || !user || !addingTo || isSaving) return;
+    
+    const taskText = addingText.trim();
+    
+    // Check for duplicate - exact same text in existing tasks
+    const hasDuplicate = days.some(day => 
+      day.items.some(item => 
+        item.type === 'task' && item.text.toLowerCase() === taskText.toLowerCase()
+      )
+    );
+    
+    if (hasDuplicate) {
+      Alert.alert('Duplicate Task', 'A task with this exact text already exists.');
+      return;
+    }
+    
+    setIsSaving(true);
     
     // Use current timestamp - new items always sort to bottom
     const createdAt = new Date().toISOString();
     
     // Auto-generate tags from the text
-    const tags = autoGenerateTags(addingText.trim());
+    const tags = autoGenerateTags(taskText);
     const tempId = `temp-${Date.now()}`;
     
     // Optimistic update - add item to local state immediately
     const newItem: Item = {
       id: tempId,
       type: 'task',
-      text: addingText.trim(),
+      text: taskText,
       status: 'pending',
       created_at: createdAt,
       tags,
@@ -228,28 +245,46 @@ export default function HomeScreen() {
       created_at: createdAt,
     });
     
+    setIsSaving(false);
+    
     if (error) {
       console.error('Error adding task:', error);
       // Revert on error
       loadData();
     }
-  }, [addingText, user, addingTo, loadData]);
+  }, [addingText, user, addingTo, loadData, isSaving, days]);
 
   const handleAddNote = useCallback(async () => {
-    if (!addingText.trim() || !user || !addingTo) return;
+    if (!addingText.trim() || !user || !addingTo || isSaving) return;
+    
+    const noteText = addingText.trim();
+    
+    // Check for duplicate - exact same text in existing notes
+    const hasDuplicate = days.some(day => 
+      day.items.some(item => 
+        item.type === 'note' && item.text.toLowerCase() === noteText.toLowerCase()
+      )
+    );
+    
+    if (hasDuplicate) {
+      Alert.alert('Duplicate Note', 'A note with this exact text already exists.');
+      return;
+    }
+    
+    setIsSaving(true);
     
     // Use current timestamp - new items always sort to bottom
     const createdAt = new Date().toISOString();
     
     // Auto-generate tags from the text
-    const tags = autoGenerateTags(addingText.trim());
+    const tags = autoGenerateTags(noteText);
     const tempId = `temp-${Date.now()}`;
     
     // Optimistic update - add item to local state immediately
     const newItem: Item = {
       id: tempId,
       type: 'note',
-      text: addingText.trim(),
+      text: noteText,
       created_at: createdAt,
       tags,
     };
@@ -293,12 +328,14 @@ export default function HomeScreen() {
       created_at: createdAt,
     });
     
+    setIsSaving(false);
+    
     if (error) {
       console.error('Error adding note:', error);
       // Revert on error
       loadData();
     }
-  }, [addingText, user, addingTo, loadData]);
+  }, [addingText, user, addingTo, loadData, isSaving, days]);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -739,15 +776,15 @@ export default function HomeScreen() {
   };
 
   const renderDaySection = (day: DayData, hideHeader: boolean = false, isFirstDay: boolean = false) => {
-    // Empty days are collapsed by default, others expanded
-    // Today is ALWAYS expanded by default when it has items
+    // Today is ALWAYS expanded and pink, even if empty
+    // Past days: expanded if has items, collapsed if empty
     const hasItems = day.items.length > 0 || day.memos.length > 0;
     const totalCount = day.items.length + day.memos.length;
-    const isExpanded = day.isToday && hasItems 
-      ? !collapsedDays.has(day.dateKey) // Today with items: expanded unless explicitly collapsed
+    const isExpanded = day.isToday 
+      ? !collapsedDays.has(day.dateKey) // Today: always expanded by default (unless user collapses)
       : hasItems 
-        ? !collapsedDays.has(day.dateKey) // Other days with items: expanded unless explicitly collapsed
-        : collapsedDays.has(day.dateKey); // Empty days: collapsed unless explicitly expanded
+        ? !collapsedDays.has(day.dateKey) // Past days with items: expanded unless explicitly collapsed
+        : false; // Past empty days: always collapsed
     
     // Group by type
     const tasks = day.items.filter(i => i.type === 'task');
@@ -764,21 +801,21 @@ export default function HomeScreen() {
         }}
       >
         {!hideHeader && (
-          <View style={[styles.dayHeader, !hasItems && styles.dayHeaderEmpty]}>
+          <View style={[styles.dayHeader, !hasItems && !day.isToday && styles.dayHeaderEmpty]}>
             <TouchableOpacity 
               style={styles.dayHeaderLeft}
               onPress={() => toggleDayExpanded(day.dateKey)}
               activeOpacity={0.7}
             >
-              <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color={hasItems ? '#0a0a0a' : '#666'} />
-              <Text style={[styles.dayLabel, !hasItems && styles.dayLabelEmpty]}>{day.label}</Text>
+              <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color={hasItems || day.isToday ? '#0a0a0a' : '#666'} />
+              <Text style={[styles.dayLabel, !hasItems && !day.isToday && styles.dayLabelEmpty]}>{day.label}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.badge, !hasItems && styles.badgeEmpty]}
+              style={[styles.badge, !hasItems && !day.isToday && styles.badgeEmpty]}
               onPress={() => !day.isToday && focusDay(day.dateKey)}
               activeOpacity={day.isToday ? 1 : 0.7}
             >
-              <Text style={[styles.badgeText, !hasItems && styles.badgeTextEmpty]}>{totalCount}</Text>
+              <Text style={[styles.badgeText, !hasItems && !day.isToday && styles.badgeTextEmpty]}>{totalCount}</Text>
             </TouchableOpacity>
           </View>
         )}
