@@ -789,7 +789,7 @@ export default function HomeScreen() {
           onLongPress={() => handleDeleteItem(item)}
           delayLongPress={500}
         >
-          <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]} numberOfLines={1}>
+          <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]}>
             {item.text}
           </Text>
         </TouchableOpacity>
@@ -1476,7 +1476,7 @@ const styles = StyleSheet.create({
   },
   item: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 12,
     paddingHorizontal: 20,
     gap: 12,
