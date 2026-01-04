@@ -746,7 +746,7 @@ export default function HomeScreen() {
               <Ionicons 
                 name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
                 size={20} 
-                color={item.status === 'completed' ? '#4ade80' : '#666'} 
+                color={item.status === 'completed' ? '#3b82f6' : '#666'} 
               />
             </TouchableOpacity>
           )}
@@ -778,7 +778,7 @@ export default function HomeScreen() {
             <Ionicons 
               name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
               size={20} 
-              color={item.status === 'completed' ? '#4ade80' : '#666'} 
+              color={item.status === 'completed' ? '#3b82f6' : '#666'} 
             />
           </TouchableOpacity>
         )}
@@ -1490,7 +1490,7 @@ const styles = StyleSheet.create({
   },
   itemTextCompleted: {
     textDecorationLine: 'line-through',
-    color: '#666',
+    color: '#3b82f6',
   },
   inlineEditInput: {
     flex: 1,
