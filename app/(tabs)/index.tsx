@@ -856,7 +856,10 @@ export default function HomeScreen() {
           <View style={styles.dayContent}>
             {/* Tasks */}
             <View style={styles.typeGroup}>
-              <Text style={styles.typeLabel}>Tasks</Text>
+              <View style={styles.typeLabelRow}>
+                <Ionicons name="checkbox-outline" size={14} color="#3b82f6" />
+                <Text style={styles.typeLabel}>Tasks</Text>
+              </View>
               {tasks.map(renderItem)}
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'task' ? (
                 <View ref={inputRowRef} style={styles.inlineInputRow}>
@@ -912,7 +915,10 @@ export default function HomeScreen() {
             
             {/* Notes */}
             <View style={styles.typeGroup}>
-              <Text style={[styles.typeLabel, { color: '#a78bfa' }]}>Notes</Text>
+              <View style={styles.typeLabelRow}>
+                <Ionicons name="document-text-outline" size={14} color="#a78bfa" />
+                <Text style={[styles.typeLabel, { color: '#a78bfa' }]}>Notes</Text>
+              </View>
               {notes.map(renderItem)}
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'note' ? (
                 <View ref={inputRowRef} style={styles.inlineInputRow}>
@@ -968,7 +974,10 @@ export default function HomeScreen() {
 
             {/* Memos */}
             <View style={styles.typeGroup}>
-              <Text style={[styles.typeLabel, { color: '#22c55e' }]}>Memos</Text>
+              <View style={styles.typeLabelRow}>
+                <Ionicons name="mic-outline" size={14} color="#22c55e" />
+                <Text style={[styles.typeLabel, { color: '#22c55e' }]}>Memos</Text>
+              </View>
               {memos.map(memo => (
                 <TouchableOpacity
                   key={memo.id}
@@ -1488,15 +1497,20 @@ const styles = StyleSheet.create({
   typeGroup: {
     marginBottom: 8,
   },
+  typeLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
   typeLabel: {
     fontSize: 11,
     fontWeight: '700',
     color: '#3b82f6',
     letterSpacing: 1,
     textTransform: 'uppercase',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
   },
   empty: {
     flex: 1,
