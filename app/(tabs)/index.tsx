@@ -860,6 +860,7 @@ export default function HomeScreen() {
               {tasks.map(renderItem)}
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'task' ? (
                 <View ref={inputRowRef} style={styles.inlineInputRow}>
+                  <Ionicons name="square-outline" size={20} color="#666" style={{ marginRight: 8 }} />
                   <TextInput
                     ref={inputRef}
                     style={styles.inlineInput}
@@ -915,6 +916,7 @@ export default function HomeScreen() {
               {notes.map(renderItem)}
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'note' ? (
                 <View ref={inputRowRef} style={styles.inlineInputRow}>
+                  <Ionicons name="document-text" size={18} color="#a78bfa" style={{ marginRight: 8 }} />
                   <TextInput
                     ref={inputRef}
                     style={styles.inlineInput}
