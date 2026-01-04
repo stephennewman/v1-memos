@@ -864,44 +864,45 @@ export default function HomeScreen() {
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'task' ? (
                 <View ref={inputRowRef} style={styles.inlineInputRow}>
                   <Ionicons name="square-outline" size={20} color="#666" />
-                  <TextInput
-                    ref={inputRef}
-                    style={styles.inlineInput}
-                    value={addingText}
-                    onChangeText={setAddingText}
-                    placeholder="Enter task..."
-                    placeholderTextColor="#666"
-                    autoFocus
-                    onSubmitEditing={() => {
-                      if (addingText.trim()) {
-                        handleAddTask();
-                      } else {
-                        // Empty submit = close input
-                        setAddingTo(null);
-                        Keyboard.dismiss();
-                      }
-                    }}
-                    onBlur={() => {
-                      // Close input when tapping outside (unless we just submitted)
-                      if (justSubmittedRef.current) {
-                        justSubmittedRef.current = false;
-                        return;
-                      }
-                      setTimeout(() => {
-                        if (!justSubmittedRef.current) {
+                  <View style={styles.inputWithCancel}>
+                    <TextInput
+                      ref={inputRef}
+                      style={styles.inlineInputInner}
+                      value={addingText}
+                      onChangeText={setAddingText}
+                      placeholder="Enter task..."
+                      placeholderTextColor="#666"
+                      autoFocus
+                      onSubmitEditing={() => {
+                        if (addingText.trim()) {
+                          handleAddTask();
+                        } else {
                           setAddingTo(null);
+                          Keyboard.dismiss();
                         }
-                      }, 150);
-                    }}
-                    blurOnSubmit={false}
-                    returnKeyType="next"
-                  />
-                  <TouchableOpacity 
-                    style={styles.cancelBtn}
-                    onPress={() => { setAddingTo(null); setAddingText(''); Keyboard.dismiss(); }}
-                  >
-                    <Text style={styles.cancelBtnText}>Done</Text>
-                  </TouchableOpacity>
+                      }}
+                      onBlur={() => {
+                        if (justSubmittedRef.current) {
+                          justSubmittedRef.current = false;
+                          return;
+                        }
+                        setTimeout(() => {
+                          if (!justSubmittedRef.current) {
+                            setAddingTo(null);
+                          }
+                        }, 150);
+                      }}
+                      blurOnSubmit={false}
+                      returnKeyType="next"
+                    />
+                    <TouchableOpacity 
+                      style={styles.inlineCancelBtn}
+                      onPress={() => { setAddingTo(null); setAddingText(''); Keyboard.dismiss(); }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Text style={styles.inlineCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ) : (
                 <TouchableOpacity 
@@ -923,44 +924,45 @@ export default function HomeScreen() {
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'note' ? (
                 <View ref={inputRowRef} style={styles.inlineInputRow}>
                   <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 5 }} />
-                  <TextInput
-                    ref={inputRef}
-                    style={styles.inlineInput}
-                    value={addingText}
-                    onChangeText={setAddingText}
-                    placeholder="Enter note..."
-                    placeholderTextColor="#666"
-                    autoFocus
-                    onSubmitEditing={() => {
-                      if (addingText.trim()) {
-                        handleAddNote();
-                      } else {
-                        // Empty submit = close input
-                        setAddingTo(null);
-                        Keyboard.dismiss();
-                      }
-                    }}
-                    onBlur={() => {
-                      // Close input when tapping outside (unless we just submitted)
-                      if (justSubmittedRef.current) {
-                        justSubmittedRef.current = false;
-                        return;
-                      }
-                      setTimeout(() => {
-                        if (!justSubmittedRef.current) {
+                  <View style={styles.inputWithCancel}>
+                    <TextInput
+                      ref={inputRef}
+                      style={styles.inlineInputInner}
+                      value={addingText}
+                      onChangeText={setAddingText}
+                      placeholder="Enter note..."
+                      placeholderTextColor="#666"
+                      autoFocus
+                      onSubmitEditing={() => {
+                        if (addingText.trim()) {
+                          handleAddNote();
+                        } else {
                           setAddingTo(null);
+                          Keyboard.dismiss();
                         }
-                      }, 150);
-                    }}
-                    blurOnSubmit={false}
-                    returnKeyType="next"
-                  />
-                  <TouchableOpacity 
-                    style={styles.cancelBtn}
-                    onPress={() => { setAddingTo(null); setAddingText(''); Keyboard.dismiss(); }}
-                  >
-                    <Text style={styles.cancelBtnText}>Done</Text>
-                  </TouchableOpacity>
+                      }}
+                      onBlur={() => {
+                        if (justSubmittedRef.current) {
+                          justSubmittedRef.current = false;
+                          return;
+                        }
+                        setTimeout(() => {
+                          if (!justSubmittedRef.current) {
+                            setAddingTo(null);
+                          }
+                        }, 150);
+                      }}
+                      blurOnSubmit={false}
+                      returnKeyType="next"
+                    />
+                    <TouchableOpacity 
+                      style={styles.inlineCancelBtn}
+                      onPress={() => { setAddingTo(null); setAddingText(''); Keyboard.dismiss(); }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Text style={styles.inlineCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ) : (
                 <TouchableOpacity 
@@ -1550,6 +1552,31 @@ const styles = StyleSheet.create({
     color: '#fff',
     borderWidth: 1,
     borderColor: '#333',
+  },
+  inputWithCancel: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#333',
+    paddingRight: 4,
+  },
+  inlineInputInner: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#fff',
+  },
+  inlineCancelBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  inlineCancelText: {
+    fontSize: 13,
+    color: '#888',
   },
   cancelBtn: {
     paddingHorizontal: 12,
