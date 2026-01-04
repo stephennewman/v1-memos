@@ -863,7 +863,7 @@ export default function HomeScreen() {
               {tasks.map(renderItem)}
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'task' ? (
                 <View ref={inputRowRef} style={styles.inlineInputRow}>
-                  <Ionicons name="square-outline" size={20} color="#666" style={{ marginRight: 8 }} />
+                  <Ionicons name="square-outline" size={20} color="#666" />
                   <TextInput
                     ref={inputRef}
                     style={styles.inlineInput}
@@ -922,7 +922,7 @@ export default function HomeScreen() {
               {notes.map(renderItem)}
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'note' ? (
                 <View ref={inputRowRef} style={styles.inlineInputRow}>
-                  <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginRight: 12, marginLeft: 4 }} />
+                  <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 5 }} />
                   <TextInput
                     ref={inputRef}
                     style={styles.inlineInput}
@@ -1536,9 +1536,9 @@ const styles = StyleSheet.create({
   inlineInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    gap: 12,
   },
   inlineInput: {
     flex: 1,
