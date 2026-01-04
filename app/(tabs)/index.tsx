@@ -1581,7 +1581,8 @@ const styles = StyleSheet.create({
   },
   inlineInputInner: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingLeft: 2,
+    paddingRight: 8,
     paddingVertical: 10,
     fontSize: 14,
     color: '#fff',
