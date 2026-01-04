@@ -27,7 +27,8 @@ export default function NoteDetailScreen() {
   const [relatedNotes, setRelatedNotes] = useState<VoiceNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [isEditingTags, setIsEditingTags] = useState(false);
   const [editedText, setEditedText] = useState('');
   const [editedTags, setEditedTags] = useState<string[]>([]);
   const [newTagText, setNewTagText] = useState('');
@@ -262,7 +263,7 @@ export default function NoteDetailScreen() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>NOTE</Text>
           </View>
-          {isEditing ? (
+          {isEditingText ? (
             <TextInput
               style={styles.textInput}
               value={editedText}
@@ -271,10 +272,10 @@ export default function NoteDetailScreen() {
               autoFocus
               placeholder="Enter note..."
               placeholderTextColor="#444"
-              onBlur={saveChanges}
+              onBlur={() => { saveChanges(); setIsEditingText(false); }}
             />
           ) : (
-            <TouchableOpacity onPress={() => setIsEditing(true)}>
+            <TouchableOpacity onPress={() => setIsEditingText(true)}>
               <Text style={styles.noteText}>
                 {note.text}
               </Text>
@@ -286,8 +287,13 @@ export default function NoteDetailScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>TAGS</Text>
+            {isEditingTags && (
+              <TouchableOpacity onPress={() => { saveChanges(); setIsEditingTags(false); }}>
+                <Text style={styles.doneText}>Done</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          {isEditing ? (
+          {isEditingTags ? (
             <View>
               <View style={styles.tagsContainer}>
                 {editedTags.map(tag => (
@@ -308,6 +314,7 @@ export default function NoteDetailScreen() {
                   onChangeText={setNewTagText}
                   placeholder="Add tag..."
                   placeholderTextColor="#444"
+                  autoFocus
                   onSubmitEditing={() => {
                     const tag = newTagText.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
                     if (tag && !editedTags.includes(tag)) {
@@ -334,7 +341,7 @@ export default function NoteDetailScreen() {
           ) : (
             <TouchableOpacity 
               style={styles.tagsContainer}
-              onPress={() => setIsEditing(true)}
+              onPress={() => setIsEditingTags(true)}
             >
               {note.tags && note.tags.length > 0 ? (
                 note.tags.map(tag => (
@@ -439,25 +446,6 @@ export default function NoteDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Edit Actions */}
-        {isEditing && (
-          <View style={styles.editActions}>
-            <TouchableOpacity 
-              style={styles.cancelBtn} 
-              onPress={() => {
-                setIsEditing(false);
-                setEditedText(note.text);
-                setEditedTags(note.tags || []);
-              }}
-            >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.saveBtn} onPress={saveChanges}>
-              <Text style={styles.saveBtnText}>Save Changes</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         <View style={{ height: 40 }} />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -521,6 +509,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#666',
     letterSpacing: 1,
+  },
+  doneText: {
+    fontSize: 13,
+    color: '#3b82f6',
   },
   noteText: {
     fontSize: 18,

@@ -29,7 +29,8 @@ export default function TaskDetailScreen() {
   const [relatedTasks, setRelatedTasks] = useState<VoiceTodo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [isEditingTags, setIsEditingTags] = useState(false);
   const [isEditingDueDate, setIsEditingDueDate] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [editedText, setEditedText] = useState('');
@@ -434,7 +435,7 @@ export default function TaskDetailScreen() {
                 {isCompleted && <Ionicons name="checkmark" size={18} color="#0a0a0a" />}
               </View>
             </TouchableOpacity>
-            {isEditing ? (
+            {isEditingText ? (
               <TextInput
                 style={[styles.textInput, { flex: 1 }]}
                 value={editedText}
@@ -444,13 +445,13 @@ export default function TaskDetailScreen() {
                 autoFocus
                 returnKeyType="done"
                 blurOnSubmit={true}
-                onSubmitEditing={saveChanges}
-                onBlur={saveChanges}
+                onSubmitEditing={() => { saveChanges(); setIsEditingText(false); }}
+                onBlur={() => { saveChanges(); setIsEditingText(false); }}
               />
             ) : (
               <TouchableOpacity 
                 style={{ flex: 1 }} 
-                onPress={() => setIsEditing(true)}
+                onPress={() => setIsEditingText(true)}
               >
                 <Text style={[styles.taskText, isCompleted && styles.taskTextCompleted]}>
                   {task.text}
@@ -464,8 +465,13 @@ export default function TaskDetailScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>TAGS</Text>
+            {isEditingTags && (
+              <TouchableOpacity onPress={() => { saveChanges(); setIsEditingTags(false); }}>
+                <Text style={styles.doneText}>Done</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          {isEditing ? (
+          {isEditingTags ? (
             <View>
               <View style={styles.tagsContainer}>
                 {editedTags.map(tag => (
@@ -486,6 +492,7 @@ export default function TaskDetailScreen() {
                   onChangeText={setNewTagText}
                   placeholder="Add tag..."
                   placeholderTextColor="#444"
+                  autoFocus
                   onSubmitEditing={() => {
                     const tag = newTagText.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
                     if (tag && !editedTags.includes(tag)) {
@@ -512,7 +519,7 @@ export default function TaskDetailScreen() {
           ) : (
             <TouchableOpacity 
               style={styles.tagsContainer}
-              onPress={() => setIsEditing(true)}
+              onPress={() => setIsEditingTags(true)}
             >
               {task.tags && task.tags.length > 0 ? (
                 task.tags.map(tag => (
@@ -693,26 +700,6 @@ export default function TaskDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Edit Actions */}
-        {isEditing && (
-          <View style={styles.editActions}>
-            <TouchableOpacity 
-              style={styles.cancelBtn} 
-              onPress={() => {
-                setIsEditing(false);
-                setEditedText(task.text);
-                setEditedDueDate(formatDateForInput(task.due_date));
-                setEditedTags(task.tags || []);
-              }}
-            >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.saveBtn} onPress={saveChanges}>
-              <Text style={styles.saveBtnText}>Save Changes</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         <View style={{ height: 40 }} />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -801,6 +788,10 @@ const styles = StyleSheet.create({
   clearText: {
     fontSize: 13,
     color: '#ef4444',
+  },
+  doneText: {
+    fontSize: 13,
+    color: '#3b82f6',
   },
   taskText: {
     flex: 1,
