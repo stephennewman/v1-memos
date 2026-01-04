@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,6 +14,7 @@ import {
   Animated,
   Dimensions,
   Pressable,
+  Keyboard,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -169,10 +170,32 @@ export default function HomeScreen() {
   const [addingText, setAddingText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const inputRowRef = useRef<View>(null);
+  const justSubmittedRef = useRef(false);
+  
+  // Scroll to input when it becomes visible (keyboard handling)
+  useEffect(() => {
+    if (addingTo && scrollViewRef.current) {
+      // Get the day's Y position and scroll to it
+      const dayY = dayPositions.get(addingTo.dayKey);
+      if (dayY !== undefined) {
+        // Small delay to ensure layout is complete and keyboard is shown
+        setTimeout(() => {
+          // Add offset for the type group (tasks vs notes)
+          const typeOffset = addingTo.type === 'task' ? 60 : 150;
+          scrollViewRef.current?.scrollTo({ 
+            y: Math.max(0, dayY + typeOffset), 
+            animated: true 
+          });
+        }, 150);
+      }
+    }
+  }, [addingTo, dayPositions]);
 
   const handleAddTask = useCallback(async () => {
     if (!addingText.trim() || !user || !addingTo || isSaving) return;
     
+    justSubmittedRef.current = true;
     const taskText = addingText.trim();
     
     // Check for duplicate - exact same text in existing tasks
@@ -233,8 +256,9 @@ export default function HomeScreen() {
       });
     }
     
+    // Clear text but KEEP input open for multi-item entry
     setAddingText('');
-    setAddingTo(null);
+    // Don't close: setAddingTo(null) - user taps outside to close
     
     // Save to database in background
     const { error } = await supabase.from('voice_todos').insert({
@@ -252,11 +276,15 @@ export default function HomeScreen() {
       // Revert on error
       loadData();
     }
+    
+    // Re-focus input for next entry
+    setTimeout(() => inputRef.current?.focus(), 50);
   }, [addingText, user, addingTo, loadData, isSaving, days]);
 
   const handleAddNote = useCallback(async () => {
     if (!addingText.trim() || !user || !addingTo || isSaving) return;
     
+    justSubmittedRef.current = true;
     const noteText = addingText.trim();
     
     // Check for duplicate - exact same text in existing notes
@@ -316,8 +344,9 @@ export default function HomeScreen() {
       });
     }
     
+    // Clear text but KEEP input open for multi-item entry
     setAddingText('');
-    setAddingTo(null);
+    // Don't close: setAddingTo(null) - user taps outside to close
     
     // Save to database in background
     const { error } = await supabase.from('voice_notes').insert({
@@ -335,6 +364,9 @@ export default function HomeScreen() {
       // Revert on error
       loadData();
     }
+    
+    // Re-focus input for next entry
+    setTimeout(() => inputRef.current?.focus(), 50);
   }, [addingText, user, addingTo, loadData, isSaving, days]);
 
   const loadData = useCallback(async () => {
@@ -827,7 +859,7 @@ export default function HomeScreen() {
               <Text style={styles.typeLabel}>Tasks</Text>
               {tasks.map(renderItem)}
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'task' ? (
-                <View style={styles.inlineInputRow}>
+                <View ref={inputRowRef} style={styles.inlineInputRow}>
                   <TextInput
                     ref={inputRef}
                     style={styles.inlineInput}
@@ -840,18 +872,31 @@ export default function HomeScreen() {
                       if (addingText.trim()) {
                         handleAddTask();
                       } else {
+                        // Empty submit = close input
                         setAddingTo(null);
+                        Keyboard.dismiss();
                       }
                     }}
-                    blurOnSubmit={true}
-                    returnKeyType="done"
-                    enablesReturnKeyAutomatically={true}
+                    onBlur={() => {
+                      // Close input when tapping outside (unless we just submitted)
+                      if (justSubmittedRef.current) {
+                        justSubmittedRef.current = false;
+                        return;
+                      }
+                      setTimeout(() => {
+                        if (!justSubmittedRef.current) {
+                          setAddingTo(null);
+                        }
+                      }, 150);
+                    }}
+                    blurOnSubmit={false}
+                    returnKeyType="next"
                   />
                   <TouchableOpacity 
                     style={styles.cancelBtn}
-                    onPress={() => { setAddingTo(null); setAddingText(''); }}
+                    onPress={() => { setAddingTo(null); setAddingText(''); Keyboard.dismiss(); }}
                   >
-                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                    <Text style={styles.cancelBtnText}>Done</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -869,7 +914,7 @@ export default function HomeScreen() {
               <Text style={[styles.typeLabel, { color: '#a78bfa' }]}>Notes</Text>
               {notes.map(renderItem)}
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'note' ? (
-                <View style={styles.inlineInputRow}>
+                <View ref={inputRowRef} style={styles.inlineInputRow}>
                   <TextInput
                     ref={inputRef}
                     style={styles.inlineInput}
@@ -882,18 +927,31 @@ export default function HomeScreen() {
                       if (addingText.trim()) {
                         handleAddNote();
                       } else {
+                        // Empty submit = close input
                         setAddingTo(null);
+                        Keyboard.dismiss();
                       }
                     }}
-                    blurOnSubmit={true}
-                    returnKeyType="done"
-                    enablesReturnKeyAutomatically={true}
+                    onBlur={() => {
+                      // Close input when tapping outside (unless we just submitted)
+                      if (justSubmittedRef.current) {
+                        justSubmittedRef.current = false;
+                        return;
+                      }
+                      setTimeout(() => {
+                        if (!justSubmittedRef.current) {
+                          setAddingTo(null);
+                        }
+                      }, 150);
+                    }}
+                    blurOnSubmit={false}
+                    returnKeyType="next"
                   />
                   <TouchableOpacity 
                     style={styles.cancelBtn}
-                    onPress={() => { setAddingTo(null); setAddingText(''); }}
+                    onPress={() => { setAddingTo(null); setAddingText(''); Keyboard.dismiss(); }}
                   >
-                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                    <Text style={styles.cancelBtnText}>Done</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
