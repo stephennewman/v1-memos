@@ -1573,10 +1573,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#333',
+    backgroundColor: 'transparent',
     paddingRight: 4,
   },
   inlineInputInner: {
