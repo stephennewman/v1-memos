@@ -896,9 +896,17 @@ export default function HomeScreen() {
                       returnKeyType="next"
                     />
                     <TouchableOpacity 
+                      style={styles.inlineAddBtn}
+                      onPress={() => { if (addingText.trim()) handleAddTask(); }}
+                      hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
+                    >
+                      <Text style={[styles.inlineAddText, !addingText.trim() && styles.inlineAddTextDisabled]}>Add</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.inlineDivider}>|</Text>
+                    <TouchableOpacity 
                       style={styles.inlineCancelBtn}
                       onPress={() => { setAddingTo(null); setAddingText(''); Keyboard.dismiss(); }}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      hitSlop={{ top: 10, bottom: 10, left: 5, right: 10 }}
                     >
                       <Text style={styles.inlineCancelText}>Cancel</Text>
                     </TouchableOpacity>
@@ -956,9 +964,17 @@ export default function HomeScreen() {
                       returnKeyType="next"
                     />
                     <TouchableOpacity 
+                      style={styles.inlineAddBtn}
+                      onPress={() => { if (addingText.trim()) handleAddNote(); }}
+                      hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
+                    >
+                      <Text style={[styles.inlineAddText, !addingText.trim() && styles.inlineAddTextDisabled]}>Add</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.inlineDivider}>|</Text>
+                    <TouchableOpacity 
                       style={styles.inlineCancelBtn}
                       onPress={() => { setAddingTo(null); setAddingText(''); Keyboard.dismiss(); }}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      hitSlop={{ top: 10, bottom: 10, left: 5, right: 10 }}
                     >
                       <Text style={styles.inlineCancelText}>Cancel</Text>
                     </TouchableOpacity>
@@ -1570,13 +1586,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fff',
   },
+  inlineAddBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  inlineAddText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  inlineAddTextDisabled: {
+    color: '#444',
+  },
+  inlineDivider: {
+    fontSize: 13,
+    color: '#333',
+  },
   inlineCancelBtn: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 6,
   },
   inlineCancelText: {
     fontSize: 13,
-    color: '#888',
+    color: '#666',
   },
   cancelBtn: {
     paddingHorizontal: 12,
