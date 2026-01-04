@@ -125,7 +125,7 @@ export function QuickNoteModal({ visible, onClose, onSave }: QuickNoteModalProps
                 onPress={handleSave}
                 disabled={!text.trim() || isSaving}
               >
-                <Ionicons name="document-text" size={18} color={text.trim() ? '#fff' : '#666'} />
+                <Ionicons name="ellipse" size={10} color={text.trim() ? '#fff' : '#666'} />
                 <Text style={[styles.saveBtnText, !text.trim() && styles.saveBtnTextDisabled]}>
                   {isSaving ? 'Saving...' : 'Add Note'}
                 </Text>

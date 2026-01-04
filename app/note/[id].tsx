@@ -418,7 +418,7 @@ export default function NoteDetailScreen() {
                 style={styles.relatedRow}
                 onPress={() => router.push(`/note/${relatedNote.id}`)}
               >
-                <Ionicons name="document-text" size={16} color="#a78bfa" />
+                <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 3 }} />
                 <Text style={styles.relatedText} numberOfLines={1}>
                   {relatedNote.text}
                 </Text>

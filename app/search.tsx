@@ -159,7 +159,7 @@ export default function SearchScreen() {
   const getIcon = (type: SearchResult['type']) => {
     switch (type) {
       case 'task': return { name: 'checkbox', color: '#3b82f6' };
-      case 'note': return { name: 'document-text', color: '#a78bfa' };
+      case 'note': return { name: 'ellipse', color: '#a78bfa' };
       case 'voice': return { name: 'mic', color: '#22c55e' };
       case 'topic': return { name: 'bookmark', color: '#f59e0b' };
     }

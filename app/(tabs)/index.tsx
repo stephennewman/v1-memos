@@ -740,7 +740,7 @@ export default function HomeScreen() {
               />
             </TouchableOpacity>
           )}
-          {item.type === 'note' && <Ionicons name="document-text" size={18} color="#a78bfa" />}
+          {item.type === 'note' && <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 4 }} />}
           <TextInput
             style={styles.inlineEditInput}
             value={editingText}
@@ -772,7 +772,7 @@ export default function HomeScreen() {
             />
           </TouchableOpacity>
         )}
-        {item.type === 'note' && <Ionicons name="document-text" size={18} color="#a78bfa" />}
+        {item.type === 'note' && <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 4 }} />}
         <TouchableOpacity 
           style={styles.itemTextWrapper}
           onPress={() => startEditingItem(item)}
@@ -916,7 +916,7 @@ export default function HomeScreen() {
               {notes.map(renderItem)}
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'note' ? (
                 <View ref={inputRowRef} style={styles.inlineInputRow}>
-                  <Ionicons name="document-text" size={18} color="#a78bfa" style={{ marginRight: 8 }} />
+                  <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginRight: 12, marginLeft: 4 }} />
                   <TextInput
                     ref={inputRef}
                     style={styles.inlineInput}
@@ -989,7 +989,7 @@ export default function HomeScreen() {
                       )}
                       {memo.noteCount > 0 && (
                         <View style={styles.memoCountBadge}>
-                          <Ionicons name="document-text-outline" size={12} color="#a78bfa" />
+                          <Ionicons name="ellipse" size={8} color="#a78bfa" />
                           <Text style={styles.memoCountText}>{memo.noteCount}</Text>
                         </View>
                       )}

@@ -279,7 +279,7 @@ export default function PersonDetailScreen() {
                 style={styles.noteItem}
                 onPress={() => router.push(`/note/${note.id}`)}
               >
-                <Ionicons name="document-text-outline" size={18} color="#93c5fd" />
+                <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 4 }} />
                 <Text style={styles.noteText} numberOfLines={2}>{note.text}</Text>
                 <Ionicons name="chevron-forward" size={16} color="#444" />
               </TouchableOpacity>

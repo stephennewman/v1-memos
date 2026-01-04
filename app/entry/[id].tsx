@@ -789,7 +789,7 @@ export default function EntryDetailScreen() {
                   style={styles.noteItem}
                   onPress={() => router.push(`/note/${note.id}`)}
                 >
-                  <Ionicons name="document-text-outline" size={16} color="#93c5fd" />
+                  <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 3 }} />
                   <Text style={styles.noteText} numberOfLines={2}>{note.text}</Text>
                   {note.tags && note.tags.length > 0 && (
                     <View style={styles.itemTagsRow}>

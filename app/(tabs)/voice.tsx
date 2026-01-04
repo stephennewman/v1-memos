@@ -261,7 +261,7 @@ export default function VoiceScreen() {
             })}
             {item.extracted_notes?.map((note, idx) => (
               <View key={`note-${idx}`} style={styles.extractedItem}>
-                <Ionicons name="document-text" size={18} color="#a78bfa" />
+                <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 4 }} />
                 <Text style={styles.extractedItemText} numberOfLines={1}>{note}</Text>
                 {item.tags && item.tags.length > 0 && (
                   <View style={styles.itemTagsRow}>
