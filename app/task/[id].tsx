@@ -427,11 +427,6 @@ export default function TaskDetailScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>TASK</Text>
-            {!isEditing && (
-              <TouchableOpacity onPress={() => setIsEditing(true)}>
-                <Ionicons name="pencil" size={16} color="#666" />
-              </TouchableOpacity>
-            )}
           </View>
           <View style={styles.taskRow}>
             <TouchableOpacity onPress={toggleStatus} style={styles.checkboxContainer}>
@@ -446,14 +441,21 @@ export default function TaskDetailScreen() {
                 onChangeText={setEditedText}
                 placeholder="Enter task..."
                 placeholderTextColor="#444"
+                autoFocus
                 returnKeyType="done"
                 blurOnSubmit={true}
                 onSubmitEditing={saveChanges}
+                onBlur={saveChanges}
               />
             ) : (
-              <Text style={[styles.taskText, isCompleted && styles.taskTextCompleted]}>
-                {task.text}
-              </Text>
+              <TouchableOpacity 
+                style={{ flex: 1 }} 
+                onPress={() => setIsEditing(true)}
+              >
+                <Text style={[styles.taskText, isCompleted && styles.taskTextCompleted]}>
+                  {task.text}
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -462,11 +464,6 @@ export default function TaskDetailScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>TAGS</Text>
-            {!isEditing && (
-              <TouchableOpacity onPress={() => setIsEditing(true)}>
-                <Ionicons name="pencil" size={16} color="#666" />
-              </TouchableOpacity>
-            )}
           </View>
           {isEditing ? (
             <View>
@@ -513,7 +510,10 @@ export default function TaskDetailScreen() {
               </View>
             </View>
           ) : (
-            <View style={styles.tagsContainer}>
+            <TouchableOpacity 
+              style={styles.tagsContainer}
+              onPress={() => setIsEditing(true)}
+            >
               {task.tags && task.tags.length > 0 ? (
                 task.tags.map(tag => (
                   <View
@@ -524,9 +524,9 @@ export default function TaskDetailScreen() {
                   </View>
                 ))
               ) : (
-                <Text style={styles.noTagsText}>No tags</Text>
+                <Text style={styles.noTagsText}>Tap to add tags</Text>
               )}
-            </View>
+            </TouchableOpacity>
           )}
         </View>
 

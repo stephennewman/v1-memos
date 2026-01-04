@@ -261,11 +261,6 @@ export default function NoteDetailScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>NOTE</Text>
-            {!isEditing && (
-              <TouchableOpacity onPress={() => setIsEditing(true)}>
-                <Ionicons name="pencil" size={16} color="#666" />
-              </TouchableOpacity>
-            )}
           </View>
           {isEditing ? (
             <TextInput
@@ -273,13 +268,17 @@ export default function NoteDetailScreen() {
               value={editedText}
               onChangeText={setEditedText}
               multiline
+              autoFocus
               placeholder="Enter note..."
               placeholderTextColor="#444"
+              onBlur={saveChanges}
             />
           ) : (
-            <Text style={styles.noteText}>
-              {note.text}
-            </Text>
+            <TouchableOpacity onPress={() => setIsEditing(true)}>
+              <Text style={styles.noteText}>
+                {note.text}
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -287,11 +286,6 @@ export default function NoteDetailScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>TAGS</Text>
-            {!isEditing && (
-              <TouchableOpacity onPress={() => setIsEditing(true)}>
-                <Ionicons name="pencil" size={16} color="#666" />
-              </TouchableOpacity>
-            )}
           </View>
           {isEditing ? (
             <View>
@@ -338,7 +332,10 @@ export default function NoteDetailScreen() {
               </View>
             </View>
           ) : (
-            <View style={styles.tagsContainer}>
+            <TouchableOpacity 
+              style={styles.tagsContainer}
+              onPress={() => setIsEditing(true)}
+            >
               {note.tags && note.tags.length > 0 ? (
                 note.tags.map(tag => (
                   <View
@@ -349,9 +346,9 @@ export default function NoteDetailScreen() {
                   </View>
                 ))
               ) : (
-                <Text style={styles.noTagsText}>No tags</Text>
+                <Text style={styles.noTagsText}>Tap to add tags</Text>
               )}
-            </View>
+            </TouchableOpacity>
           )}
         </View>
 
