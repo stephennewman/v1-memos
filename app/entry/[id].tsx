@@ -377,6 +377,29 @@ export default function EntryDetailScreen() {
     }
   };
 
+  const toggleTask = async (task: VoiceTodo) => {
+    const newStatus = task.status === 'completed' ? 'pending' : 'completed';
+    
+    // Optimistic update
+    setTasks(tasks.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+    
+    try {
+      const { error } = await supabase
+        .from('voice_todos')
+        .update({ status: newStatus })
+        .eq('id', task.id);
+
+      if (error) {
+        // Revert on error
+        setTasks(tasks.map(t => t.id === task.id ? { ...t, status: task.status } : t));
+      }
+    } catch (error) {
+      console.error('Error toggling task:', error);
+      // Revert on error
+      setTasks(tasks.map(t => t.id === task.id ? { ...t, status: task.status } : t));
+    }
+  };
+
   const addNote = async () => {
     if (!entry || !user || !newNoteText.trim()) return;
 
@@ -701,17 +724,21 @@ export default function EntryDetailScreen() {
           ) : (
             <>
               {tasks.map((task) => (
-                <TouchableOpacity
-                  key={task.id}
-                  style={styles.taskItem}
-                  onPress={() => router.push(`/task/${task.id}`)}
-                >
-                  <Ionicons
-                    name={task.status === 'completed' ? "checkbox" : "checkbox-outline"}
-                    size={20}
-                    color={task.status === 'completed' ? '#666' : '#c4dfc4'}
-                  />
-                  <View style={styles.taskContent}>
+                <View key={task.id} style={styles.taskItem}>
+                  <TouchableOpacity 
+                    onPress={() => toggleTask(task)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons
+                      name={task.status === 'completed' ? "checkbox" : "square-outline"}
+                      size={20}
+                      color={task.status === 'completed' ? '#3b82f6' : '#666'}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.taskContent}
+                    onPress={() => router.push(`/task/${task.id}`)}
+                  >
                     <Text style={[
                       styles.taskText,
                       task.status === 'completed' && styles.taskTextCompleted
@@ -723,7 +750,7 @@ export default function EntryDetailScreen() {
                         })}
                       </Text>
                     )}
-                  </View>
+                  </TouchableOpacity>
                   {task.tags && task.tags.length > 0 && (
                     <View style={styles.itemTagsRow}>
                       {task.tags.slice(0, 2).map(tag => (
@@ -737,12 +764,12 @@ export default function EntryDetailScreen() {
                     </View>
                   )}
                   <TouchableOpacity
-                    onPress={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                    onPress={() => deleteTask(task.id)}
                     style={styles.deleteTaskBtn}
                   >
                     <Ionicons name="close" size={18} color="#666" />
                   </TouchableOpacity>
-                </TouchableOpacity>
+                </View>
               ))}
 
               {/* Add Task Input */}
@@ -1149,7 +1176,7 @@ const styles = StyleSheet.create({
   },
   taskTextCompleted: {
     textDecorationLine: 'line-through',
-    color: '#666',
+    color: '#3b82f6',
   },
   taskDue: {
     fontSize: 12,

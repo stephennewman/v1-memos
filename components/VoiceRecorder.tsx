@@ -177,6 +177,10 @@ export function VoiceRecorder({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
+        interruptionModeIOS: 1, // DoNotMix - continue recording even when app goes to background
+        shouldDuckAndroid: false,
+        interruptionModeAndroid: 1, // DoNotMix
+        playThroughEarpieceAndroid: false,
       });
 
       console.log('[VoiceRecorder] Creating recording...');
