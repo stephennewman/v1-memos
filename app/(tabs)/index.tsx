@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -42,8 +42,6 @@ const SORT_OPTIONS: { value: SortOption; label: string; icon: string }[] = [
   { value: 'completed_first', label: 'Done first', icon: 'checkbox' },
   { value: 'newest', label: 'Newest first', icon: 'arrow-up' },
   { value: 'oldest', label: 'Oldest first', icon: 'arrow-down' },
-  { value: 'tasks_first', label: 'Tasks first', icon: 'checkmark-circle-outline' },
-  { value: 'notes_first', label: 'Notes first', icon: 'document-text-outline' },
   { value: 'normal', label: 'Original order', icon: 'time-outline' },
 ];
 
@@ -431,30 +429,36 @@ export default function HomeScreen() {
     try {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
 
-      const { data: tasks } = await supabase
-        .from('voice_todos')
-        .select('id, text, status, created_at, tags, entry_id')
-        .eq('user_id', user.id)
-        .neq('status', 'dismissed')  // Filter out archived/dismissed tasks
-        .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: false });
+      // Parallel queries for better performance
+      const [tasksResult, notesResult, entriesResult] = await Promise.all([
+        supabase
+          .from('voice_todos')
+          .select('id, text, status, created_at, tags, entry_id')
+          .eq('user_id', user.id)
+          .neq('status', 'dismissed')
+          .gte('created_at', thirtyDaysAgoISO)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('voice_notes')
+          .select('id, text, created_at, tags, entry_id')
+          .eq('user_id', user.id)
+          .eq('is_archived', false)
+          .gte('created_at', thirtyDaysAgoISO)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('voice_entries')
+          .select('id, summary, transcript, created_at')
+          .eq('user_id', user.id)
+          .eq('is_archived', false)
+          .gte('created_at', thirtyDaysAgoISO)
+          .order('created_at', { ascending: false }),
+      ]);
 
-      const { data: notes } = await supabase
-        .from('voice_notes')
-        .select('id, text, created_at, tags, entry_id')
-        .eq('user_id', user.id)
-        .eq('is_archived', false)
-        .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: false });
-
-      const { data: voiceEntries } = await supabase
-        .from('voice_entries')
-        .select('id, summary, transcript, created_at')
-        .eq('user_id', user.id)
-        .eq('is_archived', false)
-        .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: false });
+      const tasks = tasksResult.data;
+      const notes = notesResult.data;
+      const voiceEntries = entriesResult.data;
       
       // Build memo counts from tasks/notes
       const memoTaskCounts = new Map<string, number>();
@@ -816,25 +820,30 @@ export default function HomeScreen() {
     return filtered;
   }, [selectedTags, sortOption]);
 
-  // Process days - today first, then past (newest first), exclude future
-  const allDays = days
-    .filter(d => !d.isFuture) // Only today and past
-    .map(d => ({ ...d, items: processItems(d.items) }))
-    .filter(d => {
-      // When filtering by tags, hide days with no matching items (memos don't have tags so hide them too)
-      if (selectedTags.length > 0) return d.items.length > 0;
-      // Otherwise show all days
-      return true;
-    })
-    .sort((a, b) => {
-      // Today comes first
-      if (a.isToday && !b.isToday) return -1;
-      if (!a.isToday && b.isToday) return 1;
-      // Then sort by date descending (newest first)
-      return new Date(b.dateKey).getTime() - new Date(a.dateKey).getTime();
-    });
+  // Process days - memoized for performance
+  const allDays = useMemo(() => {
+    return days
+      .filter(d => !d.isFuture) // Only today and past
+      .map(d => ({ ...d, items: processItems(d.items) }))
+      .filter(d => {
+        // When filtering by tags, hide days with no matching items (memos don't have tags so hide them too)
+        if (selectedTags.length > 0) return d.items.length > 0;
+        // Otherwise show all days
+        return true;
+      })
+      .sort((a, b) => {
+        // Today comes first
+        if (a.isToday && !b.isToday) return -1;
+        if (!a.isToday && b.isToday) return 1;
+        // Then sort by date descending (newest first)
+        return new Date(b.dateKey).getTime() - new Date(a.dateKey).getTime();
+      });
+  }, [days, processItems, selectedTags]);
   
-  const totalItems = allDays.reduce((sum, d) => sum + d.items.length + d.memos.length, 0);
+  const totalItems = useMemo(() => 
+    allDays.reduce((sum, d) => sum + d.items.length + d.memos.length, 0),
+    [allDays]
+  );
 
   // These hooks MUST be defined before any conditional returns to avoid "rendered more hooks" error
   const handleSwipeArchive = useCallback(async (item: Item) => {
