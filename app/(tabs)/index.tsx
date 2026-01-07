@@ -634,30 +634,44 @@ export default function HomeScreen() {
     loadData();
   }, [loadData]);
 
-  const handleToggleTask = useCallback(async (item: Item) => {
+  const handleToggleTask = useCallback((item: Item) => {
     const newStatus = item.status === 'completed' ? 'pending' : 'completed';
     
-    // Instant update - change status (sorting handled by processItems in allDays)
-    setDays(prev => prev.map(day => ({
-      ...day,
-      items: day.items.map(i => 
-        i.id === item.id ? { ...i, status: newStatus } : i
-      ),
-    })));
-
-    // Save to database in background
-    try {
-      await supabase
-        .from('voice_todos')
-        .update({ status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null })
-        .eq('id', item.id);
-    } catch (error) {
-      // Revert on error
-      setDays(prev => prev.map(day => ({
+    // Instant update - only update the day that contains this item
+    setDays(prev => {
+      const dayIndex = prev.findIndex(d => d.items.some(i => i.id === item.id));
+      if (dayIndex === -1) return prev;
+      
+      const newDays = [...prev];
+      const day = newDays[dayIndex];
+      newDays[dayIndex] = {
         ...day,
-        items: day.items.map(i => i.id === item.id ? { ...i, status: item.status } : i),
-      })));
-    }
+        items: day.items.map(i => i.id === item.id ? { ...i, status: newStatus } : i),
+      };
+      return newDays;
+    });
+
+    // Save to database in background (fire and forget)
+    supabase
+      .from('voice_todos')
+      .update({ status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null })
+      .eq('id', item.id)
+      .then(({ error }) => {
+        if (error) {
+          // Revert on error
+          setDays(prev => {
+            const dayIndex = prev.findIndex(d => d.items.some(i => i.id === item.id));
+            if (dayIndex === -1) return prev;
+            const newDays = [...prev];
+            const day = newDays[dayIndex];
+            newDays[dayIndex] = {
+              ...day,
+              items: day.items.map(i => i.id === item.id ? { ...i, status: item.status } : i),
+            };
+            return newDays;
+          });
+        }
+      });
   }, []);
 
   const goToDetailPage = useCallback((item: Item) => {
@@ -898,13 +912,17 @@ export default function HomeScreen() {
       return (
         <View key={item.id} style={styles.item}>
           {item.type === 'task' && (
-            <TouchableOpacity onPress={() => handleToggleTask(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Pressable 
+              onPress={() => handleToggleTask(item)} 
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+            >
               <Ionicons 
                 name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
                 size={20} 
                 color={item.status === 'completed' ? '#3b82f6' : '#666'} 
               />
-            </TouchableOpacity>
+            </Pressable>
           )}
           {item.type === 'note' && <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 4 }} />}
           <TextInput
@@ -927,13 +945,17 @@ export default function HomeScreen() {
     const itemContent = (
       <View style={styles.item}>
         {item.type === 'task' && (
-          <TouchableOpacity onPress={() => handleToggleTask(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Pressable 
+            onPress={() => handleToggleTask(item)} 
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+          >
             <Ionicons 
               name={item.status === 'completed' ? 'checkbox' : 'square-outline'} 
               size={20} 
               color={item.status === 'completed' ? '#3b82f6' : '#666'} 
             />
-          </TouchableOpacity>
+          </Pressable>
         )}
         {item.type === 'note' && <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 4 }} />}
         <TouchableOpacity 
