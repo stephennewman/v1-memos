@@ -38,6 +38,7 @@ interface SwipeableItemProps {
     label?: string;
   };
   disabled?: boolean;
+  style?: any;
 }
 
 export function SwipeableItem({
@@ -57,6 +58,7 @@ export function SwipeableItem({
     label: 'Done',
   },
   disabled = false,
+  style,
 }: SwipeableItemProps) {
   const swipeableRef = useRef<Swipeable>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -156,7 +158,7 @@ export function SwipeableItem({
   };
 
   if (disabled) {
-    return <View style={styles.content}>{children}</View>;
+    return <View style={[styles.content, style]}>{children}</View>;
   }
 
   return (
@@ -170,6 +172,7 @@ export function SwipeableItem({
       overshootLeft={false}
       overshootRight={false}
       friction={2}
+      containerStyle={style}
     >
       <View style={styles.content}>{children}</View>
     </Swipeable>

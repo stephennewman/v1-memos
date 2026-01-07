@@ -960,16 +960,9 @@ export default function HomeScreen() {
       );
     }
     
-    const itemContent = (
-      <View style={styles.item}>
-        {item.type === 'task' && (
-          <TaskCheckbox 
-            itemId={item.id} 
-            initialStatus={item.status} 
-            onToggle={handleToggleTask} 
-          />
-        )}
-        {item.type === 'note' && <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 4 }} />}
+    // Swipeable content (no checkbox - checkbox is outside for instant tap response)
+    const swipeableContent = (
+      <View style={styles.itemInner}>
         <TouchableOpacity 
           style={styles.itemTextWrapper}
           onPress={() => startEditingItem(item)}
@@ -1001,38 +994,48 @@ export default function HomeScreen() {
       </View>
     );
 
-    // Task: swipe left to delete only (tap checkbox to complete)
+    // Task: checkbox OUTSIDE swipeable for instant tap response
     if (item.type === 'task') {
       return (
-        <SwipeableItem
-          key={item.id}
-          onSwipeLeft={() => handleSwipeArchive(item)}
-          leftAction={{
-            icon: 'trash-outline',
-            color: '#fff',
-            backgroundColor: '#ef4444',
-            label: 'Delete',
-          }}
-        >
-          {itemContent}
-        </SwipeableItem>
+        <View key={item.id} style={styles.item}>
+          <TaskCheckbox 
+            itemId={item.id} 
+            initialStatus={item.status} 
+            onToggle={handleToggleTask} 
+          />
+          <SwipeableItem
+            onSwipeLeft={() => handleSwipeArchive(item)}
+            leftAction={{
+              icon: 'trash-outline',
+              color: '#fff',
+              backgroundColor: '#ef4444',
+              label: 'Delete',
+            }}
+            style={styles.swipeableContent}
+          >
+            {swipeableContent}
+          </SwipeableItem>
+        </View>
       );
     }
     
     // Note: swipe left to archive only
     return (
-      <SwipeableItem
-        key={item.id}
-        onSwipeLeft={() => handleSwipeArchive(item)}
-        leftAction={{
-          icon: 'archive-outline',
-          color: '#fff',
-          backgroundColor: '#ef4444',
-          label: 'Archive',
-        }}
-      >
-        {itemContent}
-      </SwipeableItem>
+      <View key={item.id} style={styles.item}>
+        <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 4 }} />
+        <SwipeableItem
+          onSwipeLeft={() => handleSwipeArchive(item)}
+          leftAction={{
+            icon: 'archive-outline',
+            color: '#fff',
+            backgroundColor: '#ef4444',
+            label: 'Archive',
+          }}
+          style={styles.swipeableContent}
+        >
+          {swipeableContent}
+        </SwipeableItem>
+      </View>
     );
   };
 
@@ -1757,7 +1760,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 12,
     paddingHorizontal: 20,
+    gap: 8,
+  },
+  itemInner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
     gap: 12,
+  },
+  swipeableContent: {
+    flex: 1,
   },
   itemTextWrapper: {
     flex: 1,
