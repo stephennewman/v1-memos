@@ -100,29 +100,8 @@ export default function RecordScreen() {
 
       setCreatedEntryId(entry.id);
       
-      // Quick engaging processing steps - faster for better UX
-      const steps = [
-        'Uploading...',
-        'Transcribing...',
-        'Analyzing...',
-      ];
-      
-      let stepIndex = 0;
-      setProcessingStep(steps[0]);
-      
-      const stepInterval = setInterval(() => {
-        stepIndex++;
-        if (stepIndex < steps.length) {
-          setProcessingStep(steps[stepIndex]);
-        }
-      }, 500);
-
-      // Navigate to entry detail page FAST (1.5 seconds)
-      // The detail page has skeleton loaders and polls for updates
-      setTimeout(() => {
-        clearInterval(stepInterval);
-        router.replace(`/entry/${entry.id}`);
-      }, 1500);
+      // Navigate IMMEDIATELY - entry page will show progress
+      router.replace(`/entry/${entry.id}`);
 
       // Start transcription in background (fire and forget)
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
