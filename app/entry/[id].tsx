@@ -21,6 +21,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import type { VoiceEntry, VoiceTodo, VoiceNote as VoiceNoteType } from '@/lib/types';
 import { getTagColor } from '@/lib/auto-tags';
+import { ModernLoader } from '@/components/ModernLoader';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
 
@@ -567,13 +568,15 @@ export default function EntryDetailScreen() {
         {/* Summary Section - show inline loading when processing */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>SUMMARY</Text>
-            {(isProcessing && !entry.summary) && (
-              <View style={styles.inlineLoading}>
-                <ActivityIndicator size="small" color="#c4dfc4" />
-                <Text style={styles.inlineLoadingText}>Generating...</Text>
-              </View>
-            )}
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>SUMMARY</Text>
+              {(isProcessing && !entry.summary) && (
+                <View style={styles.inlineLoading}>
+                  <ModernLoader size="small" color="#c4dfc4" />
+                  <Text style={styles.inlineLoadingText}>Generating...</Text>
+                </View>
+              )}
+            </View>
             {entry.summary && !isEditingSummary && (
               <TouchableOpacity onPress={() => setIsEditingSummary(true)}>
                 <Ionicons name="pencil" size={16} color="#666" />
@@ -696,13 +699,15 @@ export default function EntryDetailScreen() {
         {/* Transcript Section - show inline loading when processing */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>TRANSCRIPT</Text>
-            {(isProcessing && !entry.transcript) && (
-              <View style={styles.inlineLoading}>
-                <ActivityIndicator size="small" color="#c4dfc4" />
-                <Text style={styles.inlineLoadingText}>Transcribing...</Text>
-              </View>
-            )}
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>TRANSCRIPT</Text>
+              {(isProcessing && !entry.transcript) && (
+                <View style={styles.inlineLoading}>
+                  <ModernLoader size="small" color="#c4dfc4" />
+                  <Text style={styles.inlineLoadingText}>Transcribing...</Text>
+                </View>
+              )}
+            </View>
             {entry.transcript && !isEditingTranscript && (
               <TouchableOpacity onPress={() => setIsEditingTranscript(true)}>
                 <Ionicons name="pencil" size={16} color="#666" />
@@ -744,13 +749,15 @@ export default function EntryDetailScreen() {
         {/* Tasks Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>TASKS ({todoCount})</Text>
-            {(isProcessing && tasks.length === 0) && (
-              <View style={styles.inlineLoading}>
-                <ActivityIndicator size="small" color="#c4dfc4" />
-                <Text style={styles.inlineLoadingText}>Extracting...</Text>
-              </View>
-            )}
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>TASKS ({todoCount})</Text>
+              {(isProcessing && tasks.length === 0) && (
+                <View style={styles.inlineLoading}>
+                  <ModernLoader size="small" color="#c4dfc4" />
+                  <Text style={styles.inlineLoadingText}>Extracting...</Text>
+                </View>
+              )}
+            </View>
           </View>
 
           {(isProcessing && tasks.length === 0) ? (
@@ -837,13 +844,15 @@ export default function EntryDetailScreen() {
         {/* Notes Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>NOTES ({noteCount})</Text>
-            {(isProcessing && notes.length === 0) && (
-              <View style={styles.inlineLoading}>
-                <ActivityIndicator size="small" color="#c4dfc4" />
-                <Text style={styles.inlineLoadingText}>Extracting...</Text>
-              </View>
-            )}
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>NOTES ({noteCount})</Text>
+              {(isProcessing && notes.length === 0) && (
+                <View style={styles.inlineLoading}>
+                  <ModernLoader size="small" color="#c4dfc4" />
+                  <Text style={styles.inlineLoadingText}>Extracting...</Text>
+                </View>
+              )}
+            </View>
           </View>
 
           {(isProcessing && notes.length === 0) ? (
@@ -1085,6 +1094,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#666',
     letterSpacing: 1,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   summaryText: {
     fontSize: 20,
