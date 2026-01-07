@@ -47,6 +47,45 @@ const SORT_OPTIONS: { value: SortOption; label: string; icon: string }[] = [
 
 const SORT_STORAGE_KEY = '@memotalk_sort_option';
 
+// Memoized checkbox component with LOCAL state for instant feedback
+const TaskCheckbox = React.memo(({ 
+  itemId, 
+  initialStatus, 
+  onToggle 
+}: { 
+  itemId: string; 
+  initialStatus: 'pending' | 'completed' | undefined;
+  onToggle: (id: string, newStatus: 'pending' | 'completed') => void;
+}) => {
+  const [localStatus, setLocalStatus] = useState(initialStatus);
+  const isCompleted = localStatus === 'completed';
+  
+  // Sync with parent if initialStatus changes (e.g., after refresh)
+  useEffect(() => {
+    setLocalStatus(initialStatus);
+  }, [initialStatus]);
+  
+  const handlePress = useCallback(() => {
+    const newStatus = localStatus === 'completed' ? 'pending' : 'completed';
+    setLocalStatus(newStatus); // INSTANT local update
+    onToggle(itemId, newStatus); // Notify parent (fire and forget)
+  }, [localStatus, itemId, onToggle]);
+  
+  return (
+    <Pressable 
+      onPress={handlePress}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+    >
+      <Ionicons 
+        name={isCompleted ? 'checkbox' : 'square-outline'} 
+        size={20} 
+        color={isCompleted ? '#3b82f6' : '#666'} 
+      />
+    </Pressable>
+  );
+});
+
 interface Item {
   id: string;
   type: 'task' | 'note';
@@ -124,9 +163,6 @@ export default function HomeScreen() {
   // Sort state
   const [sortOption, setSortOption] = useState<SortOption>('pending_first');
   const [isSortModalVisible, setIsSortModalVisible] = useState(false);
-  
-  // Optimistic toggle state - for instant checkbox feedback
-  const [pendingToggles, setPendingToggles] = useState<Map<string, 'pending' | 'completed'>>(new Map());
   
   // Tag drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -637,48 +673,30 @@ export default function HomeScreen() {
     loadData();
   }, [loadData]);
 
-  const handleToggleTask = useCallback((item: Item) => {
-    const currentStatus = pendingToggles.get(item.id) ?? item.status;
-    const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
-    
-    // INSTANT: Update local optimistic state (just a Map update - super fast)
-    setPendingToggles(prev => new Map(prev).set(item.id, newStatus));
-
-    // Save to database in background
+  // Called by TaskCheckbox after local state already updated
+  const handleToggleTask = useCallback((itemId: string, newStatus: 'pending' | 'completed') => {
+    // Save to database in background (checkbox already updated locally)
     supabase
       .from('voice_todos')
       .update({ status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null })
-      .eq('id', item.id)
+      .eq('id', itemId)
       .then(({ error }) => {
-        if (error) {
-          // Revert optimistic state on error
-          setPendingToggles(prev => {
-            const next = new Map(prev);
-            next.delete(item.id);
-            return next;
-          });
-        } else {
-          // Success - update main state and clear optimistic
+        if (!error) {
+          // Sync parent state after DB success (for sorting to work on next render)
           setDays(prev => {
-            const dayIndex = prev.findIndex(d => d.items.some(i => i.id === item.id));
+            const dayIndex = prev.findIndex(d => d.items.some(i => i.id === itemId));
             if (dayIndex === -1) return prev;
             const newDays = [...prev];
             const day = newDays[dayIndex];
             newDays[dayIndex] = {
               ...day,
-              items: day.items.map(i => i.id === item.id ? { ...i, status: newStatus } : i),
+              items: day.items.map(i => i.id === itemId ? { ...i, status: newStatus } : i),
             };
             return newDays;
           });
-          // Clear from pending after main state updated
-          setPendingToggles(prev => {
-            const next = new Map(prev);
-            next.delete(item.id);
-            return next;
-          });
         }
       });
-  }, [pendingToggles]);
+  }, []);
 
   const goToDetailPage = useCallback((item: Item) => {
     if (item.type === 'note') router.push(`/note/${item.id}`);
@@ -917,23 +935,13 @@ export default function HomeScreen() {
     if (isEditing) {
       return (
         <View key={item.id} style={styles.item}>
-          {item.type === 'task' && (() => {
-            const displayStatus = pendingToggles.get(item.id) ?? item.status;
-            const isCompleted = displayStatus === 'completed';
-            return (
-              <Pressable 
-                onPress={() => handleToggleTask(item)} 
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
-              >
-                <Ionicons 
-                  name={isCompleted ? 'checkbox' : 'square-outline'} 
-                  size={20} 
-                  color={isCompleted ? '#3b82f6' : '#666'} 
-                />
-              </Pressable>
-            );
-          })()}
+          {item.type === 'task' && (
+            <TaskCheckbox 
+              itemId={item.id} 
+              initialStatus={item.status} 
+              onToggle={handleToggleTask} 
+            />
+          )}
           {item.type === 'note' && <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 4 }} />}
           <TextInput
             style={styles.inlineEditInput}
@@ -954,23 +962,13 @@ export default function HomeScreen() {
     
     const itemContent = (
       <View style={styles.item}>
-        {item.type === 'task' && (() => {
-          const displayStatus = pendingToggles.get(item.id) ?? item.status;
-          const isCompleted = displayStatus === 'completed';
-          return (
-            <Pressable 
-              onPress={() => handleToggleTask(item)} 
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
-            >
-              <Ionicons 
-                name={isCompleted ? 'checkbox' : 'square-outline'} 
-                size={20} 
-                color={isCompleted ? '#3b82f6' : '#666'} 
-              />
-            </Pressable>
-          );
-        })()}
+        {item.type === 'task' && (
+          <TaskCheckbox 
+            itemId={item.id} 
+            initialStatus={item.status} 
+            onToggle={handleToggleTask} 
+          />
+        )}
         {item.type === 'note' && <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 4 }} />}
         <TouchableOpacity 
           style={styles.itemTextWrapper}
