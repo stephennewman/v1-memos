@@ -543,44 +543,6 @@ export default function EntryDetailScreen() {
         {/* Date */}
         <Text style={styles.date}>{formatDate(entry.created_at)}</Text>
 
-        {/* Processing Status - show at top when processing */}
-        {isProcessing && (
-          <View style={[styles.processingBanner, { marginBottom: 16 }]}>
-            <View style={styles.processingSteps}>
-              <View style={styles.processingStep}>
-                <Ionicons 
-                  name={entry.transcript ? "checkmark-circle" : "radio-button-on"} 
-                  size={18} 
-                  color={entry.transcript ? "#22c55e" : "#c4dfc4"} 
-                />
-                <Text style={[styles.processingStepText, entry.transcript && styles.processingStepDone]}>
-                  {entry.transcript ? 'Transcribed' : 'Transcribing...'}
-                </Text>
-              </View>
-              <View style={styles.processingStep}>
-                <Ionicons 
-                  name={entry.summary ? "checkmark-circle" : (entry.transcript ? "radio-button-on" : "ellipse-outline")} 
-                  size={18} 
-                  color={entry.summary ? "#22c55e" : (entry.transcript ? "#c4dfc4" : "#444")} 
-                />
-                <Text style={[styles.processingStepText, entry.summary && styles.processingStepDone]}>
-                  {entry.summary ? 'Summarized' : 'Summarizing...'}
-                </Text>
-              </View>
-              <View style={styles.processingStep}>
-                <Ionicons 
-                  name={(tasks.length > 0 || notes.length > 0) ? "checkmark-circle" : (entry.summary ? "radio-button-on" : "ellipse-outline")} 
-                  size={18} 
-                  color={(tasks.length > 0 || notes.length > 0) ? "#22c55e" : (entry.summary ? "#c4dfc4" : "#444")} 
-                />
-                <Text style={[styles.processingStepText, (tasks.length > 0 || notes.length > 0) && styles.processingStepDone]}>
-                  {(tasks.length > 0 || notes.length > 0) ? 'Extracted' : 'Extracting tasks & notes...'}
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
         {/* Audio Player */}
         {entry.audio_url && (
           <View style={styles.audioPlayer}>
@@ -602,11 +564,17 @@ export default function EntryDetailScreen() {
           </View>
         )}
 
-        {/* Summary Section - show skeleton only if no summary AND still processing */}
+        {/* Summary Section - show inline loading when processing */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>SUMMARY</Text>
-            {!isProcessing && !isEditingSummary && (
+            {(isProcessing && !entry.summary) && (
+              <View style={styles.inlineLoading}>
+                <ActivityIndicator size="small" color="#c4dfc4" />
+                <Text style={styles.inlineLoadingText}>Generating...</Text>
+              </View>
+            )}
+            {entry.summary && !isEditingSummary && (
               <TouchableOpacity onPress={() => setIsEditingSummary(true)}>
                 <Ionicons name="pencil" size={16} color="#666" />
               </TouchableOpacity>
@@ -725,10 +693,16 @@ export default function EntryDetailScreen() {
           )}
         </View>
 
-        {/* Transcript Section - show as soon as available */}
+        {/* Transcript Section - show inline loading when processing */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>TRANSCRIPT</Text>
+            {(isProcessing && !entry.transcript) && (
+              <View style={styles.inlineLoading}>
+                <ActivityIndicator size="small" color="#c4dfc4" />
+                <Text style={styles.inlineLoadingText}>Transcribing...</Text>
+              </View>
+            )}
             {entry.transcript && !isEditingTranscript && (
               <TouchableOpacity onPress={() => setIsEditingTranscript(true)}>
                 <Ionicons name="pencil" size={16} color="#666" />
@@ -770,10 +744,16 @@ export default function EntryDetailScreen() {
         {/* Tasks Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>TASKS ({isProcessing ? '...' : todoCount})</Text>
+            <Text style={styles.sectionTitle}>TASKS ({todoCount})</Text>
+            {(isProcessing && tasks.length === 0) && (
+              <View style={styles.inlineLoading}>
+                <ActivityIndicator size="small" color="#c4dfc4" />
+                <Text style={styles.inlineLoadingText}>Extracting...</Text>
+              </View>
+            )}
           </View>
 
-          {isProcessing ? (
+          {(isProcessing && tasks.length === 0) ? (
             <>
               <View style={styles.skeletonTask} />
               <View style={styles.skeletonTask} />
@@ -857,10 +837,16 @@ export default function EntryDetailScreen() {
         {/* Notes Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>NOTES ({isProcessing ? '...' : noteCount})</Text>
+            <Text style={styles.sectionTitle}>NOTES ({noteCount})</Text>
+            {(isProcessing && notes.length === 0) && (
+              <View style={styles.inlineLoading}>
+                <ActivityIndicator size="small" color="#c4dfc4" />
+                <Text style={styles.inlineLoadingText}>Extracting...</Text>
+              </View>
+            )}
           </View>
 
-          {isProcessing ? (
+          {(isProcessing && notes.length === 0) ? (
             <>
               <View style={styles.skeletonNote} />
               <View style={styles.skeletonNote} />
@@ -1352,6 +1338,16 @@ const styles = StyleSheet.create({
   },
   processingStepDone: {
     color: '#22c55e',
+  },
+  inlineLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  inlineLoadingText: {
+    fontSize: 12,
+    color: '#c4dfc4',
+    fontWeight: '500',
   },
   processingActive: {
     flexDirection: 'row',
