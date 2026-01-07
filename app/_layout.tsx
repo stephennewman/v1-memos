@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from '@/lib/auth-context';
 import { ThemeProvider, useTheme } from '@/lib/theme-context';
 import { OnboardingProvider } from '@/lib/onboarding-context';
@@ -16,6 +17,8 @@ function RootStack() {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
+        {/* Entry point - handles auth routing */}
+        <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
@@ -27,13 +30,15 @@ function RootStack() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <ThemeProvider>
-        <OnboardingProvider>
-          <RootStack />
-        </OnboardingProvider>
-      </ThemeProvider>
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <ThemeProvider>
+          <OnboardingProvider>
+            <RootStack />
+          </OnboardingProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
 

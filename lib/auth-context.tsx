@@ -2,7 +2,10 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { supabase } from './supabase';
+import { makeRedirectUri } from 'expo-auth-session';
 
 // Free tier limit
 const MAX_FREE_TOPICS = 5;
@@ -15,6 +18,7 @@ interface AuthContextType {
   canCreateTopic: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithApple: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshTopicCount: () => Promise<void>;
 }
@@ -142,6 +146,99 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInWithGoogle = async (): Promise<void> => {
+    console.log('[Auth] Starting Google Sign-In');
+    
+    try {
+      // Create redirect URI that points back to the app
+      // For Expo, this creates a URL like: exp://192.168.x.x:8081/--/auth/callback (dev)
+      // or memotalk://auth/callback (production)
+      const redirectUrl = makeRedirectUri({
+        scheme: 'memotalk',
+        path: 'auth/callback',
+      });
+      
+      console.log('[Auth] Redirect URL:', redirectUrl);
+      
+      // Get the OAuth URL from Supabase
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: true, // Don't automatically open browser
+          queryParams: {
+            // Ensure we get a refresh token
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      
+      if (error) throw error;
+      if (!data.url) throw new Error('No OAuth URL returned');
+      
+      console.log('[Auth] Opening browser for Google OAuth');
+      console.log('[Auth] OAuth URL:', data.url);
+      
+      // Open the OAuth URL in a web browser
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectUrl,
+        {
+          showInRecents: true,
+          preferEphemeralSession: false,
+        }
+      );
+      
+      console.log('[Auth] Browser result:', result.type);
+      
+      if (result.type === 'success' && result.url) {
+        console.log('[Auth] Callback URL:', result.url);
+        
+        // Parse the URL to get the session tokens
+        const url = new URL(result.url);
+        
+        // Check for hash fragment (implicit flow) or query params (PKCE flow)
+        const hashParams = new URLSearchParams(url.hash.substring(1));
+        const queryParams = new URLSearchParams(url.search);
+        
+        const accessToken = hashParams.get('access_token') || queryParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token') || queryParams.get('refresh_token');
+        const code = queryParams.get('code');
+        
+        console.log('[Auth] Tokens found - access:', !!accessToken, 'refresh:', !!refreshToken, 'code:', !!code);
+        
+        if (accessToken && refreshToken) {
+          // Set the session directly
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          
+          if (sessionError) throw sessionError;
+          console.log('[Auth] Google Sign-In successful (token flow)');
+        } else if (code) {
+          // Exchange code for session (PKCE flow)
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) throw exchangeError;
+          console.log('[Auth] Google Sign-In successful (PKCE flow)');
+        } else {
+          console.error('[Auth] URL params:', url.search, url.hash);
+          throw new Error('No authentication tokens received');
+        }
+      } else if (result.type === 'cancel' || result.type === 'dismiss') {
+        console.log('[Auth] Google Sign-In cancelled/dismissed by user');
+        throw new Error('Sign-in was cancelled');
+      } else {
+        console.error('[Auth] Unexpected browser result:', result);
+        throw new Error('Authentication failed');
+      }
+    } catch (error: any) {
+      console.error('[Auth] Google Sign-In error:', error);
+      throw error;
+    }
+  };
+
   const signOut = async () => {
     console.log('[Auth] Signing out');
     const { error } = await supabase.auth.signOut();
@@ -159,6 +256,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         canCreateTopic,
         signIn,
         signInWithApple,
+        signInWithGoogle,
         signOut,
         refreshTopicCount,
       }}

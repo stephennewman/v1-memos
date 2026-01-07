@@ -214,7 +214,6 @@ export default function TaskDetailScreen() {
       if (error) throw error;
       
       setTask({ ...task, text: editedText, due_date: parsedDate || undefined, tags: editedTags });
-      setIsEditing(false);
     } catch (error) {
       console.error('Error saving:', error);
       Alert.alert('Error', 'Failed to save changes');
@@ -224,7 +223,7 @@ export default function TaskDetailScreen() {
   const archiveTask = () => {
     Alert.alert(
       'Archive Task',
-      'Are you sure you want to archive this task?',
+      'This will move the task to archive. You can restore it later.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -233,13 +232,40 @@ export default function TaskDetailScreen() {
             try {
               const { error } = await supabase
                 .from('voice_todos')
-                .update({ is_archived: true })
+                .update({ status: 'dismissed' })
                 .eq('id', task?.id);
 
               if (error) throw error;
               router.back();
             } catch (error) {
               console.error('Error archiving:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const deleteTaskPermanently = () => {
+    Alert.alert(
+      'Delete Permanently',
+      'This will permanently delete this task. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('voice_todos')
+                .delete()
+                .eq('id', task?.id);
+
+              if (error) throw error;
+              router.back();
+            } catch (error) {
+              console.error('Error deleting:', error);
             }
           },
         },
@@ -408,9 +434,14 @@ export default function TaskDetailScreen() {
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Task</Text>
-        <TouchableOpacity onPress={archiveTask} style={styles.archiveButton}>
-          <Ionicons name="archive-outline" size={22} color="#666" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={archiveTask} style={styles.actionButton}>
+            <Ionicons name="archive-outline" size={22} color="#666" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={deleteTaskPermanently} style={styles.actionButton}>
+            <Ionicons name="trash-outline" size={22} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView 
@@ -739,7 +770,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#3b82f6',
   },
-  archiveButton: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  actionButton: {
     width: 44,
     height: 44,
     justifyContent: 'center',

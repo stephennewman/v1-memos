@@ -240,9 +240,9 @@ export default function PersonDetailScreen() {
                   style={styles.checkbox}
                 >
                   <Ionicons 
-                    name={task.status === 'completed' ? "checkbox" : "checkbox-outline"} 
+                    name={task.status === 'completed' ? "checkbox" : "square-outline"} 
                     size={22} 
-                    color={task.status === 'completed' ? '#666' : '#c4dfc4'} 
+                    color={task.status === 'completed' ? '#3b82f6' : '#666'} 
                   />
                 </TouchableOpacity>
                 <View style={styles.taskContent}>

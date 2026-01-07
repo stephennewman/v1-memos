@@ -9,14 +9,16 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth-context';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn, signInWithApple } = useAuth();
+  const { signIn, signInWithApple, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,6 +28,22 @@ export default function LoginScreen() {
   useEffect(() => {
     AppleAuthentication.isAvailableAsync().then(setAppleAuthAvailable);
   }, []);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      await signInWithGoogle();
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      // Don't show error for user cancellations
+      if (error.message !== 'Sign-in was cancelled') {
+        console.log('[Login] Google sign-in error:', error.message);
+        Alert.alert('Sign In Failed', error.message || 'Please try again');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAppleSignIn = async () => {
     try {
@@ -66,11 +84,12 @@ export default function LoginScreen() {
       <View style={styles.inner}>
         {/* Logo/Title */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoEmoji}>📝</Text>
-          </View>
-          <Text style={styles.logo}>Memos</Text>
-          <Text style={styles.subtitle}>Learn anything. 5 minutes a day.</Text>
+          <Image
+            source={require('@/assets/images/icon.png')}
+            style={styles.logoImage}
+          />
+          <Text style={styles.logo}>MemoTalk</Text>
+          <Text style={styles.subtitle}>Voice-powered organization</Text>
         </View>
 
         {/* Loading Overlay */}
@@ -83,6 +102,33 @@ export default function LoginScreen() {
 
         {!showEmailForm ? (
           <View style={styles.authOptions}>
+            {/* Email option first for Apple Review accessibility */}
+            <TouchableOpacity
+              style={styles.emailOptionButton}
+              onPress={() => setShowEmailForm(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.emailOptionText}>Sign in with Email</Text>
+            </TouchableOpacity>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Google Sign In */}
+            <TouchableOpacity
+              style={styles.googleButton}
+              onPress={handleGoogleSignIn}
+              activeOpacity={0.8}
+            >
+              <View style={styles.googleIconWrapper}>
+                <Text style={styles.googleIcon}>G</Text>
+              </View>
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </TouchableOpacity>
+
             {appleAuthAvailable && (
               <AppleAuthentication.AppleAuthenticationButton
                 buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
@@ -92,20 +138,6 @@ export default function LoginScreen() {
                 onPress={handleAppleSignIn}
               />
             )}
-
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <TouchableOpacity
-              style={styles.emailOptionButton}
-              onPress={() => setShowEmailForm(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.emailOptionText}>Sign in with Email</Text>
-            </TouchableOpacity>
 
             <Text style={styles.footer}>
               By continuing, you agree to our Terms of Service and Privacy Policy
@@ -177,17 +209,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 48,
   },
-  logoContainer: {
-    width: 72,
-    height: 72,
-    backgroundColor: '#c4dfc4',
+  logoImage: {
+    width: 80,
+    height: 80,
     borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: 16,
-  },
-  logoEmoji: {
-    fontSize: 36,
   },
   logo: {
     fontSize: 36,
@@ -222,6 +248,33 @@ const styles = StyleSheet.create({
   appleButton: {
     height: 56,
     width: '100%',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    height: 56,
+    width: '100%',
+    gap: 10,
+  },
+  googleIconWrapper: {
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  googleIcon: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#4285F4',
+  },
+  googleButtonText: {
+    fontSize: 19,
+    fontWeight: '500',
+    color: '#000',
+    letterSpacing: -0.2,
   },
   divider: {
     flexDirection: 'row',

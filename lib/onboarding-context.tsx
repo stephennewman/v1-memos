@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSegments, useRootNavigationState } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './auth-context';
-import { getProfile } from './guy-talk';
+
+const ONBOARDING_KEY = 'memotalk_onboarding_complete';
 
 interface OnboardingContextType {
   isOnboardingComplete: boolean;
@@ -27,9 +29,16 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const navigationState = useRootNavigationState();
 
   const checkOnboarding = useCallback(async () => {
-    // Skip onboarding entirely - go straight to main app
-    setIsOnboardingComplete(true);
-    setIsCheckingOnboarding(false);
+    try {
+      const completed = await AsyncStorage.getItem(ONBOARDING_KEY);
+      setIsOnboardingComplete(completed === 'true');
+    } catch (error) {
+      console.error('[Onboarding] Error checking status:', error);
+      // If error reading, assume not complete to be safe
+      setIsOnboardingComplete(false);
+    } finally {
+      setIsCheckingOnboarding(false);
+    }
   }, []);
 
   // Check onboarding status when user changes
@@ -64,8 +73,15 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     }
   }, [user, isOnboardingComplete, segments, navigationState?.key, authLoading, isCheckingOnboarding, router]);
 
-  const completeOnboarding = useCallback(() => {
-    setIsOnboardingComplete(true);
+  const completeOnboarding = useCallback(async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+      setIsOnboardingComplete(true);
+    } catch (error) {
+      console.error('[Onboarding] Error saving status:', error);
+      // Still mark as complete in memory so user can proceed
+      setIsOnboardingComplete(true);
+    }
   }, []);
 
   const recheckOnboarding = useCallback(async () => {
@@ -90,4 +106,3 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 export function useOnboarding() {
   return useContext(OnboardingContext);
 }
-

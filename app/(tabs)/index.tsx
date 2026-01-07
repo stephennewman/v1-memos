@@ -15,13 +15,39 @@ import {
   Dimensions,
   Pressable,
   Keyboard,
+  Modal,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 import { autoGenerateTags, getAllUniqueTags, getTagColor } from '@/lib/auto-tags';
+import { SwipeableItem } from '@/components/SwipeableItem';
+import { ModernLoader } from '@/components/ModernLoader';
+
+// Sort options
+type SortOption = 
+  | 'normal'           // Original order (created_at, oldest first)
+  | 'newest'           // Created, new to old
+  | 'oldest'           // Created, old to new
+  | 'pending_first'    // Not done first, then done
+  | 'completed_first'  // Done first, then not done
+  | 'tasks_first'      // Tasks before notes
+  | 'notes_first';     // Notes before tasks
+
+const SORT_OPTIONS: { value: SortOption; label: string; icon: string }[] = [
+  { value: 'pending_first', label: 'Not done first', icon: 'square-outline' },
+  { value: 'completed_first', label: 'Done first', icon: 'checkbox' },
+  { value: 'newest', label: 'Newest first', icon: 'arrow-up' },
+  { value: 'oldest', label: 'Oldest first', icon: 'arrow-down' },
+  { value: 'tasks_first', label: 'Tasks first', icon: 'checkmark-circle-outline' },
+  { value: 'notes_first', label: 'Notes first', icon: 'document-text-outline' },
+  { value: 'normal', label: 'Original order', icon: 'time-outline' },
+];
+
+const SORT_STORAGE_KEY = '@memotalk_sort_option';
 
 interface Item {
   id: string;
@@ -96,6 +122,10 @@ export default function HomeScreen() {
   const [allTags, setAllTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagCounts, setTagCounts] = useState<Map<string, number>>(new Map());
+  
+  // Sort state
+  const [sortOption, setSortOption] = useState<SortOption>('pending_first');
+  const [isSortModalVisible, setIsSortModalVisible] = useState(false);
   
   // Tag drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -270,14 +300,14 @@ export default function HomeScreen() {
     setAddingText('');
     // Don't close: setAddingTo(null) - user taps outside to close
     
-    // Save to database in background
-    const { error } = await supabase.from('voice_todos').insert({
+    // Save to database and get the real ID back
+    const { data, error } = await supabase.from('voice_todos').insert({
       user_id: user.id,
       text: newItem.text,
       status: 'pending',
       tags,
       created_at: createdAt,
-    });
+    }).select('id').single();
     
     setIsSaving(false);
     
@@ -285,6 +315,14 @@ export default function HomeScreen() {
       console.error('Error adding task:', error);
       // Revert on error
       loadData();
+    } else if (data) {
+      // Update the temp ID with the real database ID
+      setDays(prevDays => prevDays.map(day => ({
+        ...day,
+        items: day.items.map(item => 
+          item.id === tempId ? { ...item, id: data.id } : item
+        ),
+      })));
     }
     
     // Re-focus input for next entry
@@ -358,14 +396,14 @@ export default function HomeScreen() {
     setAddingText('');
     // Don't close: setAddingTo(null) - user taps outside to close
     
-    // Save to database in background
-    const { error } = await supabase.from('voice_notes').insert({
+    // Save to database and get the real ID back
+    const { data, error } = await supabase.from('voice_notes').insert({
       user_id: user.id,
       text: newItem.text,
       is_archived: false,
       tags,
       created_at: createdAt,
-    });
+    }).select('id').single();
     
     setIsSaving(false);
     
@@ -373,6 +411,14 @@ export default function HomeScreen() {
       console.error('Error adding note:', error);
       // Revert on error
       loadData();
+    } else if (data) {
+      // Update the temp ID with the real database ID
+      setDays(prevDays => prevDays.map(day => ({
+        ...day,
+        items: day.items.map(item => 
+          item.id === tempId ? { ...item, id: data.id } : item
+        ),
+      })));
     }
     
     // Re-focus input for next entry
@@ -390,6 +436,7 @@ export default function HomeScreen() {
         .from('voice_todos')
         .select('id, text, status, created_at, tags, entry_id')
         .eq('user_id', user.id)
+        .neq('status', 'dismissed')  // Filter out archived/dismissed tasks
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
 
@@ -517,10 +564,7 @@ export default function HomeScreen() {
       setTagCounts(counts);
       setAllTags(getAllUniqueTags(allItems));
 
-      // Sort items within each day by created_at (oldest first - new items at bottom)
-      daysArray.forEach(day => {
-        day.items.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-      });
+      // Sorting is handled by processItems when computing allDays
 
       // Ensure today is expanded if it has items
       const todayKey = getDateKey(new Date());
@@ -555,6 +599,32 @@ export default function HomeScreen() {
     }, [user, authLoading, loadData])
   );
 
+  // Load sort preference from storage
+  useEffect(() => {
+    const loadSortPreference = async () => {
+      try {
+        const saved = await AsyncStorage.getItem(SORT_STORAGE_KEY);
+        if (saved && SORT_OPTIONS.some(opt => opt.value === saved)) {
+          setSortOption(saved as SortOption);
+        }
+      } catch (e) {
+        console.log('Failed to load sort preference:', e);
+      }
+    };
+    loadSortPreference();
+  }, []);
+
+  // Save sort preference when changed
+  const handleSortChange = useCallback(async (newSort: SortOption) => {
+    setSortOption(newSort);
+    setIsSortModalVisible(false);
+    try {
+      await AsyncStorage.setItem(SORT_STORAGE_KEY, newSort);
+    } catch (e) {
+      console.log('Failed to save sort preference:', e);
+    }
+  }, []);
+
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     loadData();
@@ -563,19 +633,22 @@ export default function HomeScreen() {
   const handleToggleTask = useCallback(async (item: Item) => {
     const newStatus = item.status === 'completed' ? 'pending' : 'completed';
     
-    // Optimistic update
+    // Instant update - change status (sorting handled by processItems in allDays)
     setDays(prev => prev.map(day => ({
       ...day,
-      items: day.items.map(i => i.id === item.id ? { ...i, status: newStatus } : i),
+      items: day.items.map(i => 
+        i.id === item.id ? { ...i, status: newStatus } : i
+      ),
     })));
 
+    // Save to database in background
     try {
       await supabase
         .from('voice_todos')
         .update({ status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null })
         .eq('id', item.id);
     } catch (error) {
-      // Revert
+      // Revert on error
       setDays(prev => prev.map(day => ({
         ...day,
         items: day.items.map(i => i.id === item.id ? { ...i, status: item.status } : i),
@@ -631,13 +704,10 @@ export default function HomeScreen() {
   }, []);
 
   const handleDeleteItem = useCallback((item: Item) => {
-    const table = item.type === 'task' ? 'voice_todos' : 'voice_notes';
-    const action = item.type === 'note' ? 'Archive' : 'Delete';
-    
-    Alert.alert(`${action} ${item.type === 'task' ? 'Task' : 'Note'}?`, '', [
+    Alert.alert(`Archive ${item.type === 'task' ? 'Task' : 'Note'}?`, '', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: action,
+        text: 'Archive',
         style: 'destructive',
         onPress: async () => {
           // Optimistic update - remove from UI immediately
@@ -647,9 +717,10 @@ export default function HomeScreen() {
           })));
           try {
             if (item.type === 'note') {
-              await supabase.from(table).update({ is_archived: true }).eq('id', item.id);
+              await supabase.from('voice_notes').update({ is_archived: true }).eq('id', item.id);
             } else {
-              await supabase.from(table).delete().eq('id', item.id);
+              // Tasks use 'dismissed' status for archive
+              await supabase.from('voice_todos').update({ status: 'dismissed' }).eq('id', item.id);
             }
           } catch (error) {
             loadData();
@@ -684,8 +755,8 @@ export default function HomeScreen() {
   }, [dayPositions]);
 
 
-  // Helper to filter and sort items
-  const processItems = (items: Item[]) => {
+  // Helper to filter and sort items based on sortOption
+  const processItems = useCallback((items: Item[]) => {
     let filtered = [...items];
     
     // Filter by selected tags if any (item must have at least one of the selected tags)
@@ -695,14 +766,55 @@ export default function HomeScreen() {
       );
     }
     
-    // Sort by oldest first (new items go to bottom)
+    // Sort based on sortOption
     filtered.sort((a, b) => {
-      const dateA = new Date(a.created_at).getTime();
-      const dateB = new Date(b.created_at).getTime();
-      return dateA - dateB;
+      switch (sortOption) {
+        case 'normal':
+          // Original order - by created_at, oldest first
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          
+        case 'newest':
+          // Newest first
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          
+        case 'oldest':
+          // Oldest first
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          
+        case 'pending_first':
+          // Not done first, then done; within each group, oldest first
+          const aPending = a.status === 'completed' ? 1 : 0;
+          const bPending = b.status === 'completed' ? 1 : 0;
+          if (aPending !== bPending) return aPending - bPending;
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          
+        case 'completed_first':
+          // Done first, then not done; within each group, oldest first
+          const aCompleted = a.status === 'completed' ? 0 : 1;
+          const bCompleted = b.status === 'completed' ? 0 : 1;
+          if (aCompleted !== bCompleted) return aCompleted - bCompleted;
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          
+        case 'tasks_first':
+          // Tasks before notes; within each type, oldest first
+          const aTask = a.type === 'task' ? 0 : 1;
+          const bTask = b.type === 'task' ? 0 : 1;
+          if (aTask !== bTask) return aTask - bTask;
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          
+        case 'notes_first':
+          // Notes before tasks; within each type, oldest first
+          const aNote = a.type === 'note' ? 0 : 1;
+          const bNote = b.type === 'note' ? 0 : 1;
+          if (aNote !== bNote) return aNote - bNote;
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          
+        default:
+          return 0;
+      }
     });
     return filtered;
-  };
+  }, [selectedTags, sortOption]);
 
   // Process days - today first, then past (newest first), exclude future
   const allDays = days
@@ -724,10 +836,45 @@ export default function HomeScreen() {
   
   const totalItems = allDays.reduce((sum, d) => sum + d.items.length + d.memos.length, 0);
 
+  // These hooks MUST be defined before any conditional returns to avoid "rendered more hooks" error
+  const handleSwipeArchive = useCallback(async (item: Item) => {
+    // Optimistic update - remove from UI immediately
+    setDays(prev => prev.map(day => ({
+      ...day,
+      items: day.items.filter(i => i.id !== item.id),
+    })));
+    
+    try {
+      if (item.type === 'note') {
+        await supabase.from('voice_notes').update({ is_archived: true }).eq('id', item.id);
+      } else {
+        // Tasks use 'dismissed' status for archive
+        await supabase.from('voice_todos').update({ status: 'dismissed' }).eq('id', item.id);
+      }
+    } catch (error) {
+      loadData(); // Revert on error
+    }
+  }, [loadData]);
+
+  const handleSwipeArchiveMemo = useCallback(async (memoId: string) => {
+    // Optimistic update - remove from UI immediately
+    setDays(prev => prev.map(day => ({
+      ...day,
+      memos: day.memos.filter(m => m.id !== memoId),
+    })));
+    
+    try {
+      await supabase.from('voice_entries').update({ is_archived: true }).eq('id', memoId);
+    } catch (error) {
+      loadData(); // Revert on error
+    }
+  }, [loadData]);
+
+  // Early return AFTER all hooks are defined
   if (isLoading || authLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#c4dfc4" />
+        <ModernLoader size="large" color="#c4dfc4" />
       </View>
     );
   }
@@ -737,7 +884,7 @@ export default function HomeScreen() {
     const displayTags = (item.tags && item.tags.length > 0) ? item.tags : autoGenerateTags(item.text);
     const isEditing = editingItemId === item.id;
     
-    // If editing this item, show inline input
+    // If editing this item, show inline input (no swipe)
     if (isEditing) {
       return (
         <View key={item.id} style={styles.item}>
@@ -768,11 +915,8 @@ export default function HomeScreen() {
       );
     }
     
-    return (
-      <View
-        key={item.id}
-        style={styles.item}
-      >
+    const itemContent = (
+      <View style={styles.item}>
         {item.type === 'task' && (
           <TouchableOpacity onPress={() => handleToggleTask(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons 
@@ -786,8 +930,6 @@ export default function HomeScreen() {
         <TouchableOpacity 
           style={styles.itemTextWrapper}
           onPress={() => startEditingItem(item)}
-          onLongPress={() => handleDeleteItem(item)}
-          delayLongPress={500}
         >
           <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]}>
             {item.text}
@@ -814,6 +956,40 @@ export default function HomeScreen() {
           <Ionicons name="chevron-forward" size={16} color="#444" />
         </TouchableOpacity>
       </View>
+    );
+
+    // Task: swipe left to delete only (tap checkbox to complete)
+    if (item.type === 'task') {
+      return (
+        <SwipeableItem
+          key={item.id}
+          onSwipeLeft={() => handleSwipeArchive(item)}
+          leftAction={{
+            icon: 'trash-outline',
+            color: '#fff',
+            backgroundColor: '#ef4444',
+            label: 'Delete',
+          }}
+        >
+          {itemContent}
+        </SwipeableItem>
+      );
+    }
+    
+    // Note: swipe left to archive only
+    return (
+      <SwipeableItem
+        key={item.id}
+        onSwipeLeft={() => handleSwipeArchive(item)}
+        leftAction={{
+          icon: 'archive-outline',
+          color: '#fff',
+          backgroundColor: '#ef4444',
+          label: 'Archive',
+        }}
+      >
+        {itemContent}
+      </SwipeableItem>
     );
   };
 
@@ -849,7 +1025,7 @@ export default function HomeScreen() {
               onPress={() => toggleDayExpanded(day.dateKey)}
               activeOpacity={0.7}
             >
-              <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color={hasItems || day.isToday ? '#0a0a0a' : '#666'} />
+              <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-back'} size={18} color={hasItems || day.isToday ? '#0a0a0a' : '#666'} />
               <Text style={[styles.dayLabel, !hasItems && !day.isToday && styles.dayLabelEmpty]}>{day.label}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -1007,33 +1183,47 @@ export default function HomeScreen() {
                 <Text style={[styles.typeLabel, { color: '#22c55e' }]}>Memos</Text>
               </View>
               {memos.map(memo => (
-                <TouchableOpacity
+                <SwipeableItem
                   key={memo.id}
-                  style={styles.item}
-                  onPress={() => router.push(`/entry/${memo.id}`)}
+                  onSwipeLeft={() => handleSwipeArchiveMemo(memo.id)}
+                  leftAction={{
+                    icon: 'archive-outline',
+                    color: '#fff',
+                    backgroundColor: '#ef4444',
+                    label: 'Archive',
+                  }}
                 >
-                  <Ionicons name="play" size={16} color="#22c55e" />
-                  <Text style={styles.itemText} numberOfLines={1}>
-                    {memo.summary || memo.transcript?.slice(0, 50) || 'Voice memo'}
-                  </Text>
-                  {(memo.taskCount > 0 || memo.noteCount > 0) && (
-                    <View style={styles.memoCounts}>
-                      {memo.taskCount > 0 && (
-                        <View style={styles.memoCountBadge}>
-                          <Ionicons name="checkbox-outline" size={12} color="#3b82f6" />
-                          <Text style={styles.memoCountText}>{memo.taskCount}</Text>
-                        </View>
-                      )}
-                      {memo.noteCount > 0 && (
-                        <View style={styles.memoCountBadge}>
-                          <Ionicons name="ellipse" size={8} color="#a78bfa" />
-                          <Text style={styles.memoCountText}>{memo.noteCount}</Text>
-                        </View>
-                      )}
+                  <TouchableOpacity
+                    style={styles.item}
+                    onPress={() => router.push(`/entry/${memo.id}`)}
+                  >
+                    <Ionicons name="play" size={16} color="#22c55e" />
+                    <View style={styles.itemTextWrapper}>
+                      <Text style={styles.itemText} numberOfLines={1}>
+                        {memo.summary || memo.transcript?.slice(0, 50) || 'Voice memo'}
+                      </Text>
                     </View>
-                  )}
-                  <Ionicons name="chevron-forward" size={16} color="#333" />
-                </TouchableOpacity>
+                    {(memo.taskCount > 0 || memo.noteCount > 0) && (
+                      <View style={styles.memoCounts}>
+                        {memo.taskCount > 0 && (
+                          <View style={styles.memoCountBadge}>
+                            <Ionicons name="checkbox-outline" size={12} color="#3b82f6" />
+                            <Text style={styles.memoCountText}>{memo.taskCount}</Text>
+                          </View>
+                        )}
+                        {memo.noteCount > 0 && (
+                          <View style={styles.memoCountBadge}>
+                            <Ionicons name="ellipse" size={8} color="#a78bfa" />
+                            <Text style={styles.memoCountText}>{memo.noteCount}</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    <TouchableOpacity style={styles.detailBtn}>
+                      <Ionicons name="chevron-forward" size={16} color="#444" />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                </SwipeableItem>
               ))}
               <TouchableOpacity 
                 style={styles.addLink} 
@@ -1073,6 +1263,9 @@ export default function HomeScreen() {
         
         <View style={{ flex: 1 }} />
         
+        <TouchableOpacity style={styles.headerBtn} onPress={() => setIsSortModalVisible(true)}>
+          <Ionicons name="swap-vertical" size={22} color={sortOption !== 'pending_first' ? '#22c55e' : '#666'} />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/search')}>
           <Ionicons name="search" size={22} color="#666" />
         </TouchableOpacity>
@@ -1180,6 +1373,48 @@ export default function HomeScreen() {
         
         <View style={{ height: 120 }} />
       </ScrollView>
+
+      {/* Sort Options Modal */}
+      <Modal
+        visible={isSortModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsSortModalVisible(false)}
+      >
+        <Pressable 
+          style={styles.sortModalOverlay}
+          onPress={() => setIsSortModalVisible(false)}
+        >
+          <View style={styles.sortModalContent}>
+            <Text style={styles.sortModalTitle}>Sort by</Text>
+            {SORT_OPTIONS.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.sortOption,
+                  sortOption === option.value && styles.sortOptionActive,
+                ]}
+                onPress={() => handleSortChange(option.value)}
+              >
+                <Ionicons 
+                  name={option.icon as any} 
+                  size={20} 
+                  color={sortOption === option.value ? '#22c55e' : '#888'} 
+                />
+                <Text style={[
+                  styles.sortOptionText,
+                  sortOption === option.value && styles.sortOptionTextActive,
+                ]}>
+                  {option.label}
+                </Text>
+                {sortOption === option.value && (
+                  <Ionicons name="checkmark" size={20} color="#22c55e" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -1707,5 +1942,47 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#888',
     fontWeight: '500',
+  },
+  // Sort Modal Styles
+  sortModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sortModalContent: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    width: '85%',
+    maxWidth: 320,
+  },
+  sortModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 4,
+    gap: 12,
+  },
+  sortOptionActive: {
+    backgroundColor: '#0f2f0f',
+  },
+  sortOptionText: {
+    fontSize: 15,
+    color: '#888',
+    flex: 1,
+  },
+  sortOptionTextActive: {
+    color: '#fff',
+    fontWeight: '600',
   },
 });

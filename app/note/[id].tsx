@@ -135,7 +135,6 @@ export default function NoteDetailScreen() {
       if (error) throw error;
       
       setNote({ ...note, text: editedText, tags: editedTags });
-      setIsEditing(false);
     } catch (error) {
       console.error('Error saving:', error);
       Alert.alert('Error', 'Failed to save changes');
@@ -145,7 +144,7 @@ export default function NoteDetailScreen() {
   const archiveNote = () => {
     Alert.alert(
       'Archive Note',
-      'Are you sure you want to archive this note?',
+      'This will move the note to archive. You can restore it later.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -161,6 +160,33 @@ export default function NoteDetailScreen() {
               router.back();
             } catch (error) {
               console.error('Error archiving:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const deleteNotePermanently = () => {
+    Alert.alert(
+      'Delete Permanently',
+      'This will permanently delete this note. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('voice_notes')
+                .delete()
+                .eq('id', note?.id);
+
+              if (error) throw error;
+              router.back();
+            } catch (error) {
+              console.error('Error deleting:', error);
             }
           },
         },
@@ -242,9 +268,14 @@ export default function NoteDetailScreen() {
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Note</Text>
-        <TouchableOpacity onPress={archiveNote} style={styles.archiveButton}>
-          <Ionicons name="archive-outline" size={22} color="#666" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={archiveNote} style={styles.actionButton}>
+            <Ionicons name="archive-outline" size={22} color="#666" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={deleteNotePermanently} style={styles.actionButton}>
+            <Ionicons name="trash-outline" size={22} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView 
@@ -485,7 +516,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#a78bfa',
   },
-  archiveButton: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  actionButton: {
     width: 44,
     height: 44,
     justifyContent: 'center',

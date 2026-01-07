@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -217,8 +218,8 @@ export default function EntryDetailScreen() {
 
   const archiveEntry = () => {
     Alert.alert(
-      'Archive Entry',
-      'Are you sure you want to archive this voice entry?',
+      'Archive Memo',
+      'This will move the memo to archive. You can restore it later.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -229,6 +230,32 @@ export default function EntryDetailScreen() {
               router.back();
             } catch (error) {
               console.error('Error archiving entry:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const deleteEntryPermanently = () => {
+    Alert.alert(
+      'Delete Permanently',
+      'This will permanently delete this memo and all associated tasks and notes. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Delete associated tasks and notes first
+              await supabase.from('voice_todos').delete().eq('entry_id', entry?.id);
+              await supabase.from('voice_notes').delete().eq('entry_id', entry?.id);
+              // Then delete the entry
+              await supabase.from('voice_entries').delete().eq('id', entry?.id);
+              router.back();
+            } catch (error) {
+              console.error('Error deleting entry:', error);
             }
           },
         },
@@ -493,19 +520,11 @@ export default function EntryDetailScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Memo</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity
-            onPress={reprocessEntry}
-            style={styles.actionButton}
-            disabled={isReprocessing}
-          >
-            {isReprocessing ? (
-              <ActivityIndicator size="small" color="#4ade80" />
-            ) : (
-              <Ionicons name="refresh-outline" size={22} color="#4ade80" />
-            )}
-          </TouchableOpacity>
           <TouchableOpacity onPress={archiveEntry} style={styles.actionButton}>
             <Ionicons name="archive-outline" size={22} color="#666" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={deleteEntryPermanently} style={styles.actionButton}>
+            <Ionicons name="trash-outline" size={22} color="#ef4444" />
           </TouchableOpacity>
         </View>
       </View>
@@ -940,8 +959,13 @@ export default function EntryDetailScreen() {
         {/* Processing Indicator */}
         {isProcessing && (
           <View style={styles.processingBanner}>
-            <ActivityIndicator size="small" color="#c4dfc4" />
-            <Text style={styles.processingText}>Processing your recording...</Text>
+            <View style={styles.processingContent}>
+              <ActivityIndicator size="small" color="#c4dfc4" />
+              <Text style={styles.processingText}>Analyzing your voice memo...</Text>
+            </View>
+            <Text style={styles.processingHint}>
+              Tasks and notes will appear as they're extracted
+            </Text>
           </View>
         )}
 
@@ -1283,15 +1307,23 @@ const styles = StyleSheet.create({
     color: '#444',
   },
   processingBanner: {
+    backgroundColor: 'rgba(196, 223, 196, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(196, 223, 196, 0.2)',
+  },
+  processingContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#111',
-    borderRadius: 10,
-    padding: 14,
     gap: 10,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
+    marginBottom: 6,
+  },
+  processingHint: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
   },
   processingText: {
     fontSize: 14,

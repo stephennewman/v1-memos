@@ -2,7 +2,7 @@
   "expo": {
     "name": "MemoTalk",
     "slug": "memos-outcomeview",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "memotalk",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.outcomeview.memos",
-      "buildNumber": "14",
+      "buildNumber": "15",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -40,6 +40,7 @@
     "plugins": [
       "expo-router",
       "expo-apple-authentication",
+      "expo-web-browser",
       [
         "expo-av",
         {
