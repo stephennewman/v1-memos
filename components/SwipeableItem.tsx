@@ -162,20 +162,21 @@ export function SwipeableItem({
   }
 
   return (
-    <Swipeable
-      ref={swipeableRef}
-      renderLeftActions={onSwipeRight ? renderLeftActions : undefined}
-      renderRightActions={renderRightActions}
-      onSwipeableWillOpen={onSwipeRight ? onSwipeableWillOpen : undefined}
-      leftThreshold={60}
-      rightThreshold={60}
-      overshootLeft={false}
-      overshootRight={false}
-      friction={2}
-      containerStyle={style}
-    >
-      <View style={styles.content}>{children}</View>
-    </Swipeable>
+    <View style={style}>
+      <Swipeable
+        ref={swipeableRef}
+        renderLeftActions={onSwipeRight ? renderLeftActions : undefined}
+        renderRightActions={renderRightActions}
+        onSwipeableWillOpen={onSwipeRight ? onSwipeableWillOpen : undefined}
+        leftThreshold={60}
+        rightThreshold={60}
+        overshootLeft={false}
+        overshootRight={false}
+        friction={2}
+      >
+        <View style={styles.content}>{children}</View>
+      </Swipeable>
+    </View>
   );
 }
 
