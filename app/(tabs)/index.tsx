@@ -1071,7 +1071,7 @@ export default function HomeScreen() {
               onPress={() => toggleDayExpanded(day.dateKey)}
               activeOpacity={0.7}
             >
-              <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-back'} size={18} color={hasItems || day.isToday ? '#0a0a0a' : '#666'} />
+              <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color={hasItems || day.isToday ? '#0a0a0a' : '#666'} />
               <Text style={[styles.dayLabel, !hasItems && !day.isToday && styles.dayLabelEmpty]}>{day.label}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
