@@ -150,17 +150,26 @@ export function ChunkedVoiceRecorder({
     }
   };
 
-  // Upload a completed chunk
-  const uploadChunk = async (uri: string, durationMs: number): Promise<string | null> => {
-    console.log('[ChunkedRecorder] Uploading chunk...', chunksRef.current.length);
+  // Upload a completed chunk with retry
+  const uploadChunk = async (uri: string, durationMs: number, retryCount = 0): Promise<string | null> => {
+    const MAX_RETRIES = 3;
+    const chunkIndex = chunksRef.current.length;
+    
+    console.log(`[ChunkedRecorder] Uploading chunk ${chunkIndex}... (attempt ${retryCount + 1})`);
     setIsUploadingChunk(true);
+    
+    // Validate userId
+    if (!userId) {
+      console.error('[ChunkedRecorder] No userId - cannot upload');
+      setIsUploadingChunk(false);
+      return null;
+    }
     
     try {
       const audioBase64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',
       });
       
-      const chunkIndex = chunksRef.current.length;
       const fileName = `${userId}/${sessionIdRef.current}/chunk_${chunkIndex}.m4a`;
       
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -171,6 +180,14 @@ export function ChunkedVoiceRecorder({
       
       if (uploadError) {
         console.error('[ChunkedRecorder] Chunk upload error:', uploadError);
+        
+        // Retry on failure
+        if (retryCount < MAX_RETRIES) {
+          console.log(`[ChunkedRecorder] Retrying upload... (${retryCount + 1}/${MAX_RETRIES})`);
+          await new Promise(r => setTimeout(r, 1000 * (retryCount + 1))); // Exponential backoff
+          return uploadChunk(uri, durationMs, retryCount + 1);
+        }
+        
         setIsUploadingChunk(false);
         return null;
       }
@@ -195,6 +212,14 @@ export function ChunkedVoiceRecorder({
       
     } catch (err) {
       console.error('[ChunkedRecorder] Error uploading chunk:', err);
+      
+      // Retry on failure
+      if (retryCount < MAX_RETRIES) {
+        console.log(`[ChunkedRecorder] Retrying upload... (${retryCount + 1}/${MAX_RETRIES})`);
+        await new Promise(r => setTimeout(r, 1000 * (retryCount + 1)));
+        return uploadChunk(uri, durationMs, retryCount + 1);
+      }
+      
       setIsUploadingChunk(false);
       return null;
     }
@@ -215,6 +240,12 @@ export function ChunkedVoiceRecorder({
     let mounted = true;
     
     (async () => {
+      // Wait for userId before starting
+      if (!userId) {
+        console.log('[ChunkedRecorder] Waiting for userId...');
+        return;
+      }
+      
       const { status } = await Audio.requestPermissionsAsync();
       if (!mounted) return;
       
@@ -239,7 +270,7 @@ export function ChunkedVoiceRecorder({
     })();
     
     return () => { mounted = false; };
-  }, [autoStart]);
+  }, [autoStart, userId]);
 
   // Glow animation
   useEffect(() => {
@@ -489,9 +520,13 @@ export function ChunkedVoiceRecorder({
         playsInSilentModeIOS: true,
       });
 
-      // Upload final chunk
+      // Upload final chunk (wait for it)
       if (uri && chunkDuration > 1000) {
-        await uploadChunk(uri, chunkDuration);
+        console.log('[ChunkedRecorder] Uploading final chunk...');
+        const finalUrl = await uploadChunk(uri, chunkDuration);
+        if (!finalUrl) {
+          console.warn('[ChunkedRecorder] Final chunk upload failed');
+        }
       }
 
       // Calculate total duration from chunks
@@ -507,7 +542,12 @@ export function ChunkedVoiceRecorder({
       if (chunkUrls.length > 0) {
         onRecordingComplete(chunkUrls, totalMs, sessionIdRef.current);
       } else {
-        Alert.alert('Recording Too Short', 'Please record for at least 1 second.');
+        // No chunks uploaded - critical error
+        Alert.alert(
+          'Upload Failed', 
+          'Could not save your recording. Please check your internet connection and try again.',
+          [{ text: 'OK', onPress: onCancel }]
+        );
       }
 
     } catch (err) {

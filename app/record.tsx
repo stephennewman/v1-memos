@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   TouchableOpacity,
   Alert,
-  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,32 +14,28 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { ChunkedVoiceRecorder } from '@/components/ChunkedVoiceRecorder';
 import { ProcessingAnimation } from '@/components/ProcessingAnimation';
-import type { VoiceEntryType } from '@/lib/types';
-import { ENTRY_TYPE_CONFIG } from '@/lib/types';
 
-type RecordingState = 'idle' | 'recording' | 'processing';
+type RecordingState = 'loading' | 'recording' | 'processing';
 
 export default function RecordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-  const params = useLocalSearchParams<{ type?: VoiceEntryType; autoStart?: string }>();
+  const { user, isLoading } = useAuth();
+  const params = useLocalSearchParams<{ autoStart?: string }>();
 
-  // Auto-start recording if param is passed
-  const shouldAutoStart = params.autoStart === 'true';
-  const [state, setState] = useState<RecordingState>('idle');
-  const [selectedType, setSelectedType] = useState<VoiceEntryType>(
-    params.type || 'freeform'
-  );
+  // Wait for user to load before recording
+  const [state, setState] = useState<RecordingState>('loading');
   const [processingStep, setProcessingStep] = useState('');
-  const [createdEntryId, setCreatedEntryId] = useState<string | null>(null);
 
-  // Handle autoStart param - skip type picker and go straight to recording
-  React.useEffect(() => {
-    if (shouldAutoStart && state === 'idle') {
+  // Start recording once user is loaded
+  useEffect(() => {
+    if (!isLoading && user) {
       setState('recording');
+    } else if (!isLoading && !user) {
+      Alert.alert('Error', 'Please sign in to record');
+      router.back();
     }
-  }, [shouldAutoStart]);
+  }, [isLoading, user]);
 
   const handleRecordingComplete = async (chunkUrls: string[], totalDurationMs: number, sessionId: string) => {
     if (!user) {
@@ -51,8 +47,7 @@ export default function RecordScreen() {
     setProcessingStep('Saving recording...');
 
     try {
-      // Use first chunk URL as the main audio URL (for backwards compatibility)
-      // Store all chunk URLs in metadata
+      // Use first chunk URL as the main audio URL
       const audioUrl = chunkUrls[0];
 
       setProcessingStep('Creating entry...');
@@ -64,9 +59,8 @@ export default function RecordScreen() {
           user_id: user.id,
           audio_url: audioUrl,
           audio_duration_seconds: Math.round(totalDurationMs / 1000),
-          entry_type: selectedType,
+          entry_type: 'freeform', // Default type - AI will categorize
           is_processed: false,
-          // Store chunk URLs as JSON for multi-chunk transcription
           metadata: {
             session_id: sessionId,
             chunk_urls: chunkUrls,
@@ -79,8 +73,6 @@ export default function RecordScreen() {
 
       if (entryError) throw entryError;
 
-      setCreatedEntryId(entry.id);
-      
       // Navigate IMMEDIATELY - entry page will show progress
       router.replace(`/entry/${entry.id}`);
 
@@ -124,13 +116,22 @@ export default function RecordScreen() {
     } catch (error) {
       console.error('Error saving recording:', error);
       Alert.alert('Error', 'Failed to save recording. Please try again.');
-      setState('idle');
+      router.back();
     }
   };
 
   const handleCancel = () => {
     router.back();
   };
+
+  if (state === 'loading') {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color="#c4dfc4" />
+        <Text style={styles.loadingText}>Preparing...</Text>
+      </View>
+    );
+  }
 
   if (state === 'processing') {
     return (
@@ -140,119 +141,25 @@ export default function RecordScreen() {
     );
   }
 
-
-  if (state === 'recording') {
-    const isPersonal = selectedType !== 'meeting';
-
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
-            <Ionicons name="close" size={24} color="#fff" />
-          </TouchableOpacity>
-
-          {/* Type Toggle */}
-          <View style={styles.typeToggle}>
-            <TouchableOpacity
-              style={[
-                styles.toggleOption,
-                isPersonal && styles.toggleOptionActive,
-              ]}
-              onPress={() => setSelectedType('freeform')}
-            >
-              <Ionicons name="mic" size={14} color={isPersonal ? '#0a0a0a' : '#666'} />
-              <Text style={[styles.toggleText, isPersonal && styles.toggleTextActive]}>
-                Individual
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.toggleOption,
-                !isPersonal && styles.toggleOptionActive,
-                !isPersonal && { backgroundColor: '#60a5fa' },
-              ]}
-              onPress={() => setSelectedType('meeting')}
-            >
-              <Ionicons name="people" size={14} color={!isPersonal ? '#0a0a0a' : '#666'} />
-              <Text style={[styles.toggleText, !isPersonal && styles.toggleTextActive]}>
-                Group
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <ChunkedVoiceRecorder
-          onRecordingComplete={handleRecordingComplete}
-          onCancel={handleCancel}
-          maxDuration={7200}
-          autoStart={shouldAutoStart}
-          userId={user?.id || ''}
-        />
-      </View>
-    );
-  }
-
-  // Idle state - show type picker
+  // Recording state - simple, clean interface
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
+      {/* Minimal Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
           <Ionicons name="close" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Voice Note</Text>
+        <Text style={styles.headerTitle}>Recording</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-      >
-        {/* Type Selection */}
-        <Text style={styles.sectionTitle}>What kind of note?</Text>
-        <View style={styles.typeGrid}>
-          {(Object.keys(ENTRY_TYPE_CONFIG) as VoiceEntryType[]).map((type) => {
-            const config = ENTRY_TYPE_CONFIG[type];
-            const isSelected = selectedType === type;
-
-            return (
-              <TouchableOpacity
-                key={type}
-                style={[
-                  styles.typeCard,
-                  isSelected && styles.typeCardSelected,
-                  isSelected && { borderColor: config.color },
-                ]}
-                onPress={() => setSelectedType(type)}
-              >
-                <View style={[styles.typeIcon, { backgroundColor: `${config.color}20` }]}>
-                  <Ionicons name={config.icon as any} size={24} color={config.color} />
-                </View>
-                <Text style={styles.typeLabel}>{config.label}</Text>
-                {isSelected && (
-                  <View style={[styles.checkmark, { backgroundColor: config.color }]}>
-                    <Ionicons name="checkmark" size={12} color="#0a0a0a" />
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Start Recording Button */}
-        <TouchableOpacity
-          style={styles.startButton}
-          onPress={() => setState('recording')}
-        >
-          <Ionicons name="mic" size={28} color="#0a0a0a" />
-          <Text style={styles.startButtonText}>Start Recording</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.hint}>
-          Speak naturally. We'll extract tasks, dates, and questions automatically.
-        </Text>
-      </ScrollView>
+      <ChunkedVoiceRecorder
+        onRecordingComplete={handleRecordingComplete}
+        onCancel={handleCancel}
+        maxDuration={7200}
+        autoStart={true}
+        userId={user?.id || ''}
+      />
     </View>
   );
 }
@@ -261,6 +168,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#666',
+    marginTop: 16,
+    fontSize: 16,
   },
   header: {
     flexDirection: 'row',
@@ -282,117 +198,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  typeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#111',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  typeText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  typeToggle: {
-    flexDirection: 'row',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 20,
-    padding: 3,
-  },
-  toggleOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 17,
-  },
-  toggleOptionActive: {
-    backgroundColor: '#c4dfc4',
-  },
-  toggleText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#666',
-  },
-  toggleTextActive: {
-    color: '#0a0a0a',
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    color: '#888',
-    marginBottom: 16,
-  },
-  typeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 32,
-  },
-  typeCard: {
-    width: '30%',
-    aspectRatio: 1,
-    backgroundColor: '#111',
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  typeCardSelected: {
-    backgroundColor: '#151515',
-  },
-  typeIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  typeLabel: {
-    fontSize: 12,
-    color: '#888',
-  },
-  checkmark: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  startButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    backgroundColor: '#c4dfc4',
-    paddingVertical: 18,
-    borderRadius: 16,
-    marginBottom: 16,
-  },
-  startButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#0a0a0a',
-  },
-  hint: {
-    fontSize: 14,
-    color: '#555',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
 });
-
