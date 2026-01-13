@@ -10,10 +10,9 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import { VoiceRecorder } from '@/components/VoiceRecorder';
+import { ChunkedVoiceRecorder } from '@/components/ChunkedVoiceRecorder';
 import { ProcessingAnimation } from '@/components/ProcessingAnimation';
 import type { VoiceEntryType } from '@/lib/types';
 import { ENTRY_TYPE_CONFIG } from '@/lib/types';
@@ -42,56 +41,38 @@ export default function RecordScreen() {
     }
   }, [shouldAutoStart]);
 
-  const handleRecordingComplete = async (uri: string, durationMs: number) => {
+  const handleRecordingComplete = async (chunkUrls: string[], totalDurationMs: number, sessionId: string) => {
     if (!user) {
       Alert.alert('Error', 'Not authenticated');
       return;
     }
 
     setState('processing');
-    setProcessingStep('Uploading audio...');
+    setProcessingStep('Saving recording...');
 
     try {
-      // Read the audio file as base64
-      const audioBase64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: 'base64',
-      });
-
-      // Generate unique filename
-      const fileName = `${user.id}/${Date.now()}.m4a`;
-
-      // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('voice_recordings')
-        .upload(fileName, decode(audioBase64), {
-          contentType: 'audio/m4a',
-        });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        // Continue without audio URL - we can still save the entry
-      }
-
-      // Get public URL if upload succeeded
-      let audioUrl: string | undefined;
-      if (uploadData) {
-        const { data: urlData } = supabase.storage
-          .from('voice_recordings')
-          .getPublicUrl(fileName);
-        audioUrl = urlData.publicUrl;
-      }
+      // Use first chunk URL as the main audio URL (for backwards compatibility)
+      // Store all chunk URLs in metadata
+      const audioUrl = chunkUrls[0];
 
       setProcessingStep('Creating entry...');
 
-      // Create voice entry record
+      // Create voice entry record with chunk info
       const { data: entry, error: entryError } = await supabase
         .from('voice_entries')
         .insert({
           user_id: user.id,
           audio_url: audioUrl,
-          audio_duration_seconds: Math.round(durationMs / 1000),
+          audio_duration_seconds: Math.round(totalDurationMs / 1000),
           entry_type: selectedType,
           is_processed: false,
+          // Store chunk URLs as JSON for multi-chunk transcription
+          metadata: {
+            session_id: sessionId,
+            chunk_urls: chunkUrls,
+            chunk_count: chunkUrls.length,
+            is_chunked: chunkUrls.length > 1,
+          },
         })
         .select()
         .single();
@@ -109,18 +90,31 @@ export default function RecordScreen() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
 
-        if (session && audioUrl) {
+        if (session && chunkUrls.length > 0) {
+          // Use chunked transcription endpoint if multiple chunks
+          const endpoint = chunkUrls.length > 1 
+            ? `${apiUrl}/api/voice/transcribe-chunked`
+            : `${apiUrl}/api/voice/transcribe`;
+
+          const body = chunkUrls.length > 1
+            ? {
+                chunk_urls: chunkUrls,
+                entry_id: entry.id,
+                session_id: sessionId,
+              }
+            : {
+                audio_url: audioUrl,
+                entry_id: entry.id,
+              };
+
           // Don't await - let it run in background
-          fetch(`${apiUrl}/api/voice/transcribe`, {
+          fetch(endpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${session.access_token}`,
             },
-            body: JSON.stringify({
-              audio_url: audioUrl,
-              entry_id: entry.id,
-            }),
+            body: JSON.stringify(body),
           }).catch(err => console.log('Background transcription error:', err));
         }
       } catch (apiError) {
@@ -136,16 +130,6 @@ export default function RecordScreen() {
 
   const handleCancel = () => {
     router.back();
-  };
-
-  // Helper to decode base64 to Uint8Array for upload
-  const decode = (base64: string): Uint8Array => {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
   };
 
   if (state === 'processing') {
@@ -198,11 +182,12 @@ export default function RecordScreen() {
           </View>
         </View>
 
-        <VoiceRecorder
+        <ChunkedVoiceRecorder
           onRecordingComplete={handleRecordingComplete}
           onCancel={handleCancel}
-          maxDuration={1800}
+          maxDuration={7200}
           autoStart={shouldAutoStart}
+          userId={user?.id || ''}
         />
       </View>
     );
