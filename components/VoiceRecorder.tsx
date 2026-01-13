@@ -7,8 +7,10 @@ import {
   Animated,
   Alert,
   Dimensions,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
-import { Audio } from 'expo-av';
+import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -33,13 +35,17 @@ export function VoiceRecorder({
 }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(autoStart);
   const [isInitializing, setIsInitializing] = useState(autoStart);
+  const [isPaused, setIsPaused] = useState(false);
   const [duration, setDuration] = useState(0);
   const [permissionGranted, setPermissionGranted] = useState(false);
   
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const meteringRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const statusCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasAutoStartedRef = useRef(false);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const wasRecordingBeforeBackground = useRef(false);
   
   // Waveform data - array of heights for each bar
   const [waveformData, setWaveformData] = useState<number[]>(
@@ -53,6 +59,104 @@ export function VoiceRecorder({
 
   // Glow animation for the stop button
   const glowAnim = useRef(new Animated.Value(0)).current;
+
+  // Handle app state changes (background/foreground)
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      console.log('[VoiceRecorder] App state changed:', appStateRef.current, '->', nextAppState);
+      
+      if (appStateRef.current === 'active' && nextAppState.match(/inactive|background/)) {
+        // App going to background - recording should continue with background audio mode
+        if (isRecording && recordingRef.current) {
+          wasRecordingBeforeBackground.current = true;
+          console.log('[VoiceRecorder] App backgrounded while recording - continuing in background');
+        }
+      } else if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
+        // App coming back to foreground
+        if (wasRecordingBeforeBackground.current && recordingRef.current) {
+          console.log('[VoiceRecorder] App foregrounded - checking recording status');
+          try {
+            const status = await recordingRef.current.getStatusAsync();
+            if (!status.isRecording) {
+              console.log('[VoiceRecorder] Recording stopped while in background, attempting to recover');
+              // Recording was interrupted - save what we have
+              await handleInterruptedRecording();
+            } else {
+              console.log('[VoiceRecorder] Recording still active after returning from background');
+            }
+          } catch (e) {
+            console.error('[VoiceRecorder] Error checking recording status:', e);
+            await handleInterruptedRecording();
+          }
+        }
+        wasRecordingBeforeBackground.current = false;
+      }
+      
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, [isRecording]);
+
+  // Handle interrupted recording - save what we have
+  const handleInterruptedRecording = async () => {
+    if (!recordingRef.current) return;
+    
+    console.log('[VoiceRecorder] Handling interrupted recording...');
+    setIsPaused(true);
+    
+    try {
+      // Try to get what was recorded
+      const uri = recordingRef.current.getURI();
+      
+      // Stop and unload
+      try {
+        await recordingRef.current.stopAndUnloadAsync();
+      } catch (e) {
+        console.log('[VoiceRecorder] Recording already stopped');
+      }
+      
+      // Clear intervals
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (meteringRef.current) clearInterval(meteringRef.current);
+      if (statusCheckRef.current) clearInterval(statusCheckRef.current);
+      timerRef.current = null;
+      meteringRef.current = null;
+      statusCheckRef.current = null;
+      
+      recordingRef.current = null;
+      setIsRecording(false);
+      setIsPaused(false);
+      
+      // Reset audio mode
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+      
+      // If we have a recording with some duration, save it
+      if (uri && duration >= 1) {
+        console.log('[VoiceRecorder] Saving interrupted recording:', uri);
+        Alert.alert(
+          'Recording Interrupted',
+          'Your recording was interrupted but has been saved.',
+          [{ text: 'OK' }]
+        );
+        onRecordingComplete(uri, duration * 1000);
+      } else {
+        Alert.alert(
+          'Recording Interrupted',
+          'The recording was interrupted and could not be saved. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (err) {
+      console.error('[VoiceRecorder] Error handling interrupted recording:', err);
+      setIsRecording(false);
+      setIsPaused(false);
+    }
+  };
 
   // Request permissions and auto-start
   useEffect(() => {
@@ -120,6 +224,7 @@ export function VoiceRecorder({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (meteringRef.current) clearInterval(meteringRef.current);
+      if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       if (recordingRef.current) {
         recordingRef.current.stopAndUnloadAsync().catch(() => {});
       }
@@ -177,9 +282,9 @@ export function VoiceRecorder({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
-        interruptionModeIOS: 1, // DoNotMix - continue recording even when app goes to background
+        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
         shouldDuckAndroid: false,
-        interruptionModeAndroid: 1, // DoNotMix
+        interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
         playThroughEarpieceAndroid: false,
       });
 
@@ -195,6 +300,7 @@ export function VoiceRecorder({
       recordingRef.current = recording;
       setIsRecording(true);
       setIsInitializing(false);
+      setIsPaused(false);
       setDuration(0);
 
       // Start timer
@@ -204,6 +310,22 @@ export function VoiceRecorder({
 
       // Start metering updates
       meteringRef.current = setInterval(updateMetering, 50);
+
+      // Start recording status monitor - check every 2 seconds if recording is still active
+      statusCheckRef.current = setInterval(async () => {
+        if (!recordingRef.current) return;
+        
+        try {
+          const status = await recordingRef.current.getStatusAsync();
+          if (!status.isRecording && isRecording) {
+            console.log('[VoiceRecorder] Recording stopped unexpectedly, status:', status);
+            // Recording stopped unexpectedly (interruption, error, etc.)
+            await handleInterruptedRecording();
+          }
+        } catch (e) {
+          console.error('[VoiceRecorder] Status check error:', e);
+        }
+      }, 2000);
 
     } catch (err: any) {
       console.error('[VoiceRecorder] Failed to start recording:', err);
@@ -248,8 +370,13 @@ export function VoiceRecorder({
         clearInterval(meteringRef.current);
         meteringRef.current = null;
       }
+      if (statusCheckRef.current) {
+        clearInterval(statusCheckRef.current);
+        statusCheckRef.current = null;
+      }
 
       setIsRecording(false);
+      setIsPaused(false);
       await recordingRef.current.stopAndUnloadAsync();
       
       const uri = recordingRef.current.getURI();
@@ -293,8 +420,13 @@ export function VoiceRecorder({
       clearInterval(meteringRef.current);
       meteringRef.current = null;
     }
+    if (statusCheckRef.current) {
+      clearInterval(statusCheckRef.current);
+      statusCheckRef.current = null;
+    }
     
     setIsRecording(false);
+    setIsPaused(false);
     setDuration(0);
     setWaveformData(Array(BAR_COUNT).fill(MIN_BAR_HEIGHT));
     
@@ -327,9 +459,11 @@ export function VoiceRecorder({
       {/* Timer */}
       <View style={styles.timerContainer}>
         {isRecording && (
-          <View style={styles.recordingBadge}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.recordingLabel}>REC</Text>
+          <View style={[styles.recordingBadge, isPaused && styles.pausedBadge]}>
+            <View style={[styles.recordingDot, isPaused && styles.pausedDot]} />
+            <Text style={[styles.recordingLabel, isPaused && styles.pausedLabel]}>
+              {isPaused ? 'PAUSED' : 'REC'}
+            </Text>
           </View>
         )}
         <Text style={styles.timer}>{formatTime(duration)}</Text>
@@ -443,6 +577,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ef4444',
     letterSpacing: 1,
+  },
+  pausedBadge: {
+    backgroundColor: 'rgba(251, 191, 36, 0.2)',
+  },
+  pausedDot: {
+    backgroundColor: '#fbbf24',
+  },
+  pausedLabel: {
+    color: '#fbbf24',
   },
   timer: {
     fontSize: 48,
