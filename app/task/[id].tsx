@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/lib/theme-context';
 import type { VoiceTodo } from '@/lib/types';
 import { getTagColor } from '@/lib/auto-tags';
 
@@ -24,6 +25,7 @@ export default function TaskDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { colors, isDark } = useTheme();
   
   const [task, setTask] = useState<VoiceTodo | null>(null);
   const [relatedTasks, setRelatedTasks] = useState<VoiceTodo[]>([]);
@@ -415,8 +417,8 @@ export default function TaskDetailScreen() {
 
   if (isLoading || !task) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <Text style={styles.loadingText}>Loading...</Text>
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
       </View>
     );
   }
@@ -425,21 +427,21 @@ export default function TaskDetailScreen() {
 
   return (
     <KeyboardAvoidingView 
-      style={[styles.container, { paddingTop: insets.top }]}
+      style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.cardBorder }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#fff" />
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Task</Text>
+        <Text style={[styles.headerTitle, { color: colors.taskBlue }]}>Task</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={archiveTask} style={styles.actionButton}>
-            <Ionicons name="archive-outline" size={22} color="#666" />
+            <Ionicons name="archive-outline" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={deleteTaskPermanently} style={styles.actionButton}>
-            <Ionicons name="trash-outline" size={22} color="#ef4444" />
+            <Ionicons name="trash-outline" size={22} color={colors.error} />
           </TouchableOpacity>
         </View>
       </View>

@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import { useTheme } from '@/lib/theme-context';
 import type { VoiceEntry, VoiceTodo, VoiceNote as VoiceNoteType } from '@/lib/types';
 import { getTagColor } from '@/lib/auto-tags';
 import { ModernLoader } from '@/components/ModernLoader';
@@ -37,6 +38,7 @@ export default function EntryDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const { colors, isDark } = useTheme();
 
   const [entry, setEntry] = useState<VoiceEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -490,16 +492,16 @@ export default function EntryDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#c4dfc4" />
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   if (!entry) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <Text style={styles.errorText}>Entry not found</Text>
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.textSecondary }]}>Entry not found</Text>
       </View>
     );
   }
@@ -511,21 +513,21 @@ export default function EntryDetailScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
+      style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.cardBorder }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#fff" />
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Memo</Text>
+        <Text style={[styles.headerTitle, { color: colors.memoGreen }]}>Memo</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={archiveEntry} style={styles.actionButton}>
-            <Ionicons name="archive-outline" size={22} color="#666" />
+            <Ionicons name="archive-outline" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={deleteEntryPermanently} style={styles.actionButton}>
-            <Ionicons name="trash-outline" size={22} color="#ef4444" />
+            <Ionicons name="trash-outline" size={22} color={colors.error} />
           </TouchableOpacity>
         </View>
       </View>
