@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
+import { useTimezone } from '@/lib/timezone-context';
 import { ChunkedVoiceRecorder } from '@/components/ChunkedVoiceRecorder';
 import { ProcessingAnimation } from '@/components/ProcessingAnimation';
 
@@ -23,6 +24,7 @@ export default function RecordScreen() {
   const insets = useSafeAreaInsets();
   const { user, isLoading } = useAuth();
   const { colors } = useTheme();
+  const { timezone } = useTimezone();
   const params = useLocalSearchParams<{ autoStart?: string }>();
 
   // Wait for user to load before recording
@@ -95,10 +97,12 @@ export default function RecordScreen() {
                 chunk_urls: chunkUrls,
                 entry_id: entry.id,
                 session_id: sessionId,
+                timezone: timezone, // Send user's timezone for date calculations
               }
             : {
                 audio_url: audioUrl,
                 entry_id: entry.id,
+                timezone: timezone, // Send user's timezone for date calculations
               };
 
           // Don't await - let it run in background
