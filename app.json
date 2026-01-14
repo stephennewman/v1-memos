@@ -14,9 +14,9 @@
       "backgroundColor": "#0a0a0a"
     },
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.outcomeview.memos",
-      "buildNumber": "19",
+      "buildNumber": "20",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
