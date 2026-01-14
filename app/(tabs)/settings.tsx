@@ -6,17 +6,20 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth-context';
+import { useTheme } from '@/lib/theme-context';
 import { supabase } from '@/lib/supabase';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const { mode, toggleMode, colors, isDark } = useTheme();
 
   const handleSignOut = () => {
     Alert.alert(
@@ -74,29 +77,55 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.cardBorder }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#fff" />
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
         <View style={styles.backButton} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Account Section */}
+        {/* Appearance Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Appearance</Text>
           
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
             <View style={styles.row}>
-              <View style={styles.rowIcon}>
-                <Ionicons name="person" size={20} color="#666" />
+              <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1a1a1a' : '#f0f0f0' }]}>
+                <Ionicons name={isDark ? 'moon' : 'sunny'} size={20} color={isDark ? '#fcd34d' : '#f59e0b'} />
               </View>
               <View style={styles.rowContent}>
-                <Text style={styles.rowLabel}>Email</Text>
-                <Text style={styles.rowValue}>{user?.email || 'Not signed in'}</Text>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Dark Mode</Text>
+                <Text style={[styles.rowValue, { color: colors.textSecondary }]}>
+                  {isDark ? 'On' : 'Off'}
+                </Text>
+              </View>
+              <Switch
+                value={isDark}
+                onValueChange={toggleMode}
+                trackColor={{ false: '#e9ecef', true: '#374151' }}
+                thumbColor={isDark ? '#f472b6' : '#ffffff'}
+                ios_backgroundColor="#e9ecef"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Account Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Account</Text>
+          
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <View style={styles.row}>
+              <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1a1a1a' : '#f0f0f0' }]}>
+                <Ionicons name="person" size={20} color={colors.textSecondary} />
+              </View>
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Email</Text>
+                <Text style={[styles.rowValue, { color: colors.textSecondary }]}>{user?.email || 'Not signed in'}</Text>
               </View>
             </View>
           </View>
@@ -104,30 +133,33 @@ export default function SettingsScreen() {
 
         {/* About Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>About</Text>
           
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
             <View style={styles.row}>
-              <View style={styles.rowIcon}>
-                <Ionicons name="information-circle" size={20} color="#666" />
+              <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1a1a1a' : '#f0f0f0' }]}>
+                <Ionicons name="information-circle" size={20} color={colors.textSecondary} />
               </View>
               <View style={styles.rowContent}>
-                <Text style={styles.rowLabel}>Version</Text>
-                <Text style={styles.rowValue}>1.0.0</Text>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Version</Text>
+                <Text style={[styles.rowValue, { color: colors.textSecondary }]}>1.1.0</Text>
               </View>
             </View>
           </View>
         </View>
 
         {/* Sign Out */}
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Ionicons name="log-out-outline" size={20} color="#888" />
-          <Text style={styles.signOutText}>Sign Out</Text>
+        <TouchableOpacity 
+          style={[styles.signOutButton, { backgroundColor: colors.card }]} 
+          onPress={handleSignOut}
+        >
+          <Ionicons name="log-out-outline" size={20} color={colors.textSecondary} />
+          <Text style={[styles.signOutText, { color: colors.textSecondary }]}>Sign Out</Text>
         </TouchableOpacity>
 
         {/* Delete Account */}
         <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
-          <Text style={styles.deleteText}>Delete Account</Text>
+          <Text style={[styles.deleteText, { color: colors.textMuted }]}>Delete Account</Text>
         </TouchableOpacity>
 
         <View style={{ height: 100 }} />
@@ -139,7 +171,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
   },
   header: {
     flexDirection: 'row',
@@ -148,7 +179,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
   },
   backButton: {
     width: 44,
@@ -159,7 +189,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#fff',
   },
   content: {
     flex: 1,
@@ -171,14 +200,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#666',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
     marginLeft: 4,
   },
   card: {
-    backgroundColor: '#111',
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -192,7 +219,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#1a1a1a',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -203,11 +229,9 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#fff',
   },
   rowValue: {
     fontSize: 13,
-    color: '#666',
     marginTop: 2,
   },
   signOutButton: {
@@ -217,13 +241,11 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 32,
     paddingVertical: 14,
-    backgroundColor: '#1a1a1a',
     borderRadius: 12,
   },
   signOutText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#888',
   },
   deleteButton: {
     alignItems: 'center',
@@ -233,6 +255,5 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     fontSize: 13,
-    color: '#666',
   },
 });

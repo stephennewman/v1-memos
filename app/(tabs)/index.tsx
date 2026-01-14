@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/lib/auth-context';
+import { useTheme } from '@/lib/theme-context';
 import { supabase } from '@/lib/supabase';
 import { autoGenerateTags, getAllUniqueTags, getTagColor } from '@/lib/auto-tags';
 import { SwipeableItem } from '@/components/SwipeableItem';
@@ -150,6 +151,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isLoading: authLoading } = useAuth();
+  const { colors, isDark } = useTheme();
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [days, setDays] = useState<DayData[]>([]);
@@ -920,8 +922,8 @@ export default function HomeScreen() {
   // Early return AFTER all hooks are defined
   if (isLoading || authLoading) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ModernLoader size="large" color="#c4dfc4" />
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <ModernLoader size="large" color={colors.accent} />
       </View>
     );
   }
@@ -942,9 +944,9 @@ export default function HomeScreen() {
               onToggle={handleToggleTask} 
             />
           )}
-          {item.type === 'note' && <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 4 }} />}
+          {item.type === 'note' && <Ionicons name="ellipse" size={10} color={colors.notesPurple} style={{ marginHorizontal: 4 }} />}
           <TextInput
-            style={styles.inlineEditInput}
+            style={[styles.inlineEditInput, { backgroundColor: colors.card, color: colors.text }]}
             value={editingText}
             onChangeText={setEditingText}
             autoFocus
@@ -954,7 +956,7 @@ export default function HomeScreen() {
             returnKeyType="done"
           />
           <TouchableOpacity onPress={cancelItemEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="close" size={18} color="#666" />
+            <Ionicons name="close" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       );
@@ -967,7 +969,7 @@ export default function HomeScreen() {
           style={styles.itemTextWrapper}
           onPress={() => startEditingItem(item)}
         >
-          <Text style={[styles.itemText, item.status === 'completed' && styles.itemTextCompleted]}>
+          <Text style={[styles.itemText, { color: colors.text }, item.status === 'completed' && { textDecorationLine: 'line-through', color: colors.taskBlue }]}>
             {item.text}
           </Text>
         </TouchableOpacity>
@@ -989,7 +991,7 @@ export default function HomeScreen() {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.detailBtn}
         >
-          <Ionicons name="chevron-forward" size={16} color="#444" />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
     );
@@ -1008,7 +1010,7 @@ export default function HomeScreen() {
             leftAction={{
               icon: 'trash-outline',
               color: '#fff',
-              backgroundColor: '#ef4444',
+              backgroundColor: colors.error,
               label: 'Delete',
             }}
             style={styles.swipeableContent}
@@ -1022,13 +1024,13 @@ export default function HomeScreen() {
     // Note: swipe left to archive only
     return (
       <View key={item.id} style={styles.item}>
-        <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 4 }} />
+        <Ionicons name="ellipse" size={10} color={colors.notesPurple} style={{ marginHorizontal: 4 }} />
         <SwipeableItem
           onSwipeLeft={() => handleSwipeArchive(item)}
           leftAction={{
             icon: 'archive-outline',
             color: '#fff',
-            backgroundColor: '#ef4444',
+            backgroundColor: colors.error,
             label: 'Archive',
           }}
           style={styles.swipeableContent}
@@ -1058,28 +1060,31 @@ export default function HomeScreen() {
     return (
       <View 
         key={day.dateKey} 
-        style={styles.daySection}
+        style={[styles.daySection, { borderBottomColor: colors.cardBorder }]}
         onLayout={(e) => {
           const y = e.nativeEvent.layout.y;
           setDayPositions(prev => new Map(prev).set(day.dateKey, y));
         }}
       >
         {!hideHeader && (
-          <View style={[styles.dayHeader, !hasItems && !day.isToday && styles.dayHeaderEmpty]}>
+          <View style={[
+            styles.dayHeader, 
+            { backgroundColor: hasItems || day.isToday ? colors.accent : colors.card }
+          ]}>
             <TouchableOpacity 
               style={styles.dayHeaderLeft}
               onPress={() => toggleDayExpanded(day.dateKey)}
               activeOpacity={0.7}
             >
-              <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color={hasItems || day.isToday ? '#0a0a0a' : '#666'} />
-              <Text style={[styles.dayLabel, !hasItems && !day.isToday && styles.dayLabelEmpty]}>{day.label}</Text>
+              <Ionicons name={isExpanded ? 'chevron-down' : 'chevron-forward'} size={18} color={hasItems || day.isToday ? (isDark ? '#0a0a0a' : '#fff') : colors.textSecondary} />
+              <Text style={[styles.dayLabel, { color: hasItems || day.isToday ? (isDark ? '#0a0a0a' : '#fff') : colors.textSecondary }]}>{day.label}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.badge, !hasItems && !day.isToday && styles.badgeEmpty]}
+              style={[styles.badge, { backgroundColor: hasItems || day.isToday ? 'rgba(0,0,0,0.2)' : colors.cardBorder }]}
               onPress={() => !day.isToday && focusDay(day.dateKey)}
               activeOpacity={day.isToday ? 1 : 0.7}
             >
-              <Text style={[styles.badgeText, !hasItems && !day.isToday && styles.badgeTextEmpty]}>{totalCount}</Text>
+              <Text style={[styles.badgeText, { color: hasItems || day.isToday ? (isDark ? '#0a0a0a' : '#fff') : colors.textSecondary }]}>{totalCount}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1089,21 +1094,21 @@ export default function HomeScreen() {
             {/* Tasks */}
             <View style={styles.typeGroup}>
               <View style={styles.typeLabelRow}>
-                <Ionicons name="checkbox-outline" size={14} color="#3b82f6" />
-                <Text style={styles.typeLabel}>Tasks</Text>
+                <Ionicons name="checkbox-outline" size={14} color={colors.taskBlue} />
+                <Text style={[styles.typeLabel, { color: colors.taskBlue }]}>Tasks</Text>
               </View>
               {tasks.map(renderItem)}
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'task' ? (
                 <View ref={inputRowRef} style={styles.inlineInputRow}>
-                  <Ionicons name="square-outline" size={20} color="#666" />
+                  <Ionicons name="square-outline" size={20} color={colors.textSecondary} />
                   <View style={styles.inputWithCancel}>
                     <TextInput
                       ref={inputRef}
-                      style={styles.inlineInputInner}
+                      style={[styles.inlineInputInner, { color: colors.text }]}
                       value={addingText}
                       onChangeText={setAddingText}
                       placeholder="Enter task..."
-                      placeholderTextColor="#666"
+                      placeholderTextColor={colors.textSecondary}
                       autoFocus
                       onSubmitEditing={() => {
                         if (addingText.trim()) {
@@ -1132,15 +1137,15 @@ export default function HomeScreen() {
                       onPress={() => { if (addingText.trim()) handleAddTask(); }}
                       hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
                     >
-                      <Text style={[styles.inlineAddText, !addingText.trim() && styles.inlineAddTextDisabled]}>Add</Text>
+                      <Text style={[styles.inlineAddText, { color: colors.taskBlue }, !addingText.trim() && { color: colors.textMuted }]}>Add</Text>
                     </TouchableOpacity>
-                    <Text style={styles.inlineDivider}>|</Text>
+                    <Text style={[styles.inlineDivider, { color: colors.cardBorder }]}>|</Text>
                     <TouchableOpacity 
                       style={styles.inlineCancelBtn}
                       onPress={() => { setAddingTo(null); setAddingText(''); Keyboard.dismiss(); }}
                       hitSlop={{ top: 10, bottom: 10, left: 5, right: 10 }}
                     >
-                      <Text style={styles.inlineCancelText}>Cancel</Text>
+                      <Text style={[styles.inlineCancelText, { color: colors.textSecondary }]}>Cancel</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1149,7 +1154,7 @@ export default function HomeScreen() {
                   style={styles.addLink} 
                   onPress={() => setAddingTo({ dayKey: day.dateKey, type: 'task' })}
                 >
-                  <Text style={styles.addLinkText}>+ Add task</Text>
+                  <Text style={[styles.addLinkText, { color: colors.taskBlue }]}>+ Add task</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -1157,21 +1162,21 @@ export default function HomeScreen() {
             {/* Notes */}
             <View style={styles.typeGroup}>
               <View style={styles.typeLabelRow}>
-                <Ionicons name="document-text-outline" size={14} color="#a78bfa" />
-                <Text style={[styles.typeLabel, { color: '#a78bfa' }]}>Notes</Text>
+                <Ionicons name="document-text-outline" size={14} color={colors.notesPurple} />
+                <Text style={[styles.typeLabel, { color: colors.notesPurple }]}>Notes</Text>
               </View>
               {notes.map(renderItem)}
               {addingTo?.dayKey === day.dateKey && addingTo?.type === 'note' ? (
                 <View ref={inputRowRef} style={styles.inlineInputRow}>
-                  <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 5 }} />
+                  <Ionicons name="ellipse" size={10} color={colors.notesPurple} style={{ marginHorizontal: 5 }} />
                   <View style={styles.inputWithCancel}>
                     <TextInput
                       ref={inputRef}
-                      style={styles.inlineInputInner}
+                      style={[styles.inlineInputInner, { color: colors.text }]}
                       value={addingText}
                       onChangeText={setAddingText}
                       placeholder="Enter note..."
-                      placeholderTextColor="#666"
+                      placeholderTextColor={colors.textSecondary}
                       autoFocus
                       onSubmitEditing={() => {
                         if (addingText.trim()) {
@@ -1200,15 +1205,15 @@ export default function HomeScreen() {
                       onPress={() => { if (addingText.trim()) handleAddNote(); }}
                       hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
                     >
-                      <Text style={[styles.inlineAddText, !addingText.trim() && styles.inlineAddTextDisabled]}>Add</Text>
+                      <Text style={[styles.inlineAddText, { color: colors.notesPurple }, !addingText.trim() && { color: colors.textMuted }]}>Add</Text>
                     </TouchableOpacity>
-                    <Text style={styles.inlineDivider}>|</Text>
+                    <Text style={[styles.inlineDivider, { color: colors.cardBorder }]}>|</Text>
                     <TouchableOpacity 
                       style={styles.inlineCancelBtn}
                       onPress={() => { setAddingTo(null); setAddingText(''); Keyboard.dismiss(); }}
                       hitSlop={{ top: 10, bottom: 10, left: 5, right: 10 }}
                     >
-                      <Text style={styles.inlineCancelText}>Cancel</Text>
+                      <Text style={[styles.inlineCancelText, { color: colors.textSecondary }]}>Cancel</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1217,7 +1222,7 @@ export default function HomeScreen() {
                   style={styles.addLink} 
                   onPress={() => setAddingTo({ dayKey: day.dateKey, type: 'note' })}
                 >
-                  <Text style={[styles.addLinkText, { color: '#a78bfa' }]}>+ Add note</Text>
+                  <Text style={[styles.addLinkText, { color: colors.notesPurple }]}>+ Add note</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -1225,8 +1230,8 @@ export default function HomeScreen() {
             {/* Memos */}
             <View style={styles.typeGroup}>
               <View style={styles.typeLabelRow}>
-                <Ionicons name="mic-outline" size={14} color="#22c55e" />
-                <Text style={[styles.typeLabel, { color: '#22c55e' }]}>Memos</Text>
+                <Ionicons name="mic-outline" size={14} color={colors.memoGreen} />
+                <Text style={[styles.typeLabel, { color: colors.memoGreen }]}>Memos</Text>
               </View>
               {memos.map(memo => (
                 <SwipeableItem
@@ -1235,7 +1240,7 @@ export default function HomeScreen() {
                   leftAction={{
                     icon: 'archive-outline',
                     color: '#fff',
-                    backgroundColor: '#ef4444',
+                    backgroundColor: colors.error,
                     label: 'Archive',
                   }}
                 >
@@ -1243,30 +1248,30 @@ export default function HomeScreen() {
                     style={styles.item}
                     onPress={() => router.push(`/entry/${memo.id}`)}
                   >
-                    <Ionicons name="play" size={16} color="#22c55e" />
+                    <Ionicons name="play" size={16} color={colors.memoGreen} />
                     <View style={styles.itemTextWrapper}>
-                      <Text style={styles.itemText} numberOfLines={1}>
+                      <Text style={[styles.itemText, { color: colors.text }]} numberOfLines={1}>
                         {memo.summary || memo.transcript?.slice(0, 50) || 'Voice memo'}
                       </Text>
                     </View>
                     {(memo.taskCount > 0 || memo.noteCount > 0) && (
                       <View style={styles.memoCounts}>
                         {memo.taskCount > 0 && (
-                          <View style={styles.memoCountBadge}>
-                            <Ionicons name="checkbox-outline" size={12} color="#3b82f6" />
-                            <Text style={styles.memoCountText}>{memo.taskCount}</Text>
+                          <View style={[styles.memoCountBadge, { backgroundColor: colors.card }]}>
+                            <Ionicons name="checkbox-outline" size={12} color={colors.taskBlue} />
+                            <Text style={[styles.memoCountText, { color: colors.textSecondary }]}>{memo.taskCount}</Text>
                           </View>
                         )}
                         {memo.noteCount > 0 && (
-                          <View style={styles.memoCountBadge}>
-                            <Ionicons name="ellipse" size={8} color="#a78bfa" />
-                            <Text style={styles.memoCountText}>{memo.noteCount}</Text>
+                          <View style={[styles.memoCountBadge, { backgroundColor: colors.card }]}>
+                            <Ionicons name="ellipse" size={8} color={colors.notesPurple} />
+                            <Text style={[styles.memoCountText, { color: colors.textSecondary }]}>{memo.noteCount}</Text>
                           </View>
                         )}
                       </View>
                     )}
                     <TouchableOpacity style={styles.detailBtn}>
-                      <Ionicons name="chevron-forward" size={16} color="#444" />
+                      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                     </TouchableOpacity>
                   </TouchableOpacity>
                 </SwipeableItem>
@@ -1275,7 +1280,7 @@ export default function HomeScreen() {
                 style={styles.addLink} 
                 onPress={() => router.push('/record?autoStart=true')}
               >
-                <Text style={[styles.addLinkText, { color: '#22c55e' }]}>+ Add Memo</Text>
+                <Text style={[styles.addLinkText, { color: colors.memoGreen }]}>+ Add Memo</Text>
               </TouchableOpacity>
             </View>
             
@@ -1291,35 +1296,35 @@ export default function HomeScreen() {
 
   return (
     <KeyboardAvoidingView 
-      style={[styles.container, { paddingTop: insets.top }]}
+      style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.cardBorder }]}>
         <TouchableOpacity style={styles.menuBtn} onPress={toggleDrawer}>
-          <Ionicons name="menu" size={24} color={selectedTags.length > 0 ? '#22c55e' : '#fff'} />
+          <Ionicons name="menu" size={24} color={selectedTags.length > 0 ? colors.success : colors.text} />
           {selectedTags.length > 0 && (
-            <View style={styles.menuBadge}>
-              <Text style={styles.menuBadgeText}>{selectedTags.length}</Text>
+            <View style={[styles.menuBadge, { backgroundColor: colors.accent }]}>
+              <Text style={[styles.menuBadgeText, { color: isDark ? '#0a0a0a' : '#fff' }]}>{selectedTags.length}</Text>
             </View>
           )}
         </TouchableOpacity>
         
-        <Text style={styles.headerTitle}>MemoTalk</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>MemoTalk</Text>
         
         <View style={{ flex: 1 }} />
         
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/calendar')}>
-          <Ionicons name="calendar-outline" size={22} color="#666" />
+          <Ionicons name="calendar-outline" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerBtn} onPress={() => setIsSortModalVisible(true)}>
-          <Ionicons name="swap-vertical" size={22} color={sortOption !== 'pending_first' ? '#22c55e' : '#666'} />
+          <Ionicons name="swap-vertical" size={22} color={sortOption !== 'pending_first' ? colors.success : colors.textSecondary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/search')}>
-          <Ionicons name="search" size={22} color="#666" />
+          <Ionicons name="search" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/(tabs)/settings')}>
-          <Ionicons name="person-circle-outline" size={26} color="#666" />
+          <Ionicons name="person-circle-outline" size={26} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -1328,16 +1333,16 @@ export default function HomeScreen() {
         style={[styles.drawerOverlay, { pointerEvents: isDrawerOpen ? 'auto' : 'none' }]}
         onPress={closeDrawer}
       >
-        <Animated.View style={[styles.drawerOverlayBg, { opacity: overlayAnim }]} />
+        <Animated.View style={[styles.drawerOverlayBg, { opacity: overlayAnim, backgroundColor: isDark ? '#000' : 'rgba(0,0,0,0.3)' }]} />
       </Pressable>
 
       {/* Tag Drawer */}
-      <Animated.View style={[styles.drawer, { transform: [{ translateX: drawerAnim }] }]}>
+      <Animated.View style={[styles.drawer, { transform: [{ translateX: drawerAnim }], backgroundColor: colors.backgroundSecondary }]}>
         <View style={[styles.drawerContent, { paddingTop: insets.top + 12 }]}>
-          <View style={styles.drawerHeader}>
-            <Text style={styles.drawerTitle}>Filters</Text>
+          <View style={[styles.drawerHeader, { borderBottomColor: colors.cardBorder }]}>
+            <Text style={[styles.drawerTitle, { color: colors.text }]}>Filters</Text>
             <TouchableOpacity onPress={closeDrawer}>
-              <Ionicons name="close" size={24} color="#666" />
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
           
@@ -1410,11 +1415,11 @@ export default function HomeScreen() {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#c4dfc4" />}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
         {allDays.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>Add Memo below</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>Add Memo below</Text>
           </View>
         ) : (
           allDays.map((day, index) => renderDaySection(day, false, index === 0))
@@ -1431,33 +1436,34 @@ export default function HomeScreen() {
         onRequestClose={() => setIsSortModalVisible(false)}
       >
         <Pressable 
-          style={styles.sortModalOverlay}
+          style={[styles.sortModalOverlay, { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.4)' }]}
           onPress={() => setIsSortModalVisible(false)}
         >
-          <View style={styles.sortModalContent}>
-            <Text style={styles.sortModalTitle}>Sort by</Text>
+          <View style={[styles.sortModalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sortModalTitle, { color: colors.text }]}>Sort by</Text>
             {SORT_OPTIONS.map((option) => (
               <TouchableOpacity
                 key={option.value}
                 style={[
                   styles.sortOption,
-                  sortOption === option.value && styles.sortOptionActive,
+                  sortOption === option.value && { backgroundColor: isDark ? '#0f2f0f' : '#e8f5e8' },
                 ]}
                 onPress={() => handleSortChange(option.value)}
               >
                 <Ionicons 
                   name={option.icon as any} 
                   size={20} 
-                  color={sortOption === option.value ? '#22c55e' : '#888'} 
+                  color={sortOption === option.value ? colors.success : colors.textSecondary} 
                 />
                 <Text style={[
                   styles.sortOptionText,
-                  sortOption === option.value && styles.sortOptionTextActive,
+                  { color: colors.textSecondary },
+                  sortOption === option.value && { color: colors.text, fontWeight: '600' },
                 ]}>
                   {option.label}
                 </Text>
                 {sortOption === option.value && (
-                  <Ionicons name="checkmark" size={20} color="#22c55e" />
+                  <Ionicons name="checkmark" size={20} color={colors.success} />
                 )}
               </TouchableOpacity>
             ))}

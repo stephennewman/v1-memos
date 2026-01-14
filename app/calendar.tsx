@@ -13,6 +13,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth-context';
+import { useTheme } from '@/lib/theme-context';
 import { supabase } from '@/lib/supabase';
 import { ModernLoader } from '@/components/ModernLoader';
 import { SwipeableItem } from '@/components/SwipeableItem';
@@ -57,6 +58,7 @@ export default function CalendarScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { colors, isDark } = useTheme();
   
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -233,35 +235,35 @@ export default function CalendarScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ModernLoader size="large" color="#c4dfc4" />
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <ModernLoader size="large" color={colors.accent} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.cardBorder }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Calendar</Text>
-        <TouchableOpacity onPress={goToToday} style={styles.todayBtn}>
-          <Text style={styles.todayBtnText}>Today</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Calendar</Text>
+        <TouchableOpacity onPress={goToToday} style={[styles.todayBtn, { backgroundColor: colors.card }]}>
+          <Text style={[styles.todayBtnText, { color: colors.accent }]}>Today</Text>
         </TouchableOpacity>
       </View>
 
       {/* Month Navigation */}
       <View style={styles.monthNav}>
         <TouchableOpacity onPress={goToPreviousMonth} style={styles.monthArrow}>
-          <Ionicons name="chevron-back" size={24} color="#fff" />
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.monthTitle}>
+        <Text style={[styles.monthTitle, { color: colors.text }]}>
           {MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}
         </Text>
         <TouchableOpacity onPress={goToNextMonth} style={styles.monthArrow}>
-          <Ionicons name="chevron-forward" size={24} color="#fff" />
+          <Ionicons name="chevron-forward" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -269,7 +271,7 @@ export default function CalendarScreen() {
       <View style={styles.weekdayRow}>
         {WEEKDAYS.map(day => (
           <View key={day} style={styles.weekdayCell}>
-            <Text style={styles.weekdayText}>{day}</Text>
+            <Text style={[styles.weekdayText, { color: colors.textSecondary }]}>{day}</Text>
           </View>
         ))}
       </View>
@@ -293,22 +295,24 @@ export default function CalendarScreen() {
               key={dateKey}
               style={[
                 styles.dayCell,
-                isSelected && styles.dayCellSelected,
-                isTodayDate && styles.dayCellToday,
+                isSelected && { backgroundColor: colors.accent, borderRadius: 12 },
+                isTodayDate && !isSelected && { borderWidth: 2, borderColor: colors.accent, borderRadius: 12 },
               ]}
               onPress={() => setSelectedDate(day)}
             >
               <Text style={[
                 styles.dayNumber,
-                isSelected && styles.dayNumberSelected,
-                isTodayDate && styles.dayNumberToday,
+                { color: colors.text },
+                isSelected && { color: isDark ? '#0a0a0a' : '#fff', fontWeight: '700' },
+                isTodayDate && !isSelected && { color: colors.accent },
               ]}>
                 {day.getDate()}
               </Text>
               {pendingCount > 0 && (
                 <View style={[
                   styles.taskDot,
-                  hasOverdue && styles.taskDotOverdue,
+                  { backgroundColor: colors.taskBlue },
+                  hasOverdue && { backgroundColor: colors.error },
                 ]}>
                   <Text style={styles.taskDotText}>{pendingCount}</Text>
                 </View>
@@ -319,16 +323,16 @@ export default function CalendarScreen() {
       </View>
 
       {/* Selected Date Tasks */}
-      <View style={styles.taskSection}>
-        <View style={styles.taskSectionHeader}>
-          <Text style={styles.taskSectionTitle}>
+      <View style={[styles.taskSection, { backgroundColor: colors.backgroundSecondary }]}>
+        <View style={[styles.taskSectionHeader, { borderBottomColor: colors.cardBorder }]}>
+          <Text style={[styles.taskSectionTitle, { color: colors.text }]}>
             {selectedDate.toLocaleDateString('en-US', { 
               weekday: 'long', 
               month: 'long', 
               day: 'numeric' 
             })}
           </Text>
-          <Text style={styles.taskCount}>
+          <Text style={[styles.taskCount, { color: colors.textSecondary }]}>
             {pendingTasks.length} pending
           </Text>
         </View>
@@ -337,13 +341,13 @@ export default function CalendarScreen() {
           style={styles.taskList}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#c4dfc4" />
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.accent} />
           }
         >
           {selectedDateTasks.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="calendar-outline" size={48} color="#333" />
-              <Text style={styles.emptyText}>No tasks for this date</Text>
+              <Ionicons name="calendar-outline" size={48} color={colors.textMuted} />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No tasks for this date</Text>
             </View>
           ) : (
             <>
@@ -355,11 +359,11 @@ export default function CalendarScreen() {
                   rightAction={{
                     icon: 'today-outline',
                     color: '#fff',
-                    backgroundColor: '#3b82f6',
+                    backgroundColor: colors.taskBlue,
                     label: 'Move to Today',
                   }}
                 >
-                  <View style={styles.taskItem}>
+                  <View style={[styles.taskItem, { borderBottomColor: colors.cardBorder }]}>
                     <TouchableOpacity 
                       onPress={() => toggleTaskStatus(task.id, task.status)}
                       style={styles.taskCheckbox}
@@ -367,32 +371,33 @@ export default function CalendarScreen() {
                       <Ionicons 
                         name={task.status === 'completed' ? 'checkbox' : 'square-outline'} 
                         size={22} 
-                        color={task.status === 'completed' ? '#3b82f6' : '#666'} 
+                        color={task.status === 'completed' ? colors.taskBlue : colors.textSecondary} 
                       />
                     </TouchableOpacity>
                     <View style={styles.taskContent}>
                       <Text style={[
                         styles.taskText,
-                        isOverdue(task.due_date, task.status) && styles.taskTextOverdue,
+                        { color: colors.text },
+                        isOverdue(task.due_date, task.status) && { color: colors.error },
                       ]}>
                         {task.text}
                       </Text>
                       <View style={styles.taskMeta}>
                         {task.is_recurring && (
                           <View style={styles.recurringBadge}>
-                            <Ionicons name="repeat" size={12} color="#22c55e" />
-                            <Text style={styles.recurringText}>Recurring</Text>
+                            <Ionicons name="repeat" size={12} color={colors.success} />
+                            <Text style={[styles.recurringText, { color: colors.success }]}>Recurring</Text>
                           </View>
                         )}
                         {task.task_type === 'deadline' && (
                           <View style={styles.deadlineBadge}>
-                            <Ionicons name="alert-circle" size={12} color="#f59e0b" />
-                            <Text style={styles.deadlineText}>Deadline</Text>
+                            <Ionicons name="alert-circle" size={12} color={colors.warning} />
+                            <Text style={[styles.deadlineText, { color: colors.warning }]}>Deadline</Text>
                           </View>
                         )}
                         {isOverdue(task.due_date, task.status) && (
                           <View style={styles.overdueBadge}>
-                            <Text style={styles.overdueText}>Overdue</Text>
+                            <Text style={[styles.overdueText, { color: colors.error }]}>Overdue</Text>
                           </View>
                         )}
                       </View>
@@ -401,7 +406,7 @@ export default function CalendarScreen() {
                       onPress={() => router.push(`/task/${task.id}`)}
                       style={styles.taskChevron}
                     >
-                      <Ionicons name="chevron-forward" size={18} color="#444" />
+                      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
                     </TouchableOpacity>
                   </View>
                 </SwipeableItem>
@@ -410,16 +415,16 @@ export default function CalendarScreen() {
               {/* Completed Tasks */}
               {completedTasks.length > 0 && (
                 <>
-                  <Text style={styles.completedHeader}>Completed</Text>
+                  <Text style={[styles.completedHeader, { color: colors.textSecondary }]}>Completed</Text>
                   {completedTasks.map(task => (
-                    <View key={task.id} style={[styles.taskItem, styles.taskItemCompleted]}>
+                    <View key={task.id} style={[styles.taskItem, styles.taskItemCompleted, { borderBottomColor: colors.cardBorder }]}>
                       <TouchableOpacity 
                         onPress={() => toggleTaskStatus(task.id, task.status)}
                         style={styles.taskCheckbox}
                       >
-                        <Ionicons name="checkbox" size={22} color="#3b82f6" />
+                        <Ionicons name="checkbox" size={22} color={colors.taskBlue} />
                       </TouchableOpacity>
-                      <Text style={styles.taskTextCompleted}>{task.text}</Text>
+                      <Text style={[styles.taskTextCompleted, { color: colors.taskBlue }]}>{task.text}</Text>
                     </View>
                   ))}
                 </>
