@@ -45,8 +45,20 @@ export default function NoteDetailScreen() {
     setIsRefreshing(false);
   };
 
-  const loadNote = async () => {
+  const loadNote = async (retryCount = 0) => {
     if (!id) return;
+    
+    // Don't try to load temp IDs - wait for real ID
+    if (id.startsWith('temp-')) {
+      if (retryCount < 3) {
+        setTimeout(() => loadNote(retryCount + 1), 500);
+        return;
+      }
+      setIsLoading(false);
+      Alert.alert('Error', 'Note is still being saved. Please try again.');
+      router.back();
+      return;
+    }
     
     try {
       const { data, error } = await supabase
@@ -55,19 +67,26 @@ export default function NoteDetailScreen() {
         .eq('id', id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Retry a few times in case of timing issues
+        if (retryCount < 2) {
+          setTimeout(() => loadNote(retryCount + 1), 300);
+          return;
+        }
+        throw error;
+      }
       setNote(data);
       setEditedText(data.text);
       setEditedTags(data.tags || []);
       
       // Find related notes
       await loadRelatedNotes(data);
+      setIsLoading(false);
     } catch (error) {
       console.error('Error loading note:', error);
+      setIsLoading(false);
       Alert.alert('Error', 'Failed to load note');
       router.back();
-    } finally {
-      setIsLoading(false);
     }
   };
   

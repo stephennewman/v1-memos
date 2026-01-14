@@ -102,10 +102,23 @@ export default function EntryDetailScreen() {
   }, [id]);
 
   // Load related notes once entry is processed
+  // Also do a few extra polls to catch any late-arriving tasks
   useEffect(() => {
     if (entry?.is_processed) {
       loadRelatedNotes();
       loadTasksAndNotes();
+      
+      // Do a few more polls after processing to ensure tasks are loaded
+      // This handles race conditions where DB writes haven't propagated yet
+      const poll1 = setTimeout(() => loadTasksAndNotes(), 500);
+      const poll2 = setTimeout(() => loadTasksAndNotes(), 1500);
+      const poll3 = setTimeout(() => loadTasksAndNotes(), 3000);
+      
+      return () => {
+        clearTimeout(poll1);
+        clearTimeout(poll2);
+        clearTimeout(poll3);
+      };
     }
   }, [entry?.is_processed, loadRelatedNotes]);
 

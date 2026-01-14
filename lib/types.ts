@@ -114,6 +114,11 @@ export interface RecurrencePattern {
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
   day_of_week?: number; // 0 = Sunday, 6 = Saturday
   day_of_month?: number; // 1-31
+  occurrences?: number; // Number of times task repeats
+  end_date?: string; // Alternative to occurrences
+  interval?: number; // For "every other" (2) or "every 3 weeks" (3). Default 1.
+  instance?: number; // Which instance this is (1, 2, 3...)
+  total?: number; // Total instances in series
 }
 
 export interface VoiceTodo {

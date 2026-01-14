@@ -308,13 +308,19 @@ export default function CalendarScreen() {
               ]}>
                 {day.getDate()}
               </Text>
+              {/* Simple dots below date - no numbers */}
               {pendingCount > 0 && (
-                <View style={[
-                  styles.taskDot,
-                  { backgroundColor: colors.taskBlue },
-                  hasOverdue && { backgroundColor: colors.error },
-                ]}>
-                  <Text style={styles.taskDotText}>{pendingCount}</Text>
+                <View style={styles.dotsRow}>
+                  {/* Show up to 3 dots, one per task */}
+                  {Array.from({ length: Math.min(pendingCount, 3) }).map((_, i) => (
+                    <View 
+                      key={i} 
+                      style={[
+                        styles.taskDotSimple,
+                        { backgroundColor: hasOverdue ? colors.error : colors.taskBlue },
+                      ]} 
+                    />
+                  ))}
                 </View>
               )}
             </TouchableOpacity>
@@ -521,9 +527,10 @@ const styles = StyleSheet.create({
   dayCell: {
     width: `${100 / 7}%`,
     aspectRatio: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    padding: 4,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   dayCellSelected: {
     backgroundColor: '#f472b6',
@@ -546,23 +553,18 @@ const styles = StyleSheet.create({
   dayNumberToday: {
     color: '#c4dfc4',
   },
-  taskDot: {
-    position: 'absolute',
-    bottom: 6,
-    backgroundColor: '#3b82f6',
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
+  dotsRow: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 3,
+    marginTop: 2,
   },
-  taskDotOverdue: {
-    backgroundColor: '#ef4444',
-  },
-  taskDotText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#fff',
+  taskDotSimple: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#3b82f6',
   },
   taskSection: {
     flex: 1,

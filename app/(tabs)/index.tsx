@@ -94,6 +94,13 @@ interface Item {
   status?: 'pending' | 'completed';
   created_at: string;
   tags?: string[];
+  due_date?: string;
+  is_recurring?: boolean;
+  recurrence_pattern?: {
+    frequency?: string;
+    instance?: number;
+    total?: number;
+  };
 }
 
 interface MemoItem {
@@ -476,7 +483,7 @@ export default function HomeScreen() {
       const [tasksResult, notesResult, entriesResult] = await Promise.all([
         supabase
           .from('voice_todos')
-          .select('id, text, status, created_at, tags, entry_id')
+          .select('id, text, status, created_at, tags, entry_id, due_date, is_recurring, recurrence_pattern')
           .eq('user_id', user.id)
           .neq('status', 'dismissed')
           .gte('created_at', thirtyDaysAgoISO)
@@ -556,14 +563,24 @@ export default function HomeScreen() {
         dayMap.set(day.dateKey, day);
       }
 
-      // Add tasks to days
+      // Add tasks to days - use due_date if available, otherwise created_at
       const allItems: Item[] = [];
       (tasks || []).forEach(t => {
-        const key = getDateKey(new Date(t.created_at));
+        const key = getDateKey(new Date(t.due_date || t.created_at));
         const day = dayMap.get(key);
         // Auto-generate tags if not stored in DB
         const tags = (t.tags && t.tags.length > 0) ? t.tags : autoGenerateTags(t.text);
-        const item: Item = { id: t.id, type: 'task', text: t.text, status: t.status, created_at: t.created_at, tags };
+        const item: Item = { 
+          id: t.id, 
+          type: 'task', 
+          text: t.text, 
+          status: t.status, 
+          created_at: t.created_at, 
+          tags,
+          due_date: t.due_date,
+          is_recurring: t.is_recurring,
+          recurrence_pattern: t.recurrence_pattern,
+        };
         if (day) {
           day.items.push(item);
         }
@@ -962,6 +979,29 @@ export default function HomeScreen() {
       );
     }
     
+    // Format due date for display
+    const formatDueDate = (dateStr?: string) => {
+      if (!dateStr) return null;
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return null;
+      
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const dueDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const diffDays = Math.round((dueDate.getTime() - todayStart.getTime()) / 86400000);
+      
+      if (diffDays < 0) return { text: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), isOverdue: true };
+      if (diffDays === 0) return { text: 'Today', isOverdue: false };
+      if (diffDays === 1) return { text: 'Tomorrow', isOverdue: false };
+      if (diffDays < 7) return { text: date.toLocaleDateString('en-US', { weekday: 'short' }), isOverdue: false };
+      return { text: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), isOverdue: false };
+    };
+    
+    const dueDateInfo = item.type === 'task' ? formatDueDate(item.due_date) : null;
+    const recurringInfo = item.is_recurring && item.recurrence_pattern 
+      ? { instance: item.recurrence_pattern.instance, total: item.recurrence_pattern.total }
+      : null;
+    
     // Swipeable content (no checkbox - checkbox is outside for instant tap response)
     const swipeableContent = (
       <View style={styles.itemInner}>
@@ -972,6 +1012,29 @@ export default function HomeScreen() {
           <Text style={[styles.itemText, { color: colors.text }, item.status === 'completed' && { textDecorationLine: 'line-through', color: colors.taskBlue }]}>
             {item.text}
           </Text>
+          {/* Due date and recurring badge row for tasks */}
+          {item.type === 'task' && (dueDateInfo || recurringInfo) && (
+            <View style={styles.taskMetaRow}>
+              {dueDateInfo && (
+                <View style={[styles.dueDateBadge, dueDateInfo.isOverdue && styles.dueDateBadgeOverdue]}>
+                  <Ionicons name="calendar-outline" size={11} color={dueDateInfo.isOverdue ? '#ef4444' : colors.textMuted} />
+                  <Text style={[styles.dueDateText, { color: colors.textMuted }, dueDateInfo.isOverdue && styles.dueDateTextOverdue]}>
+                    {dueDateInfo.text}
+                  </Text>
+                </View>
+              )}
+              {recurringInfo && (
+                <View style={styles.recurringBadge}>
+                  <Ionicons name="repeat" size={11} color={colors.taskBlue} />
+                  {recurringInfo.instance && recurringInfo.total && (
+                    <Text style={[styles.recurringText, { color: colors.taskBlue }]}>
+                      {recurringInfo.instance}/{recurringInfo.total}
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
         </TouchableOpacity>
         {displayTags.length > 0 && (
           <View style={styles.itemTagsRow}>
@@ -996,48 +1059,48 @@ export default function HomeScreen() {
       </View>
     );
 
-    // Task: checkbox OUTSIDE swipeable for instant tap response
+    // Task: SwipeableItem wraps entire row to avoid clipping
     if (item.type === 'task') {
       return (
-        <View key={item.id} style={styles.item}>
-          <TaskCheckbox 
-            itemId={item.id} 
-            initialStatus={item.status} 
-            onToggle={handleToggleTask} 
-          />
-          <SwipeableItem
-            onSwipeLeft={() => handleSwipeArchive(item)}
-            leftAction={{
-              icon: 'trash-outline',
-              color: '#fff',
-              backgroundColor: colors.error,
-              label: 'Delete',
-            }}
-            style={styles.swipeableContent}
-          >
+        <SwipeableItem
+          key={item.id}
+          onSwipeLeft={() => handleSwipeArchive(item)}
+          leftAction={{
+            icon: 'trash-outline',
+            color: '#fff',
+            backgroundColor: colors.error,
+            label: 'Delete',
+          }}
+        >
+          <View style={styles.item}>
+            <TaskCheckbox 
+              itemId={item.id} 
+              initialStatus={item.status} 
+              onToggle={handleToggleTask} 
+            />
             {swipeableContent}
-          </SwipeableItem>
-        </View>
+          </View>
+        </SwipeableItem>
       );
     }
     
-    // Note: swipe left to archive only
+    // Note: SwipeableItem wraps entire row
     return (
-      <View key={item.id} style={styles.item}>
-        <Ionicons name="ellipse" size={10} color={colors.notesPurple} style={{ marginHorizontal: 4 }} />
-        <SwipeableItem
-          onSwipeLeft={() => handleSwipeArchive(item)}
-          leftAction={{
-            icon: 'archive-outline',
-            color: '#fff',
-            backgroundColor: colors.error,
-            label: 'Archive',
-          }}
-          style={styles.swipeableContent}
-        >
+      <SwipeableItem
+        key={item.id}
+        onSwipeLeft={() => handleSwipeArchive(item)}
+        leftAction={{
+          icon: 'archive-outline',
+          color: '#fff',
+          backgroundColor: colors.error,
+          label: 'Archive',
+        }}
+      >
+        <View style={styles.item}>
+          <Ionicons name="ellipse" size={10} color={colors.notesPurple} style={{ marginHorizontal: 4 }} />
           {swipeableContent}
-        </SwipeableItem>
-      </View>
+        </View>
+      </SwipeableItem>
     );
   };
 
@@ -1270,9 +1333,9 @@ export default function HomeScreen() {
                         )}
                       </View>
                     )}
-                    <TouchableOpacity style={styles.detailBtn}>
+                    <View style={styles.detailBtn}>
                       <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                    </TouchableOpacity>
+                    </View>
                   </TouchableOpacity>
                 </SwipeableItem>
               ))}
@@ -1318,7 +1381,7 @@ export default function HomeScreen() {
           <Ionicons name="calendar-outline" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerBtn} onPress={() => setIsSortModalVisible(true)}>
-          <Ionicons name="swap-vertical" size={22} color={sortOption !== 'pending_first' ? colors.success : colors.textSecondary} />
+          <Ionicons name="swap-vertical" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/search')}>
           <Ionicons name="search" size={22} color={colors.textSecondary} />
@@ -1373,14 +1436,14 @@ export default function HomeScreen() {
           <ScrollView style={styles.drawerScroll} showsVerticalScrollIndicator={false}>
             {/* All items option */}
             <TouchableOpacity 
-              style={[styles.drawerTag, selectedTags.length === 0 && styles.drawerTagActive]}
+              style={[styles.drawerTag, selectedTags.length === 0 && { backgroundColor: isDark ? '#1a1a1a' : '#e5e5e5' }]}
               onPress={clearAllFilters}
             >
               <View style={styles.drawerTagLeft}>
-                <View style={[styles.drawerTagDot, { backgroundColor: '#666' }]} />
-                <Text style={[styles.drawerTagText, selectedTags.length === 0 && styles.drawerTagTextActive]}>All Items</Text>
+                <View style={[styles.drawerTagDot, { backgroundColor: isDark ? '#666' : '#999' }]} />
+                <Text style={[styles.drawerTagText, { color: selectedTags.length === 0 ? colors.text : colors.textSecondary }]}>All Items</Text>
               </View>
-              <Text style={styles.drawerTagCount}>{allTags.reduce((sum, t) => sum + (tagCounts.get(t) || 0), 0)}</Text>
+              <Text style={[styles.drawerTagCount, { color: colors.textSecondary }]}>{allTags.reduce((sum, t) => sum + (tagCounts.get(t) || 0), 0)}</Text>
             </TouchableOpacity>
             
             {/* Individual tags sorted by count */}
@@ -1777,9 +1840,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 12,
   },
-  swipeableContent: {
-    flex: 1,
-  },
   itemTextWrapper: {
     flex: 1,
   },
@@ -1988,6 +2048,37 @@ const styles = StyleSheet.create({
   detailBtn: {
     padding: 4,
     marginLeft: 4,
+  },
+  taskMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  dueDateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dueDateBadgeOverdue: {
+    // overdue styling handled by text color
+  },
+  dueDateText: {
+    fontSize: 11,
+    color: '#666',
+  },
+  dueDateTextOverdue: {
+    color: '#ef4444',
+    fontWeight: '600',
+  },
+  recurringBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  recurringText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   memoCounts: {
     flexDirection: 'row',

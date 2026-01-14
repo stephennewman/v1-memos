@@ -55,7 +55,6 @@ export function ChunkedVoiceRecorder({
   const [totalDuration, setTotalDuration] = useState(0);
   const [currentChunkDuration, setCurrentChunkDuration] = useState(0);
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const [chunkCount, setChunkCount] = useState(0);
   
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -206,7 +205,6 @@ export function ChunkedVoiceRecorder({
         index: chunkIndex,
       });
       
-      setChunkCount(chunksRef.current.length);
       console.log('[ChunkedRecorder] Chunk uploaded successfully:', chunkIndex);
       
       setIsUploadingChunk(false);
@@ -478,7 +476,6 @@ export function ChunkedVoiceRecorder({
     // Reset session
     sessionIdRef.current = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     chunksRef.current = [];
-    setChunkCount(0);
     setTotalDuration(0);
     
     await startNewChunk();
@@ -505,7 +502,7 @@ export function ChunkedVoiceRecorder({
         statusCheckRef.current = null;
       }
 
-      setIsRecording(false);
+      // Don't set isRecording=false here - keep showing recording UI until navigation
       
       // Stop and save final chunk
       await recordingRef.current.stopAndUnloadAsync();
@@ -590,7 +587,6 @@ export function ChunkedVoiceRecorder({
     // Clean up uploaded chunks
     // Note: In production, you might want to delete the uploaded chunks from storage
     chunksRef.current = [];
-    setChunkCount(0);
     
     isStoppingRef.current = false;
     onCancel?.();
@@ -634,19 +630,6 @@ export function ChunkedVoiceRecorder({
           <Text style={[styles.maxDuration, { color: colors.textMuted }]}>/ {formatTime(maxDuration)}</Text>
         )}
       </View>
-
-      {/* Chunk indicator */}
-      {isRecording && chunkCount > 0 && (
-        <View style={styles.chunkIndicator}>
-          <Ionicons name="cloud-done" size={14} color={colors.success} />
-          <Text style={[styles.chunkText, { color: colors.success }]}>
-            {chunkCount} chunk{chunkCount !== 1 ? 's' : ''} saved
-          </Text>
-          {isUploadingChunk && (
-            <Text style={[styles.uploadingText, { color: colors.textSecondary }]}>uploading...</Text>
-          )}
-        </View>
-      )}
 
       {/* Waveform Visualizer */}
       <View style={styles.waveformContainer}>
@@ -706,7 +689,7 @@ export function ChunkedVoiceRecorder({
         {isInitializing 
           ? 'Starting...' 
           : isRecording 
-            ? 'Tap to stop • Recording saves in chunks' 
+            ? 'Tap to stop recording' 
             : 'Tap to start recording'}
       </Text>
 
@@ -779,26 +762,6 @@ const styles = StyleSheet.create({
     color: '#444',
     marginLeft: 8,
     fontVariant: ['tabular-nums'],
-  },
-  chunkIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(74, 222, 128, 0.1)',
-    borderRadius: 16,
-  },
-  chunkText: {
-    fontSize: 12,
-    color: '#4ade80',
-    fontWeight: '500',
-  },
-  uploadingText: {
-    fontSize: 11,
-    color: '#888',
-    fontStyle: 'italic',
   },
   waveformContainer: {
     width: '100%',

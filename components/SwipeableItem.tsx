@@ -170,11 +170,12 @@ export function SwipeableItem({
         renderLeftActions={onSwipeRight ? renderLeftActions : undefined}
         renderRightActions={renderRightActions}
         onSwipeableWillOpen={onSwipeRight ? onSwipeableWillOpen : undefined}
-        leftThreshold={60}
-        rightThreshold={60}
+        leftThreshold={50}
+        rightThreshold={50}
         overshootLeft={false}
         overshootRight={false}
         friction={2}
+        containerStyle={styles.swipeableContainer}
       >
         <View style={[styles.content, { backgroundColor: colors.background }]}>{children}</View>
       </Swipeable>
@@ -183,21 +184,25 @@ export function SwipeableItem({
 }
 
 const styles = StyleSheet.create({
+  swipeableContainer: {
+    overflow: 'hidden',
+  },
   content: {
     backgroundColor: '#0a0a0a',
   },
   actionContainer: {
-    width: 100,
+    width: 80,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 8,
   },
   actionContent: {
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   actionLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
   },
 });

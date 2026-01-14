@@ -29,6 +29,7 @@ export default function TaskDetailScreen() {
   
   const [task, setTask] = useState<VoiceTodo | null>(null);
   const [relatedTasks, setRelatedTasks] = useState<VoiceTodo[]>([]);
+  const [recurringTasks, setRecurringTasks] = useState<VoiceTodo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditingText, setIsEditingText] = useState(false);
@@ -51,8 +52,20 @@ export default function TaskDetailScreen() {
     setIsRefreshing(false);
   };
 
-  const loadTask = async () => {
+  const loadTask = async (retryCount = 0) => {
     if (!id) return;
+    
+    // Don't try to load temp IDs - wait for real ID
+    if (id.startsWith('temp-')) {
+      if (retryCount < 3) {
+        setTimeout(() => loadTask(retryCount + 1), 500);
+        return;
+      }
+      setIsLoading(false);
+      Alert.alert('Error', 'Task is still being saved. Please try again.');
+      router.back();
+      return;
+    }
     
     try {
       const { data, error } = await supabase
@@ -61,7 +74,14 @@ export default function TaskDetailScreen() {
         .eq('id', id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Retry a few times in case of timing issues
+        if (retryCount < 2) {
+          setTimeout(() => loadTask(retryCount + 1), 300);
+          return;
+        }
+        throw error;
+      }
       setTask(data);
       setEditedText(data.text);
       setEditedDueDate(formatDateForInput(data.due_date));
@@ -73,17 +93,53 @@ export default function TaskDetailScreen() {
       }
       setEditedTags(data.tags || []);
       
+      // Load recurring tasks if this is a recurring task
+      if (data.is_recurring) {
+        await loadRecurringTasks(data);
+      }
+      
       // Find related tasks (similar text, excluding this one)
       await loadRelatedTasks(data);
+      setIsLoading(false);
     } catch (error) {
       console.error('Error loading task:', error);
+      setIsLoading(false);
       Alert.alert('Error', 'Failed to load task');
       router.back();
-    } finally {
-      setIsLoading(false);
     }
   };
   
+  const loadRecurringTasks = async (currentTask: VoiceTodo) => {
+    try {
+      // Find other tasks with same text and is_recurring=true (same series)
+      const { data: seriesTasks } = await supabase
+        .from('voice_todos')
+        .select('*')
+        .eq('user_id', currentTask.user_id)
+        .eq('text', currentTask.text)
+        .eq('is_recurring', true)
+        .neq('status', 'dismissed')
+        .order('due_date', { ascending: true });
+      
+      if (seriesTasks && seriesTasks.length > 1) {
+        // Filter out current task and sort by instance number
+        const otherTasks = seriesTasks
+          .filter(t => t.id !== currentTask.id)
+          .sort((a, b) => {
+            const aInstance = a.recurrence_pattern?.instance || 0;
+            const bInstance = b.recurrence_pattern?.instance || 0;
+            return aInstance - bInstance;
+          });
+        setRecurringTasks(otherTasks);
+      } else {
+        setRecurringTasks([]);
+      }
+    } catch (error) {
+      console.error('Error loading recurring tasks:', error);
+      setRecurringTasks([]);
+    }
+  };
+
   const loadRelatedTasks = async (currentTask: VoiceTodo) => {
     try {
       // Get keywords from the task text (words > 3 chars, lowercase)
@@ -333,8 +389,12 @@ export default function TaskDetailScreen() {
       
       // Save immediately on date selection
       try {
-        const dateToSave = new Date(date);
-        dateToSave.setUTCHours(12, 0, 0, 0);
+        // Extract LOCAL date parts to avoid timezone issues
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const day = date.getDate();
+        // Create UTC date at noon to avoid date shifts across timezones
+        const dateToSave = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
         const parsedDate = dateToSave.toISOString();
 
         const { error } = await supabase
@@ -595,6 +655,85 @@ export default function TaskDetailScreen() {
             <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
         </View>
+
+        {/* Recurring Info */}
+        {task.is_recurring && task.recurrence_pattern && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>RECURRING</Text>
+            </View>
+            <View style={[styles.recurringInfoCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+              <View style={styles.recurringInfoRow}>
+                <Ionicons name="repeat" size={18} color={colors.taskBlue} />
+                <Text style={[styles.recurringInfoText, { color: colors.text }]}>
+                  {task.recurrence_pattern.frequency === 'daily' && 'Daily'}
+                  {task.recurrence_pattern.frequency === 'weekly' && (
+                    task.recurrence_pattern.interval === 2 ? 'Every other week' :
+                    task.recurrence_pattern.interval && task.recurrence_pattern.interval > 2 ? `Every ${task.recurrence_pattern.interval} weeks` :
+                    'Weekly'
+                  )}
+                  {task.recurrence_pattern.frequency === 'monthly' && (
+                    task.recurrence_pattern.interval === 3 ? 'Quarterly' :
+                    task.recurrence_pattern.interval && task.recurrence_pattern.interval > 1 ? `Every ${task.recurrence_pattern.interval} months` :
+                    'Monthly'
+                  )}
+                  {task.recurrence_pattern.frequency === 'yearly' && 'Yearly'}
+                  {task.recurrence_pattern.day_of_week !== undefined && task.recurrence_pattern.frequency === 'weekly' && (
+                    ` on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][task.recurrence_pattern.day_of_week]}`
+                  )}
+                </Text>
+              </View>
+              {task.recurrence_pattern.instance && task.recurrence_pattern.total && (
+                <View style={styles.recurringInfoRow}>
+                  <Ionicons name="layers-outline" size={18} color={colors.textSecondary} />
+                  <Text style={[styles.recurringInfoSubtext, { color: colors.textSecondary }]}>
+                    Task {task.recurrence_pattern.instance} of {task.recurrence_pattern.total}
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            {/* Other tasks in series */}
+            {recurringTasks.length > 0 && (
+              <View style={styles.recurringSeriesSection}>
+                <Text style={[styles.recurringSeriesLabel, { color: colors.textSecondary }]}>
+                  Other tasks in this series
+                </Text>
+                {recurringTasks.slice(0, 5).map(seriesTask => (
+                  <TouchableOpacity 
+                    key={seriesTask.id}
+                    style={[styles.recurringSeriesItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+                    onPress={() => router.push(`/task/${seriesTask.id}`)}
+                  >
+                    <Ionicons 
+                      name={seriesTask.status === 'completed' ? 'checkbox' : 'square-outline'} 
+                      size={16} 
+                      color={seriesTask.status === 'completed' ? colors.success : colors.textSecondary} 
+                    />
+                    <View style={styles.recurringSeriesItemContent}>
+                      <Text style={[styles.recurringSeriesItemInstance, { color: colors.taskBlue }]}>
+                        #{seriesTask.recurrence_pattern?.instance || '?'}
+                      </Text>
+                      <Text style={[styles.recurringSeriesItemDate, { color: colors.textSecondary }]}>
+                        {seriesTask.due_date ? new Date(seriesTask.due_date).toLocaleDateString('en-US', { 
+                          weekday: 'short', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        }) : 'No date'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
+                ))}
+                {recurringTasks.length > 5 && (
+                  <Text style={[styles.recurringMoreText, { color: colors.textMuted }]}>
+                    +{recurringTasks.length - 5} more
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Date Picker Modal */}
         {Platform.OS === 'ios' ? (
@@ -1088,6 +1227,68 @@ const styles = StyleSheet.create({
   },
   datePicker: {
     height: 200,
+  },
+  recurringInfoCard: {
+    backgroundColor: '#111',
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    gap: 10,
+  },
+  recurringInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  recurringInfoText: {
+    fontSize: 15,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  recurringInfoSubtext: {
+    fontSize: 14,
+    color: '#888',
+  },
+  recurringSeriesSection: {
+    marginTop: 12,
+  },
+  recurringSeriesLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+  },
+  recurringSeriesItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+  },
+  recurringSeriesItemContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recurringSeriesItemInstance: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  recurringSeriesItemDate: {
+    fontSize: 13,
+    color: '#888',
+  },
+  recurringMoreText: {
+    fontSize: 12,
+    color: '#555',
+    textAlign: 'center',
+    marginTop: 4,
   },
 });
 

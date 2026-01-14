@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth-context';
+import { useTheme } from '@/lib/theme-context';
 import { supabase } from '@/lib/supabase';
 import { formatRelativeDate } from '@/lib/format-date';
 
@@ -28,6 +29,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { colors, isDark } = useTheme();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -169,7 +171,7 @@ export default function SearchScreen() {
     const icon = getIcon(item.type);
     return (
       <TouchableOpacity 
-        style={styles.resultItem}
+        style={[styles.resultItem, { backgroundColor: colors.card }]}
         onPress={() => handleResultPress(item)}
         activeOpacity={0.7}
       >
@@ -177,35 +179,35 @@ export default function SearchScreen() {
           <Ionicons name={icon.name as any} size={18} color={icon.color} />
         </View>
         <View style={styles.resultContent}>
-          <Text style={styles.resultTitle} numberOfLines={2}>{item.title}</Text>
+          <Text style={[styles.resultTitle, { color: colors.text }]} numberOfLines={2}>{item.title}</Text>
           {item.subtitle && (
-            <Text style={styles.resultSubtitle} numberOfLines={1}>{item.subtitle}</Text>
+            <Text style={[styles.resultSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>{item.subtitle}</Text>
           )}
-          <Text style={styles.resultMeta}>
+          <Text style={[styles.resultMeta, { color: colors.textMuted }]}>
             {item.type.charAt(0).toUpperCase() + item.type.slice(1)} · {formatRelativeDate(item.created_at)}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={16} color="#333" />
+        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.cardBorder }]}>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={18} color="#666" />
+        <View style={[styles.searchInputContainer, { backgroundColor: colors.card }]}>
+          <Ionicons name="search" size={18} color={colors.textMuted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Search tasks, notes, voice, topics..."
-            placeholderTextColor="#555"
+            placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={setQuery}
             autoFocus
@@ -215,7 +217,7 @@ export default function SearchScreen() {
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => setQuery('')}>
-              <Ionicons name="close-circle" size={18} color="#555" />
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -224,19 +226,19 @@ export default function SearchScreen() {
       {/* Results */}
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#c4dfc4" />
+          <ActivityIndicator size="large" color={colors.accent} />
         </View>
       ) : hasSearched && results.length === 0 ? (
         <View style={styles.centered}>
-          <Ionicons name="search-outline" size={48} color="#333" />
-          <Text style={styles.emptyTitle}>No results found</Text>
-          <Text style={styles.emptyText}>Try a different search term</Text>
+          <Ionicons name="search-outline" size={48} color={colors.textMuted} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>No results found</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Try a different search term</Text>
         </View>
       ) : !hasSearched ? (
         <View style={styles.centered}>
-          <Ionicons name="search" size={48} color="#333" />
-          <Text style={styles.emptyTitle}>Search everything</Text>
-          <Text style={styles.emptyText}>Find tasks, notes, voice memos, and topics</Text>
+          <Ionicons name="search" size={48} color={colors.textMuted} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Search everything</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Find tasks, notes, voice memos, and topics</Text>
         </View>
       ) : (
         <FlatList
@@ -246,7 +248,7 @@ export default function SearchScreen() {
           contentContainerStyle={styles.resultsList}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
-            <Text style={styles.resultsCount}>
+            <Text style={[styles.resultsCount, { color: colors.textSecondary }]}>
               {results.length} result{results.length !== 1 ? 's' : ''}
             </Text>
           }

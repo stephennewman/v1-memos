@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { useTheme } from '@/lib/theme-context';
 
 interface ProcessingAnimationProps {
   step?: string;
@@ -9,6 +10,7 @@ const DOT_COUNT = 5;
 const WAVE_BAR_COUNT = 12;
 
 export function ProcessingAnimation({ step = 'Processing...' }: ProcessingAnimationProps) {
+  const { colors, isDark } = useTheme();
   // Pulsing center circle
   const pulseAnim = useRef(new Animated.Value(0)).current;
   
@@ -113,7 +115,7 @@ export function ProcessingAnimation({ step = 'Processing...' }: ProcessingAnimat
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Centered content wrapper */}
       <View style={styles.centeredContent}>
         {/* Animated visualization */}
@@ -131,6 +133,7 @@ export function ProcessingAnimation({ step = 'Processing...' }: ProcessingAnimat
                 style={[
                   styles.ringDot,
                   {
+                    backgroundColor: isDark ? '#333' : '#ddd',
                     transform: [
                       { rotate: `${i * 45}deg` },
                       { translateY: -60 },
@@ -183,7 +186,7 @@ export function ProcessingAnimation({ step = 'Processing...' }: ProcessingAnimat
 
         {/* Status text */}
         <View style={styles.statusContainer}>
-          <Text style={styles.statusText}>{step}</Text>
+          <Text style={[styles.statusText, { color: colors.text }]}>{step}</Text>
           <View style={styles.dotsContainer}>
             {dotAnims.map((anim, index) => (
               <Animated.View
@@ -209,7 +212,7 @@ export function ProcessingAnimation({ step = 'Processing...' }: ProcessingAnimat
         </View>
 
         {/* Hint */}
-        <Text style={styles.hint}>This will only take a moment</Text>
+        <Text style={[styles.hint, { color: colors.textSecondary }]}>This will only take a moment</Text>
       </View>
     </View>
   );

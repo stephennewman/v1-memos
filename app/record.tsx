@@ -15,9 +15,8 @@ import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
 import { useTimezone } from '@/lib/timezone-context';
 import { ChunkedVoiceRecorder } from '@/components/ChunkedVoiceRecorder';
-import { ProcessingAnimation } from '@/components/ProcessingAnimation';
 
-type RecordingState = 'loading' | 'recording' | 'processing';
+type RecordingState = 'loading' | 'recording';
 
 export default function RecordScreen() {
   const router = useRouter();
@@ -29,7 +28,6 @@ export default function RecordScreen() {
 
   // Wait for user to load before recording
   const [state, setState] = useState<RecordingState>('loading');
-  const [processingStep, setProcessingStep] = useState('');
 
   // Start recording once user is loaded
   useEffect(() => {
@@ -47,14 +45,9 @@ export default function RecordScreen() {
       return;
     }
 
-    setState('processing');
-    setProcessingStep('Saving recording...');
-
     try {
       // Use first chunk URL as the main audio URL
       const audioUrl = chunkUrls[0];
-
-      setProcessingStep('Creating entry...');
 
       // Create voice entry record with chunk info
       const { data: entry, error: entryError } = await supabase
@@ -135,14 +128,6 @@ export default function RecordScreen() {
       <View style={[styles.container, styles.centered, { paddingTop: insets.top, backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.accent} />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Preparing...</Text>
-      </View>
-    );
-  }
-
-  if (state === 'processing') {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-        <ProcessingAnimation step={processingStep} />
       </View>
     );
   }
