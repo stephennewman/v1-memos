@@ -1309,6 +1309,9 @@ export default function HomeScreen() {
         
         <View style={{ flex: 1 }} />
         
+        <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/calendar')}>
+          <Ionicons name="calendar-outline" size={22} color="#666" />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.headerBtn} onPress={() => setIsSortModalVisible(true)}>
           <Ionicons name="swap-vertical" size={22} color={sortOption !== 'pending_first' ? '#22c55e' : '#666'} />
         </TouchableOpacity>

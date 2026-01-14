@@ -108,17 +108,33 @@ export interface VoiceEntry {
 // Voice Todos
 // ============================================================================
 
+export type TaskType = 'deadline' | 'due_date';
+
+export interface RecurrencePattern {
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  day_of_week?: number; // 0 = Sunday, 6 = Saturday
+  day_of_month?: number; // 1-31
+}
+
 export interface VoiceTodo {
   id: string;
   user_id: string;
   entry_id?: string;
   text: string;
   due_date?: string;
+  original_due_date?: string; // Preserved when task is moved
+  moved_to_date?: string; // Date task was moved to
   priority: TodoPriority;
   status: TodoStatus;
   original_context?: string;
   created_at: string;
   completed_at?: string;
+  tags?: string[];
+  // Recurring task support
+  is_recurring?: boolean;
+  recurrence_pattern?: RecurrencePattern;
+  // Task type: deadline (must do on date) vs due_date (target, can be overdue)
+  task_type?: TaskType;
 }
 
 export interface VoiceNote {

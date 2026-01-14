@@ -1,0 +1,691 @@
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  Dimensions,
+  Alert,
+} from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
+import { ModernLoader } from '@/components/ModernLoader';
+import { SwipeableItem } from '@/components/SwipeableItem';
+
+interface Task {
+  id: string;
+  text: string;
+  status: 'pending' | 'completed';
+  due_date: string | null;
+  original_due_date: string | null;
+  is_recurring: boolean;
+  recurrence_pattern: any;
+  task_type: 'deadline' | 'due_date';
+  created_at: string;
+  tags: string[];
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+const getDateKey = (date: Date) => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
+const isToday = (date: Date) => {
+  const today = new Date();
+  return date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear();
+};
+
+const isOverdue = (dueDate: string | null, status: string) => {
+  if (!dueDate || status === 'completed') return false;
+  const due = new Date(dueDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  return due < today;
+};
+
+export default function CalendarScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [tasksByDate, setTasksByDate] = useState<Map<string, Task[]>>(new Map());
+
+  const loadTasks = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      // Load tasks with due dates (past 30 days to future 60 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const sixtyDaysAhead = new Date();
+      sixtyDaysAhead.setDate(sixtyDaysAhead.getDate() + 60);
+
+      const { data, error } = await supabase
+        .from('voice_todos')
+        .select('*')
+        .eq('user_id', user.id)
+        .neq('status', 'dismissed')
+        .order('due_date', { ascending: true });
+
+      if (error) throw error;
+
+      const allTasks = data || [];
+      setTasks(allTasks);
+
+      // Group tasks by due_date (or original_due_date for moved tasks)
+      const byDate = new Map<string, Task[]>();
+      
+      allTasks.forEach(task => {
+        // Use original_due_date if task was moved, otherwise use due_date
+        const dateToUse = task.original_due_date || task.due_date;
+        if (dateToUse) {
+          const key = getDateKey(new Date(dateToUse));
+          const existing = byDate.get(key) || [];
+          byDate.set(key, [...existing, task]);
+        }
+      });
+
+      setTasksByDate(byDate);
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTasks();
+    }, [loadTasks])
+  );
+
+  const onRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    loadTasks();
+  }, [loadTasks]);
+
+  const goToPreviousMonth = () => {
+    const prev = new Date(currentMonth);
+    prev.setMonth(prev.getMonth() - 1);
+    setCurrentMonth(prev);
+  };
+
+  const goToNextMonth = () => {
+    const next = new Date(currentMonth);
+    next.setMonth(next.getMonth() + 1);
+    setCurrentMonth(next);
+  };
+
+  const goToToday = () => {
+    const today = new Date();
+    setSelectedDate(today);
+    setCurrentMonth(today);
+  };
+
+  const toggleTaskStatus = async (taskId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+    
+    // Optimistic update
+    setTasks(prev => prev.map(t => 
+      t.id === taskId ? { ...t, status: newStatus } : t
+    ));
+    setTasksByDate(prev => {
+      const newMap = new Map(prev);
+      newMap.forEach((tasks, key) => {
+        newMap.set(key, tasks.map(t => 
+          t.id === taskId ? { ...t, status: newStatus } : t
+        ));
+      });
+      return newMap;
+    });
+
+    await supabase
+      .from('voice_todos')
+      .update({ 
+        status: newStatus,
+        completed_at: newStatus === 'completed' ? new Date().toISOString() : null
+      })
+      .eq('id', taskId);
+  };
+
+  const moveTaskToDate = async (taskId: string, newDate: Date) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const newDateISO = newDate.toISOString();
+    
+    await supabase
+      .from('voice_todos')
+      .update({ 
+        due_date: newDateISO,
+        moved_to_date: newDateISO,
+        // Preserve original_due_date if not set
+        original_due_date: task.original_due_date || task.due_date
+      })
+      .eq('id', taskId);
+
+    loadTasks();
+  };
+
+  const moveToToday = (taskId: string) => {
+    Alert.alert(
+      'Move to Today',
+      'Move this task to today?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Move', 
+          onPress: () => moveTaskToDate(taskId, new Date())
+        }
+      ]
+    );
+  };
+
+  // Generate calendar days for current month
+  const generateCalendarDays = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startingDay = firstDay.getDay();
+    const totalDays = lastDay.getDate();
+    
+    const days: (Date | null)[] = [];
+    
+    // Add empty slots for days before the 1st
+    for (let i = 0; i < startingDay; i++) {
+      days.push(null);
+    }
+    
+    // Add all days of the month
+    for (let i = 1; i <= totalDays; i++) {
+      days.push(new Date(year, month, i));
+    }
+    
+    return days;
+  };
+
+  const calendarDays = generateCalendarDays();
+  const selectedDateKey = getDateKey(selectedDate);
+  const selectedDateTasks = tasksByDate.get(selectedDateKey) || [];
+  
+  // Separate pending and completed
+  const pendingTasks = selectedDateTasks.filter(t => t.status !== 'completed');
+  const completedTasks = selectedDateTasks.filter(t => t.status === 'completed');
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ModernLoader size="large" color="#c4dfc4" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Calendar</Text>
+        <TouchableOpacity onPress={goToToday} style={styles.todayBtn}>
+          <Text style={styles.todayBtnText}>Today</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Month Navigation */}
+      <View style={styles.monthNav}>
+        <TouchableOpacity onPress={goToPreviousMonth} style={styles.monthArrow}>
+          <Ionicons name="chevron-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.monthTitle}>
+          {MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+        </Text>
+        <TouchableOpacity onPress={goToNextMonth} style={styles.monthArrow}>
+          <Ionicons name="chevron-forward" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Weekday Headers */}
+      <View style={styles.weekdayRow}>
+        {WEEKDAYS.map(day => (
+          <View key={day} style={styles.weekdayCell}>
+            <Text style={styles.weekdayText}>{day}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Calendar Grid */}
+      <View style={styles.calendarGrid}>
+        {calendarDays.map((day, index) => {
+          if (!day) {
+            return <View key={`empty-${index}`} style={styles.dayCell} />;
+          }
+          
+          const dateKey = getDateKey(day);
+          const dayTasks = tasksByDate.get(dateKey) || [];
+          const pendingCount = dayTasks.filter(t => t.status !== 'completed').length;
+          const hasOverdue = dayTasks.some(t => isOverdue(t.due_date, t.status));
+          const isSelected = dateKey === selectedDateKey;
+          const isTodayDate = isToday(day);
+          
+          return (
+            <TouchableOpacity
+              key={dateKey}
+              style={[
+                styles.dayCell,
+                isSelected && styles.dayCellSelected,
+                isTodayDate && styles.dayCellToday,
+              ]}
+              onPress={() => setSelectedDate(day)}
+            >
+              <Text style={[
+                styles.dayNumber,
+                isSelected && styles.dayNumberSelected,
+                isTodayDate && styles.dayNumberToday,
+              ]}>
+                {day.getDate()}
+              </Text>
+              {pendingCount > 0 && (
+                <View style={[
+                  styles.taskDot,
+                  hasOverdue && styles.taskDotOverdue,
+                ]}>
+                  <Text style={styles.taskDotText}>{pendingCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Selected Date Tasks */}
+      <View style={styles.taskSection}>
+        <View style={styles.taskSectionHeader}>
+          <Text style={styles.taskSectionTitle}>
+            {selectedDate.toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </Text>
+          <Text style={styles.taskCount}>
+            {pendingTasks.length} pending
+          </Text>
+        </View>
+        
+        <ScrollView 
+          style={styles.taskList}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#c4dfc4" />
+          }
+        >
+          {selectedDateTasks.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="calendar-outline" size={48} color="#333" />
+              <Text style={styles.emptyText}>No tasks for this date</Text>
+            </View>
+          ) : (
+            <>
+              {/* Pending Tasks */}
+              {pendingTasks.map(task => (
+                <SwipeableItem
+                  key={task.id}
+                  onSwipeRight={() => moveToToday(task.id)}
+                  rightAction={{
+                    icon: 'today-outline',
+                    color: '#fff',
+                    backgroundColor: '#3b82f6',
+                    label: 'Move to Today',
+                  }}
+                >
+                  <View style={styles.taskItem}>
+                    <TouchableOpacity 
+                      onPress={() => toggleTaskStatus(task.id, task.status)}
+                      style={styles.taskCheckbox}
+                    >
+                      <Ionicons 
+                        name={task.status === 'completed' ? 'checkbox' : 'square-outline'} 
+                        size={22} 
+                        color={task.status === 'completed' ? '#3b82f6' : '#666'} 
+                      />
+                    </TouchableOpacity>
+                    <View style={styles.taskContent}>
+                      <Text style={[
+                        styles.taskText,
+                        isOverdue(task.due_date, task.status) && styles.taskTextOverdue,
+                      ]}>
+                        {task.text}
+                      </Text>
+                      <View style={styles.taskMeta}>
+                        {task.is_recurring && (
+                          <View style={styles.recurringBadge}>
+                            <Ionicons name="repeat" size={12} color="#22c55e" />
+                            <Text style={styles.recurringText}>Recurring</Text>
+                          </View>
+                        )}
+                        {task.task_type === 'deadline' && (
+                          <View style={styles.deadlineBadge}>
+                            <Ionicons name="alert-circle" size={12} color="#f59e0b" />
+                            <Text style={styles.deadlineText}>Deadline</Text>
+                          </View>
+                        )}
+                        {isOverdue(task.due_date, task.status) && (
+                          <View style={styles.overdueBadge}>
+                            <Text style={styles.overdueText}>Overdue</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    <TouchableOpacity 
+                      onPress={() => router.push(`/task/${task.id}`)}
+                      style={styles.taskChevron}
+                    >
+                      <Ionicons name="chevron-forward" size={18} color="#444" />
+                    </TouchableOpacity>
+                  </View>
+                </SwipeableItem>
+              ))}
+              
+              {/* Completed Tasks */}
+              {completedTasks.length > 0 && (
+                <>
+                  <Text style={styles.completedHeader}>Completed</Text>
+                  {completedTasks.map(task => (
+                    <View key={task.id} style={[styles.taskItem, styles.taskItemCompleted]}>
+                      <TouchableOpacity 
+                        onPress={() => toggleTaskStatus(task.id, task.status)}
+                        style={styles.taskCheckbox}
+                      >
+                        <Ionicons name="checkbox" size={22} color="#3b82f6" />
+                      </TouchableOpacity>
+                      <Text style={styles.taskTextCompleted}>{task.text}</Text>
+                    </View>
+                  ))}
+                </>
+              )}
+            </>
+          )}
+          
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  todayBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+  },
+  todayBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#c4dfc4',
+  },
+  monthNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  monthArrow: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  monthTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  weekdayRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 8,
+    marginBottom: 8,
+  },
+  weekdayCell: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  weekdayText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    textTransform: 'uppercase',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 8,
+  },
+  dayCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 4,
+  },
+  dayCellSelected: {
+    backgroundColor: '#f472b6',
+    borderRadius: 12,
+  },
+  dayCellToday: {
+    borderWidth: 2,
+    borderColor: '#c4dfc4',
+    borderRadius: 12,
+  },
+  dayNumber: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  dayNumberSelected: {
+    color: '#0a0a0a',
+    fontWeight: '700',
+  },
+  dayNumberToday: {
+    color: '#c4dfc4',
+  },
+  taskDot: {
+    position: 'absolute',
+    bottom: 6,
+    backgroundColor: '#3b82f6',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  taskDotOverdue: {
+    backgroundColor: '#ef4444',
+  },
+  taskDotText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  taskSection: {
+    flex: 1,
+    backgroundColor: '#111',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: 16,
+    paddingTop: 16,
+  },
+  taskSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  taskSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  taskCount: {
+    fontSize: 13,
+    color: '#666',
+  },
+  taskList: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    gap: 12,
+  },
+  emptyText: {
+    fontSize: 15,
+    color: '#666',
+  },
+  taskItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  taskItemCompleted: {
+    opacity: 0.6,
+  },
+  taskCheckbox: {
+    padding: 4,
+    marginRight: 8,
+  },
+  taskContent: {
+    flex: 1,
+  },
+  taskText: {
+    fontSize: 15,
+    color: '#fff',
+    lineHeight: 22,
+  },
+  taskTextOverdue: {
+    color: '#ef4444',
+  },
+  taskTextCompleted: {
+    flex: 1,
+    fontSize: 15,
+    color: '#3b82f6',
+    textDecorationLine: 'line-through',
+  },
+  taskMeta: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+  },
+  recurringBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  recurringText: {
+    fontSize: 11,
+    color: '#22c55e',
+    fontWeight: '500',
+  },
+  deadlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  deadlineText: {
+    fontSize: 11,
+    color: '#f59e0b',
+    fontWeight: '500',
+  },
+  overdueBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  overdueText: {
+    fontSize: 11,
+    color: '#ef4444',
+    fontWeight: '600',
+  },
+  taskChevron: {
+    padding: 4,
+  },
+  completedHeader: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 16,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+});
