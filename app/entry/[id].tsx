@@ -175,9 +175,25 @@ export default function EntryDetailScreen() {
         .from('voice_todos')
         .select('*')
         .eq('entry_id', id)
-        .order('created_at', { ascending: true });
+        .order('due_date', { ascending: true });
 
-      if (tasksData) setTasks(tasksData);
+      if (tasksData) {
+        // For recurring tasks, only show the FIRST instance (closest to today)
+        // Group by task text to dedupe recurring series
+        const seenRecurringTexts = new Set<string>();
+        const deduped = tasksData.filter(task => {
+          if (task.is_recurring && task.recurrence_pattern) {
+            // Only keep the first instance of each recurring task
+            const key = task.text.toLowerCase().trim();
+            if (seenRecurringTexts.has(key)) {
+              return false; // Skip duplicate instances
+            }
+            seenRecurringTexts.add(key);
+          }
+          return true;
+        });
+        setTasks(deduped);
+      }
 
       // Load notes from voice_notes
       const { data: notesData } = await supabase
@@ -848,6 +864,7 @@ export default function EntryDetailScreen() {
                           <Ionicons name="repeat" size={11} color={colors.taskBlue} />
                           <Text style={[styles.recurringTagText, { color: colors.taskBlue }]}>
                             {formatRecurrencePattern(task.recurrence_pattern)}
+                            {task.recurrence_pattern.total > 1 && ` · ${task.recurrence_pattern.total} total`}
                           </Text>
                         </View>
                       )}
