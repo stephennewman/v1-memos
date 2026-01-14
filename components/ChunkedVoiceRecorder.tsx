@@ -14,6 +14,7 @@ import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/lib/theme-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BAR_COUNT = 40;
@@ -46,6 +47,7 @@ export function ChunkedVoiceRecorder({
   autoStart = false,
   userId,
 }: ChunkedVoiceRecorderProps) {
+  const { colors, isDark } = useTheme();
   const [isRecording, setIsRecording] = useState(autoStart);
   const [isInitializing, setIsInitializing] = useState(autoStart);
   const [isPaused, setIsPaused] = useState(false);
@@ -616,7 +618,7 @@ export function ChunkedVoiceRecorder({
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Timer */}
       <View style={styles.timerContainer}>
         {isRecording && (
@@ -627,21 +629,21 @@ export function ChunkedVoiceRecorder({
             </Text>
           </View>
         )}
-        <Text style={styles.timer}>{formatTime(totalDuration)}</Text>
+        <Text style={[styles.timer, { color: colors.text }]}>{formatTime(totalDuration)}</Text>
         {maxDuration < 99999 && (
-          <Text style={styles.maxDuration}>/ {formatTime(maxDuration)}</Text>
+          <Text style={[styles.maxDuration, { color: colors.textMuted }]}>/ {formatTime(maxDuration)}</Text>
         )}
       </View>
 
       {/* Chunk indicator */}
       {isRecording && chunkCount > 0 && (
         <View style={styles.chunkIndicator}>
-          <Ionicons name="cloud-done" size={14} color="#4ade80" />
-          <Text style={styles.chunkText}>
+          <Ionicons name="cloud-done" size={14} color={colors.success} />
+          <Text style={[styles.chunkText, { color: colors.success }]}>
             {chunkCount} chunk{chunkCount !== 1 ? 's' : ''} saved
           </Text>
           {isUploadingChunk && (
-            <Text style={styles.uploadingText}>uploading...</Text>
+            <Text style={[styles.uploadingText, { color: colors.textSecondary }]}>uploading...</Text>
           )}
         </View>
       )}
@@ -658,13 +660,13 @@ export function ChunkedVoiceRecorder({
                   height: anim,
                   backgroundColor: isRecording && !isPaused
                     ? `rgba(196, 223, 196, ${0.4 + (index / BAR_COUNT) * 0.6})`
-                    : '#333',
+                    : colors.cardBorder,
                 },
               ]}
             />
           ))}
         </View>
-        <View style={styles.centerLine} />
+        <View style={[styles.centerLine, { backgroundColor: colors.cardBorder }]} />
       </View>
 
       {/* Stop/Start Button */}
@@ -690,17 +692,17 @@ export function ChunkedVoiceRecorder({
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={styles.startButton}
+            style={[styles.startButton, { backgroundColor: colors.accent }]}
             onPress={startRecording}
             activeOpacity={0.8}
           >
-            <Ionicons name="mic" size={32} color="#0a0a0a" />
+            <Ionicons name="mic" size={32} color={isDark ? '#0a0a0a' : '#fff'} />
           </TouchableOpacity>
         )}
       </View>
 
       {/* Hint */}
-      <Text style={styles.hint}>
+      <Text style={[styles.hint, { color: colors.textSecondary }]}>
         {isInitializing 
           ? 'Starting...' 
           : isRecording 
@@ -714,7 +716,7 @@ export function ChunkedVoiceRecorder({
           style={styles.cancelButton} 
           onPress={cancelRecording}
         >
-          <Text style={styles.cancelText}>Cancel</Text>
+          <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
         </TouchableOpacity>
       )}
     </View>

@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import { useTheme } from '@/lib/theme-context';
 import { ChunkedVoiceRecorder } from '@/components/ChunkedVoiceRecorder';
 import { ProcessingAnimation } from '@/components/ProcessingAnimation';
 
@@ -21,6 +22,7 @@ export default function RecordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isLoading } = useAuth();
+  const { colors } = useTheme();
   const params = useLocalSearchParams<{ autoStart?: string }>();
 
   // Wait for user to load before recording
@@ -126,16 +128,16 @@ export default function RecordScreen() {
 
   if (state === 'loading') {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#c4dfc4" />
-        <Text style={styles.loadingText}>Preparing...</Text>
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Preparing...</Text>
       </View>
     );
   }
 
   if (state === 'processing') {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
         <ProcessingAnimation step={processingStep} />
       </View>
     );
@@ -143,13 +145,13 @@ export default function RecordScreen() {
 
   // Recording state - simple, clean interface
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       {/* Minimal Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.cardBorder }]}>
         <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
-          <Ionicons name="close" size={24} color="#fff" />
+          <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Recording</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Recording</Text>
         <View style={{ width: 40 }} />
       </View>
 
