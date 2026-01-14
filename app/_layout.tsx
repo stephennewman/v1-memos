@@ -6,11 +6,11 @@ import { ThemeProvider, useTheme } from '@/lib/theme-context';
 import { OnboardingProvider } from '@/lib/onboarding-context';
 
 function RootStack() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   
   return (
     <>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerShown: false,
