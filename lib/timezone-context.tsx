@@ -133,3 +133,22 @@ export function isTomorrow(date: Date | string, timezone: string): boolean {
   
   return dateStr === tomorrowStr;
 }
+
+// Hook to get timezone-aware date formatting functions
+export function useTimezoneFormatters() {
+  const { timezone } = useTimezone();
+  const formatRelativeDate = require('./format-date').formatRelativeDate;
+  const formatShortDate = require('./format-date').formatShortDate;
+  const formatDateTime = require('./format-date').formatDateTime;
+  const getDateGroupLabel = require('./format-date').getDateGroupLabel;
+  const formatDueDate = require('./format-date').formatDueDate;
+  
+  return {
+    formatRelativeDate: (date: string) => formatRelativeDate(date, timezone),
+    formatShortDate: (date: string) => formatShortDate(date, timezone),
+    formatDateTime: (date: string) => formatDateTime(date, timezone),
+    getDateGroupLabel: (date: string) => getDateGroupLabel(date, timezone),
+    formatDueDate: (date: string) => formatDueDate(date, timezone),
+    timezone,
+  };
+}
