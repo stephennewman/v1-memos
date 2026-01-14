@@ -539,28 +539,28 @@ export default function EntryDetailScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            tintColor="#666"
+            tintColor={colors.textSecondary}
           />
         }
       >
         {/* Date */}
-        <Text style={styles.date}>{formatDate(entry.created_at)}</Text>
+        <Text style={[styles.date, { color: colors.textSecondary }]}>{formatDate(entry.created_at)}</Text>
 
         {/* Audio Player */}
         {entry.audio_url && (
-          <View style={styles.audioPlayer}>
-            <TouchableOpacity onPress={playAudio} style={styles.playButton}>
+          <View style={[styles.audioPlayer, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <TouchableOpacity onPress={playAudio} style={[styles.playButton, { backgroundColor: colors.accent }]}>
               <Ionicons
                 name={isPlaying ? 'pause' : 'play'}
                 size={24}
-                color="#0a0a0a"
+                color={isDark ? '#0a0a0a' : '#fff'}
               />
             </TouchableOpacity>
             <View style={styles.audioInfo}>
-              <Text style={styles.audioLabel}>
+              <Text style={[styles.audioLabel, { color: colors.text }]}>
                 {isPlaying ? 'Playing...' : 'Voice Recording'}
               </Text>
-              <Text style={styles.audioDuration}>
+              <Text style={[styles.audioDuration, { color: colors.textSecondary }]}>
                 {formatDuration(entry.audio_duration_seconds)}
               </Text>
             </View>
@@ -571,43 +571,43 @@ export default function EntryDetailScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>SUMMARY</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>SUMMARY</Text>
               {(isProcessing && !entry.summary) && (
                 <View style={styles.inlineLoading}>
-                  <ModernLoader size="small" color="#c4dfc4" />
-                  <Text style={styles.inlineLoadingText}>Generating...</Text>
+                  <ModernLoader size="small" color={colors.accent} />
+                  <Text style={[styles.inlineLoadingText, { color: colors.accent }]}>Generating...</Text>
                 </View>
               )}
             </View>
             {entry.summary && !isEditingSummary && (
               <TouchableOpacity onPress={() => setIsEditingSummary(true)}>
-                <Ionicons name="pencil" size={16} color="#666" />
+                <Ionicons name="pencil" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
           {(isProcessing && !entry.summary) ? (
-            <View style={styles.skeleton} />
+            <View style={[styles.skeleton, { backgroundColor: colors.cardBorder }]} />
           ) : isEditingSummary ? (
             <View>
               <TextInput
-                style={styles.editInput}
+                style={[styles.editInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.cardBorder }]}
                 value={editedSummary}
                 onChangeText={setEditedSummary}
                 placeholder="Enter summary..."
-                placeholderTextColor="#444"
+                placeholderTextColor={colors.textMuted}
                 multiline
               />
               <View style={styles.editActions}>
                 <TouchableOpacity onPress={() => setIsEditingSummary(false)} style={styles.cancelBtn}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={saveSummary} style={styles.saveBtn}>
-                  <Text style={styles.saveBtnText}>Save</Text>
+                <TouchableOpacity onPress={saveSummary} style={[styles.saveBtn, { backgroundColor: colors.accent }]}>
+                  <Text style={[styles.saveBtnText, { color: isDark ? '#0a0a0a' : '#fff' }]}>Save</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
-            <Text style={styles.summaryText}>
+            <Text style={[styles.summaryText, { color: colors.text }]}>
               {entry.summary || 'No summary yet'}
             </Text>
           )}
@@ -616,17 +616,17 @@ export default function EntryDetailScreen() {
         {/* Tags Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>TAGS</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>TAGS</Text>
             {!isProcessing && !isEditingTags && (
               <TouchableOpacity onPress={() => setIsEditingTags(true)}>
-                <Ionicons name="pencil" size={16} color="#666" />
+                <Ionicons name="pencil" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
           {isProcessing ? (
             <View style={styles.peopleSkeleton}>
-              <View style={styles.skeletonBadge} />
-              <View style={styles.skeletonBadge} />
+              <View style={[styles.skeletonBadge, { backgroundColor: colors.cardBorder }]} />
+              <View style={[styles.skeletonBadge, { backgroundColor: colors.cardBorder }]} />
             </View>
           ) : isEditingTags ? (
             <View>
@@ -644,11 +644,11 @@ export default function EntryDetailScreen() {
               </View>
               <View style={styles.addTagRow}>
                 <TextInput
-                  style={styles.tagInput}
+                  style={[styles.tagInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.cardBorder }]}
                   value={newTagText}
                   onChangeText={setNewTagText}
                   placeholder="Add tag..."
-                  placeholderTextColor="#444"
+                  placeholderTextColor={colors.textMuted}
                   onSubmitEditing={() => {
                     const tag = newTagText.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
                     if (tag && !editedTags.includes(tag)) {
@@ -659,7 +659,7 @@ export default function EntryDetailScreen() {
                   returnKeyType="done"
                 />
                 <TouchableOpacity
-                  style={styles.addTagBtn}
+                  style={[styles.addTagBtn, { backgroundColor: colors.accent }]}
                   onPress={() => {
                     const tag = newTagText.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
                     if (tag && !editedTags.includes(tag)) {
@@ -668,15 +668,15 @@ export default function EntryDetailScreen() {
                     setNewTagText('');
                   }}
                 >
-                  <Ionicons name="add" size={20} color="#0a0a0a" />
+                  <Ionicons name="add" size={20} color={isDark ? '#0a0a0a' : '#fff'} />
                 </TouchableOpacity>
               </View>
               <View style={styles.editActions}>
                 <TouchableOpacity onPress={() => { setIsEditingTags(false); setEditedTags(entry.tags || []); }} style={styles.cancelBtn}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={saveTags} style={styles.saveBtn}>
-                  <Text style={styles.saveBtnText}>Save</Text>
+                <TouchableOpacity onPress={saveTags} style={[styles.saveBtn, { backgroundColor: colors.accent }]}>
+                  <Text style={[styles.saveBtnText, { color: isDark ? '#0a0a0a' : '#fff' }]}>Save</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -692,7 +692,7 @@ export default function EntryDetailScreen() {
                   </View>
                 ))
               ) : (
-                <Text style={styles.noTagsText}>No tags</Text>
+                <Text style={[styles.noTagsText, { color: colors.textMuted }]}>No tags</Text>
               )}
             </View>
           )}
@@ -702,47 +702,47 @@ export default function EntryDetailScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>TRANSCRIPT</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>TRANSCRIPT</Text>
               {(isProcessing && !entry.transcript) && (
                 <View style={styles.inlineLoading}>
-                  <ModernLoader size="small" color="#c4dfc4" />
-                  <Text style={styles.inlineLoadingText}>Transcribing...</Text>
+                  <ModernLoader size="small" color={colors.accent} />
+                  <Text style={[styles.inlineLoadingText, { color: colors.accent }]}>Transcribing...</Text>
                 </View>
               )}
             </View>
             {entry.transcript && !isEditingTranscript && (
               <TouchableOpacity onPress={() => setIsEditingTranscript(true)}>
-                <Ionicons name="pencil" size={16} color="#666" />
+                <Ionicons name="pencil" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
           {(isProcessing && !entry.transcript) ? (
             <>
-              <View style={styles.skeleton} />
-              <View style={[styles.skeleton, { width: '80%', marginTop: 8 }]} />
-              <View style={[styles.skeleton, { width: '60%', marginTop: 8 }]} />
+              <View style={[styles.skeleton, { backgroundColor: colors.cardBorder }]} />
+              <View style={[styles.skeleton, { width: '80%', marginTop: 8, backgroundColor: colors.cardBorder }]} />
+              <View style={[styles.skeleton, { width: '60%', marginTop: 8, backgroundColor: colors.cardBorder }]} />
             </>
           ) : isEditingTranscript ? (
             <View>
               <TextInput
-                style={[styles.editInput, { minHeight: 100 }]}
+                style={[styles.editInput, { minHeight: 100, backgroundColor: colors.card, color: colors.text, borderColor: colors.cardBorder }]}
                 value={editedTranscript}
                 onChangeText={setEditedTranscript}
                 placeholder="Enter transcript..."
-                placeholderTextColor="#444"
+                placeholderTextColor={colors.textMuted}
                 multiline
               />
               <View style={styles.editActions}>
                 <TouchableOpacity onPress={() => setIsEditingTranscript(false)} style={styles.cancelBtn}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={saveTranscript} style={styles.saveBtn}>
-                  <Text style={styles.saveBtnText}>Save</Text>
+                <TouchableOpacity onPress={saveTranscript} style={[styles.saveBtn, { backgroundColor: colors.accent }]}>
+                  <Text style={[styles.saveBtnText, { color: isDark ? '#0a0a0a' : '#fff' }]}>Save</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
-            <Text style={styles.transcriptText}>
+            <Text style={[styles.transcriptText, { color: colors.textSecondary }]}>
               {entry.transcript || 'No transcript yet'}
             </Text>
           )}
@@ -752,11 +752,11 @@ export default function EntryDetailScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>TASKS ({todoCount})</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>TASKS ({todoCount})</Text>
               {(isProcessing && tasks.length === 0) && (
                 <View style={styles.inlineLoading}>
-                  <ModernLoader size="small" color="#c4dfc4" />
-                  <Text style={styles.inlineLoadingText}>Extracting...</Text>
+                  <ModernLoader size="small" color={colors.accent} />
+                  <Text style={[styles.inlineLoadingText, { color: colors.accent }]}>Extracting...</Text>
                 </View>
               )}
             </View>
@@ -764,13 +764,13 @@ export default function EntryDetailScreen() {
 
           {(isProcessing && tasks.length === 0) ? (
             <>
-              <View style={styles.skeletonTask} />
-              <View style={styles.skeletonTask} />
+              <View style={[styles.skeletonTask, { backgroundColor: colors.cardBorder }]} />
+              <View style={[styles.skeletonTask, { backgroundColor: colors.cardBorder }]} />
             </>
           ) : (
             <>
               {tasks.map((task) => (
-                <View key={task.id} style={styles.taskItem}>
+                <View key={task.id} style={[styles.taskItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
                   <TouchableOpacity 
                     onPress={() => toggleTask(task)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -778,7 +778,7 @@ export default function EntryDetailScreen() {
                     <Ionicons
                       name={task.status === 'completed' ? "checkbox" : "square-outline"}
                       size={20}
-                      color={task.status === 'completed' ? '#3b82f6' : '#666'}
+                      color={task.status === 'completed' ? colors.taskBlue : colors.textSecondary}
                     />
                   </TouchableOpacity>
                   <TouchableOpacity 
@@ -787,10 +787,11 @@ export default function EntryDetailScreen() {
                   >
                     <Text style={[
                       styles.taskText,
+                      { color: colors.text },
                       task.status === 'completed' && styles.taskTextCompleted
                     ]}>{task.text}</Text>
                     {task.due_date && (
-                      <Text style={styles.taskDue}>
+                      <Text style={[styles.taskDue, { color: colors.textSecondary }]}>
                         Due: {new Date(task.due_date).toLocaleDateString('en-US', {
                           month: 'short', day: 'numeric'
                         })}
@@ -813,7 +814,7 @@ export default function EntryDetailScreen() {
                     onPress={() => deleteTask(task.id)}
                     style={styles.deleteTaskBtn}
                   >
-                    <Ionicons name="close" size={18} color="#666" />
+                    <Ionicons name="close" size={18} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -822,21 +823,21 @@ export default function EntryDetailScreen() {
               <View style={styles.addTaskContainer}>
                 <TextInput
                   ref={taskInputRef}
-                  style={styles.addTaskInput}
+                  style={[styles.addTaskInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.cardBorder }]}
                   value={newTaskText}
                   onChangeText={setNewTaskText}
                   placeholder="Add a task..."
-                  placeholderTextColor="#444"
+                  placeholderTextColor={colors.textMuted}
                   onSubmitEditing={addTask}
                   returnKeyType="next"
                   blurOnSubmit={false}
                 />
                 <TouchableOpacity
                   onPress={addTask}
-                  style={[styles.addTaskBtn, !newTaskText.trim() && styles.addTaskBtnDisabled]}
+                  style={[styles.addTaskBtn, { backgroundColor: colors.accent }, !newTaskText.trim() && { backgroundColor: colors.cardBorder }]}
                   disabled={!newTaskText.trim()}
                 >
-                  <Ionicons name="add" size={20} color={newTaskText.trim() ? '#0a0a0a' : '#666'} />
+                  <Ionicons name="add" size={20} color={newTaskText.trim() ? (isDark ? '#0a0a0a' : '#fff') : colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             </>
@@ -847,11 +848,11 @@ export default function EntryDetailScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>NOTES ({noteCount})</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>NOTES ({noteCount})</Text>
               {(isProcessing && notes.length === 0) && (
                 <View style={styles.inlineLoading}>
-                  <ModernLoader size="small" color="#c4dfc4" />
-                  <Text style={styles.inlineLoadingText}>Extracting...</Text>
+                  <ModernLoader size="small" color={colors.accent} />
+                  <Text style={[styles.inlineLoadingText, { color: colors.accent }]}>Extracting...</Text>
                 </View>
               )}
             </View>
@@ -859,19 +860,19 @@ export default function EntryDetailScreen() {
 
           {(isProcessing && notes.length === 0) ? (
             <>
-              <View style={styles.skeletonNote} />
-              <View style={styles.skeletonNote} />
+              <View style={[styles.skeletonNote, { backgroundColor: colors.cardBorder }]} />
+              <View style={[styles.skeletonNote, { backgroundColor: colors.cardBorder }]} />
             </>
           ) : (
             <>
               {notes.map((note) => (
                 <TouchableOpacity
                   key={note.id}
-                  style={styles.noteItem}
+                  style={[styles.noteItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                   onPress={() => router.push(`/note/${note.id}`)}
                 >
-                  <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 3 }} />
-                  <Text style={styles.noteText} numberOfLines={2}>{note.text}</Text>
+                  <Ionicons name="ellipse" size={10} color={colors.notesPurple} style={{ marginHorizontal: 3 }} />
+                  <Text style={[styles.noteText, { color: colors.text }]} numberOfLines={2}>{note.text}</Text>
                   {note.tags && note.tags.length > 0 && (
                     <View style={styles.itemTagsRow}>
                       {note.tags.slice(0, 2).map(tag => (
