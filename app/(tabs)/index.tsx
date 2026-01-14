@@ -48,6 +48,37 @@ const SORT_OPTIONS: { value: SortOption; label: string; icon: string }[] = [
 
 const SORT_STORAGE_KEY = '@memotalk_sort_option';
 
+const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Format recurrence pattern for display (e.g., "Weekly on Tue", "Monthly on 15th")
+const formatRecurrencePattern = (pattern: any): string => {
+  if (!pattern) return '';
+  
+  const { frequency, day_of_week, day_of_month, interval } = pattern;
+  
+  if (frequency === 'daily') {
+    return interval === 2 ? 'Every other day' : 'Daily';
+  }
+  
+  if (frequency === 'weekly') {
+    const dayName = day_of_week !== undefined ? WEEKDAY_NAMES[day_of_week] : '';
+    if (interval === 2) return dayName ? `Biweekly ${dayName}` : 'Biweekly';
+    return dayName ? `Weekly ${dayName}` : 'Weekly';
+  }
+  
+  if (frequency === 'monthly') {
+    if (day_of_month) {
+      const suffix = day_of_month === 1 ? 'st' : day_of_month === 2 ? 'nd' : day_of_month === 3 ? 'rd' : 'th';
+      return `${day_of_month}${suffix} monthly`;
+    }
+    return interval === 3 ? 'Quarterly' : 'Monthly';
+  }
+  
+  if (frequency === 'yearly') return 'Yearly';
+  
+  return '';
+};
+
 // Memoized checkbox component with LOCAL state for instant feedback
 const TaskCheckbox = React.memo(({ 
   itemId, 
@@ -998,23 +1029,23 @@ export default function HomeScreen() {
     };
     
     const dueDateInfo = item.type === 'task' ? formatDueDate(item.due_date) : null;
-    const recurringInfo = item.is_recurring && item.recurrence_pattern 
-      ? { instance: item.recurrence_pattern.instance, total: item.recurrence_pattern.total }
+    const scheduleText = item.is_recurring && item.recurrence_pattern 
+      ? formatRecurrencePattern(item.recurrence_pattern)
       : null;
     
     // Swipeable content (no checkbox - checkbox is outside for instant tap response)
     const swipeableContent = (
       <View style={styles.itemInner}>
-        <TouchableOpacity 
-          style={styles.itemTextWrapper}
-          onPress={() => startEditingItem(item)}
-        >
-          <Text style={[styles.itemText, { color: colors.text }, item.status === 'completed' && { textDecorationLine: 'line-through', color: colors.taskBlue }]}>
-            {item.text}
-          </Text>
-          {/* Due date and recurring badge row for tasks */}
-          {item.type === 'task' && (dueDateInfo || recurringInfo) && (
-            <View style={styles.taskMetaRow}>
+        <View style={styles.itemTextWrapper}>
+          {/* Only the text itself triggers editing */}
+          <TouchableOpacity onPress={() => startEditingItem(item)}>
+            <Text style={[styles.itemText, { color: colors.text }, item.status === 'completed' && { textDecorationLine: 'line-through', color: colors.taskBlue }]}>
+              {item.text}
+            </Text>
+          </TouchableOpacity>
+          {/* Due date and recurring schedule row for tasks - tapping goes to detail */}
+          {item.type === 'task' && (dueDateInfo || scheduleText) && (
+            <TouchableOpacity onPress={() => goToDetailPage(item)} style={styles.taskMetaRow}>
               {dueDateInfo && (
                 <View style={[styles.dueDateBadge, dueDateInfo.isOverdue && styles.dueDateBadgeOverdue]}>
                   <Ionicons name="calendar-outline" size={11} color={dueDateInfo.isOverdue ? '#ef4444' : colors.textMuted} />
@@ -1023,19 +1054,17 @@ export default function HomeScreen() {
                   </Text>
                 </View>
               )}
-              {recurringInfo && (
-                <View style={styles.recurringBadge}>
-                  <Ionicons name="repeat" size={11} color={colors.taskBlue} />
-                  {recurringInfo.instance && recurringInfo.total && (
-                    <Text style={[styles.recurringText, { color: colors.taskBlue }]}>
-                      {recurringInfo.instance}/{recurringInfo.total}
-                    </Text>
-                  )}
+              {scheduleText && (
+                <View style={[styles.scheduleBadge, { backgroundColor: `${colors.taskBlue}15` }]}>
+                  <Ionicons name="repeat" size={10} color={colors.taskBlue} />
+                  <Text style={[styles.scheduleText, { color: colors.taskBlue }]}>
+                    {scheduleText}
+                  </Text>
                 </View>
               )}
-            </View>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
+        </View>
         {displayTags.length > 0 && (
           <View style={styles.itemTagsRow}>
             {displayTags.slice(0, 2).map(tag => (
@@ -2079,6 +2108,18 @@ const styles = StyleSheet.create({
   recurringText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  scheduleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  scheduleText: {
+    fontSize: 10,
+    fontWeight: '500',
   },
   memoCounts: {
     flexDirection: 'row',

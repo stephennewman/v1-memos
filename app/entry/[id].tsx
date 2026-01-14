@@ -26,6 +26,37 @@ import { ModernLoader } from '@/components/ModernLoader';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
 
+const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Format recurrence pattern for display (e.g., "Weekly on Tue", "Monthly on 15th")
+const formatRecurrencePattern = (pattern: any): string => {
+  if (!pattern) return 'Recurring';
+  
+  const { frequency, day_of_week, day_of_month, interval } = pattern;
+  
+  if (frequency === 'daily') {
+    return interval === 2 ? 'Every other day' : 'Daily';
+  }
+  
+  if (frequency === 'weekly') {
+    const dayName = day_of_week !== undefined ? WEEKDAY_NAMES[day_of_week] : '';
+    if (interval === 2) return dayName ? `Biweekly on ${dayName}` : 'Biweekly';
+    return dayName ? `Weekly on ${dayName}` : 'Weekly';
+  }
+  
+  if (frequency === 'monthly') {
+    if (day_of_month) {
+      const suffix = day_of_month === 1 ? 'st' : day_of_month === 2 ? 'nd' : day_of_month === 3 ? 'rd' : 'th';
+      return `Monthly on ${day_of_month}${suffix}`;
+    }
+    return interval === 3 ? 'Quarterly' : 'Monthly';
+  }
+  
+  if (frequency === 'yearly') return 'Yearly';
+  
+  return 'Recurring';
+};
+
 interface RelatedNote {
   id: string;
   title: string;
@@ -803,13 +834,24 @@ export default function EntryDetailScreen() {
                       { color: colors.text },
                       task.status === 'completed' && styles.taskTextCompleted
                     ]}>{task.text}</Text>
-                    {task.due_date && (
-                      <Text style={[styles.taskDue, { color: colors.textSecondary }]}>
-                        Due: {new Date(task.due_date).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric'
-                        })}
-                      </Text>
-                    )}
+                    {/* Task meta: due date, recurring info */}
+                    <View style={styles.taskMetaRow}>
+                      {task.due_date && (
+                        <Text style={[styles.taskDue, { color: colors.textSecondary }]}>
+                          Due: {new Date(task.due_date).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric'
+                          })}
+                        </Text>
+                      )}
+                      {task.is_recurring && task.recurrence_pattern && (
+                        <View style={[styles.recurringTag, { backgroundColor: `${colors.taskBlue}20` }]}>
+                          <Ionicons name="repeat" size={11} color={colors.taskBlue} />
+                          <Text style={[styles.recurringTagText, { color: colors.taskBlue }]}>
+                            {formatRecurrencePattern(task.recurrence_pattern)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   </TouchableOpacity>
                   {task.tags && task.tags.length > 0 && (
                     <View style={styles.itemTagsRow}>
@@ -1246,7 +1288,25 @@ const styles = StyleSheet.create({
   taskDue: {
     fontSize: 12,
     color: '#666',
+  },
+  taskMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
     marginTop: 4,
+  },
+  recurringTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  recurringTagText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   deleteTaskBtn: {
     padding: 4,

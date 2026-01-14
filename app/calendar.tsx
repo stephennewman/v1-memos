@@ -34,6 +34,35 @@ interface Task {
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
+// Format recurrence pattern for display
+const formatRecurrencePattern = (pattern: any): string => {
+  if (!pattern) return 'Recurring';
+  
+  const { frequency, day_of_week, day_of_month, interval } = pattern;
+  
+  if (frequency === 'daily') {
+    return interval === 2 ? 'Every other day' : 'Daily';
+  }
+  
+  if (frequency === 'weekly') {
+    const dayName = day_of_week !== undefined ? WEEKDAYS[day_of_week] : '';
+    if (interval === 2) return dayName ? `Biweekly ${dayName}` : 'Biweekly';
+    return dayName ? `Weekly ${dayName}` : 'Weekly';
+  }
+  
+  if (frequency === 'monthly') {
+    if (day_of_month) {
+      const suffix = day_of_month === 1 ? 'st' : day_of_month === 2 ? 'nd' : day_of_month === 3 ? 'rd' : 'th';
+      return `${day_of_month}${suffix} monthly`;
+    }
+    return interval === 3 ? 'Quarterly' : 'Monthly';
+  }
+  
+  if (frequency === 'yearly') return 'Yearly';
+  
+  return 'Recurring';
+};
+
 const getDateKey = (date: Date) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
@@ -90,14 +119,13 @@ export default function CalendarScreen() {
       const allTasks = data || [];
       setTasks(allTasks);
 
-      // Group tasks by due_date (or original_due_date for moved tasks)
+      // Group tasks by due_date (the actual scheduled date)
       const byDate = new Map<string, Task[]>();
       
       allTasks.forEach(task => {
-        // Use original_due_date if task was moved, otherwise use due_date
-        const dateToUse = task.original_due_date || task.due_date;
-        if (dateToUse) {
-          const key = getDateKey(new Date(dateToUse));
+        // Use due_date to determine which day to show the task
+        if (task.due_date) {
+          const key = getDateKey(new Date(task.due_date));
           const existing = byDate.get(key) || [];
           byDate.set(key, [...existing, task]);
         }
@@ -392,7 +420,9 @@ export default function CalendarScreen() {
                         {task.is_recurring && (
                           <View style={styles.recurringBadge}>
                             <Ionicons name="repeat" size={12} color={colors.success} />
-                            <Text style={[styles.recurringText, { color: colors.success }]}>Recurring</Text>
+                            <Text style={[styles.recurringText, { color: colors.success }]}>
+                              {formatRecurrencePattern(task.recurrence_pattern)}
+                            </Text>
                           </View>
                         )}
                         {task.task_type === 'deadline' && (
