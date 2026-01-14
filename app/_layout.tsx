@@ -5,6 +5,7 @@ import { AuthProvider } from '@/lib/auth-context';
 import { ThemeProvider, useTheme } from '@/lib/theme-context';
 import { TimezoneProvider } from '@/lib/timezone-context';
 import { OnboardingProvider } from '@/lib/onboarding-context';
+import { PostHogProvider } from '@/lib/posthog';
 
 function RootStack() {
   const { colors, isDark } = useTheme();
@@ -33,15 +34,16 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <TimezoneProvider>
-          <ThemeProvider>
-            <OnboardingProvider>
-              <RootStack />
-            </OnboardingProvider>
-          </ThemeProvider>
-        </TimezoneProvider>
+        <PostHogProvider>
+          <TimezoneProvider>
+            <ThemeProvider>
+              <OnboardingProvider>
+                <RootStack />
+              </OnboardingProvider>
+            </ThemeProvider>
+          </TimezoneProvider>
+        </PostHogProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );
 }
-
