@@ -594,10 +594,11 @@ export default function HomeScreen() {
         dayMap.set(day.dateKey, day);
       }
 
-      // Add tasks to days - use due_date if available, otherwise created_at
+      // Add tasks to days - always use created_at (feed shows when you captured it)
+      // The due_date is shown as a badge, not used for grouping
       const allItems: Item[] = [];
       (tasks || []).forEach(t => {
-        const key = getDateKey(new Date(t.due_date || t.created_at));
+        const key = getDateKey(new Date(t.created_at));
         const day = dayMap.get(key);
         // Auto-generate tags if not stored in DB
         const tags = (t.tags && t.tags.length > 0) ? t.tags : autoGenerateTags(t.text);
