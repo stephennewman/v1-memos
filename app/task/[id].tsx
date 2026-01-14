@@ -453,28 +453,28 @@ export default function TaskDetailScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            tintColor="#666"
+            tintColor={colors.textSecondary}
           />
         }
       >
         {/* Task with Checkbox */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>TASK</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>TASK</Text>
           </View>
           <View style={styles.taskRow}>
             <TouchableOpacity onPress={toggleStatus} style={styles.checkboxContainer}>
-              <View style={[styles.checkbox, isCompleted && styles.checkboxChecked]}>
-                {isCompleted && <Ionicons name="checkmark" size={18} color="#0a0a0a" />}
+              <View style={[styles.checkbox, { borderColor: colors.textMuted }, isCompleted && styles.checkboxChecked]}>
+                {isCompleted && <Ionicons name="checkmark" size={18} color={isDark ? '#0a0a0a' : '#fff'} />}
               </View>
             </TouchableOpacity>
             {isEditingText ? (
               <TextInput
-                style={[styles.textInput, { flex: 1 }]}
+                style={[styles.textInput, { flex: 1, backgroundColor: colors.card, color: colors.text, borderColor: colors.cardBorder }]}
                 value={editedText}
                 onChangeText={setEditedText}
                 placeholder="Enter task..."
-                placeholderTextColor="#444"
+                placeholderTextColor={colors.textMuted}
                 autoFocus
                 returnKeyType="done"
                 blurOnSubmit={true}
@@ -486,7 +486,7 @@ export default function TaskDetailScreen() {
                 style={{ flex: 1 }} 
                 onPress={() => setIsEditingText(true)}
               >
-                <Text style={[styles.taskText, isCompleted && styles.taskTextCompleted]}>
+                <Text style={[styles.taskText, { color: colors.text }, isCompleted && styles.taskTextCompleted]}>
                   {task.text}
                 </Text>
               </TouchableOpacity>
@@ -497,10 +497,10 @@ export default function TaskDetailScreen() {
         {/* Tags */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>TAGS</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>TAGS</Text>
             {isEditingTags && (
               <TouchableOpacity onPress={() => { saveChanges(); setIsEditingTags(false); }}>
-                <Text style={styles.doneText}>Done</Text>
+                <Text style={[styles.doneText, { color: colors.taskBlue }]}>Done</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -520,11 +520,11 @@ export default function TaskDetailScreen() {
               </View>
               <View style={styles.addTagRow}>
                 <TextInput
-                  style={styles.tagInput}
+                  style={[styles.tagInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.cardBorder }]}
                   value={newTagText}
                   onChangeText={setNewTagText}
                   placeholder="Add tag..."
-                  placeholderTextColor="#444"
+                  placeholderTextColor={colors.textMuted}
                   autoFocus
                   onSubmitEditing={() => {
                     const tag = newTagText.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -536,7 +536,7 @@ export default function TaskDetailScreen() {
                   returnKeyType="done"
                 />
                 <TouchableOpacity
-                  style={styles.addTagBtn}
+                  style={[styles.addTagBtn, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                   onPress={() => {
                     const tag = newTagText.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
                     if (tag && !editedTags.includes(tag)) {
@@ -545,7 +545,7 @@ export default function TaskDetailScreen() {
                     setNewTagText('');
                   }}
                 >
-                  <Ionicons name="add" size={20} color="#666" />
+                  <Ionicons name="add" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -564,7 +564,7 @@ export default function TaskDetailScreen() {
                   </View>
                 ))
               ) : (
-                <Text style={styles.noTagsText}>Tap to add tags</Text>
+                <Text style={[styles.noTagsText, { color: colors.textMuted }]}>Tap to add tags</Text>
               )}
             </TouchableOpacity>
           )}
@@ -573,26 +573,26 @@ export default function TaskDetailScreen() {
         {/* Due Date */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>DUE DATE</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>DUE DATE</Text>
             {task.due_date && (
               <TouchableOpacity onPress={clearDueDate}>
-                <Text style={styles.clearText}>Clear</Text>
+                <Text style={[styles.clearText, { color: colors.error }]}>Clear</Text>
               </TouchableOpacity>
             )}
           </View>
           <TouchableOpacity 
-            style={styles.dateRow}
+            style={[styles.dateRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
             onPress={() => setShowDatePicker(true)}
           >
             <Ionicons 
               name="calendar-outline" 
               size={18} 
-              color={task.due_date ? '#3b82f6' : '#444'} 
+              color={task.due_date ? colors.taskBlue : colors.textMuted} 
             />
-            <Text style={[styles.dateText, !task.due_date && styles.dateTextEmpty]}>
+            <Text style={[styles.dateText, { color: colors.text }, !task.due_date && { color: colors.textMuted }]}>
               {formatDateDisplay(task.due_date)}
             </Text>
-            <Ionicons name="chevron-forward" size={16} color="#444" style={{ marginLeft: 'auto' }} />
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
         </View>
 
@@ -604,14 +604,14 @@ export default function TaskDetailScreen() {
             animationType="slide"
           >
             <View style={styles.datePickerModal}>
-              <View style={styles.datePickerContainer}>
-                <View style={styles.datePickerHeader}>
+              <View style={[styles.datePickerContainer, { backgroundColor: colors.card }]}>
+                <View style={[styles.datePickerHeader, { borderBottomColor: colors.cardBorder }]}>
                   <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                    <Text style={styles.datePickerCancel}>Cancel</Text>
+                    <Text style={[styles.datePickerCancel, { color: colors.textSecondary }]}>Cancel</Text>
                   </TouchableOpacity>
-                  <Text style={styles.datePickerTitle}>Select Due Date</Text>
+                  <Text style={[styles.datePickerTitle, { color: colors.text }]}>Select Due Date</Text>
                   <TouchableOpacity onPress={confirmAndCloseDatePicker}>
-                    <Text style={styles.datePickerDone}>Done</Text>
+                    <Text style={[styles.datePickerDone, { color: colors.taskBlue }]}>Done</Text>
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker
@@ -619,7 +619,7 @@ export default function TaskDetailScreen() {
                   mode="date"
                   display="spinner"
                   onChange={handleDateChange}
-                  textColor="#fff"
+                  textColor={colors.text}
                   style={styles.datePicker}
                 />
               </View>
@@ -640,15 +640,15 @@ export default function TaskDetailScreen() {
         {task.entry_id && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionLabel}>SOURCE</Text>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SOURCE</Text>
             </View>
             <TouchableOpacity 
-              style={styles.sourceRow}
+              style={[styles.sourceRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
               onPress={() => router.push(`/entry/${task.entry_id}`)}
             >
-              <Ionicons name="play" size={16} color="#22c55e" />
-              <Text style={styles.sourceText}>View original memo</Text>
-              <Ionicons name="chevron-forward" size={16} color="#444" />
+              <Ionicons name="play" size={16} color={colors.success} />
+              <Text style={[styles.sourceText, { color: colors.textSecondary }]}>View original memo</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         )}
@@ -656,11 +656,11 @@ export default function TaskDetailScreen() {
         {/* Metadata */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>INFO</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>INFO</Text>
           </View>
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Created</Text>
-            <Text style={styles.metaValue}>
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Created</Text>
+            <Text style={[styles.metaValue, { color: colors.textSecondary }]}>
               {new Date(task.created_at).toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
@@ -672,8 +672,8 @@ export default function TaskDetailScreen() {
           </View>
           {task.completed_at && (
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>Completed</Text>
-              <Text style={styles.metaValue}>
+              <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Completed</Text>
+              <Text style={[styles.metaValue, { color: colors.textSecondary }]}>
                 {new Date(task.completed_at).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
@@ -690,30 +690,31 @@ export default function TaskDetailScreen() {
         {relatedTasks.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionLabel}>RELATED TASKS</Text>
-              <Text style={styles.relatedCount}>({relatedTasks.length})</Text>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>RELATED TASKS</Text>
+              <Text style={[styles.relatedCount, { color: colors.textSecondary }]}>({relatedTasks.length})</Text>
             </View>
             {relatedTasks.map(relatedTask => (
               <TouchableOpacity 
                 key={relatedTask.id}
-                style={styles.relatedRow}
+                style={[styles.relatedRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                 onPress={() => router.push(`/task/${relatedTask.id}`)}
               >
                 <Ionicons 
                   name={relatedTask.status === 'completed' ? 'checkbox' : 'square-outline'} 
                   size={16} 
-                  color={relatedTask.status === 'completed' ? '#4ade80' : '#666'} 
+                  color={relatedTask.status === 'completed' ? colors.success : colors.textSecondary} 
                 />
                 <Text 
                   style={[
                     styles.relatedText,
+                    { color: colors.textSecondary },
                     relatedTask.status === 'completed' && styles.relatedTextCompleted
                   ]}
                   numberOfLines={1}
                 >
                   {relatedTask.text}
                 </Text>
-                <Text style={styles.relatedDate}>
+                <Text style={[styles.relatedDate, { color: colors.textMuted }]}>
                   {new Date(relatedTask.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </Text>
               </TouchableOpacity>
@@ -724,12 +725,12 @@ export default function TaskDetailScreen() {
         {/* Actions */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>ACTIONS</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>ACTIONS</Text>
           </View>
-          <TouchableOpacity style={styles.convertRow} onPress={convertToNote}>
-            <Ionicons name="document-text-outline" size={18} color="#a78bfa" />
-            <Text style={styles.convertText}>Convert to Note</Text>
-            <Ionicons name="chevron-forward" size={16} color="#444" />
+          <TouchableOpacity style={[styles.convertRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]} onPress={convertToNote}>
+            <Ionicons name="document-text-outline" size={18} color={colors.notesPurple} />
+            <Text style={[styles.convertText, { color: colors.notesPurple }]}>Convert to Note</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 

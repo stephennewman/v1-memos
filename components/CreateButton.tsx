@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/lib/theme-context';
 
 export type QuickActionContext = 'home' | 'voice' | 'settings' | 'other';
 
@@ -11,13 +12,15 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ onVoice, onTask, context = 'home' }: QuickActionsProps) {
+  const { colors } = useTheme();
+  
   // Don't show on settings
   if (context === 'settings') return null;
 
   // Voice/Memo page: only show Memo button (full width)
   if (context === 'voice') {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.card, borderTopColor: colors.cardBorder }]}>
         <TouchableOpacity
           style={[styles.actionButton, styles.voiceButton, styles.fullWidth]}
           onPress={onVoice}
@@ -34,7 +37,7 @@ export function QuickActions({ onVoice, onTask, context = 'home' }: QuickActions
 
   // Home & other: show only Memo button (full width)
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.card, borderTopColor: colors.cardBorder }]}>
       <TouchableOpacity
         style={[styles.actionButton, styles.voiceButton, styles.fullWidth]}
         onPress={onVoice}

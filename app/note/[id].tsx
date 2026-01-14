@@ -287,29 +287,29 @@ export default function NoteDetailScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            tintColor="#666"
+            tintColor={colors.textSecondary}
           />
         }
       >
         {/* Note Text */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>NOTE</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>NOTE</Text>
           </View>
           {isEditingText ? (
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.cardBorder }]}
               value={editedText}
               onChangeText={setEditedText}
               multiline
               autoFocus
               placeholder="Enter note..."
-              placeholderTextColor="#444"
+              placeholderTextColor={colors.textMuted}
               onBlur={() => { saveChanges(); setIsEditingText(false); }}
             />
           ) : (
             <TouchableOpacity onPress={() => setIsEditingText(true)}>
-              <Text style={styles.noteText}>
+              <Text style={[styles.noteText, { color: colors.text }]}>
                 {note.text}
               </Text>
             </TouchableOpacity>
@@ -319,10 +319,10 @@ export default function NoteDetailScreen() {
         {/* Tags */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>TAGS</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>TAGS</Text>
             {isEditingTags && (
               <TouchableOpacity onPress={() => { saveChanges(); setIsEditingTags(false); }}>
-                <Text style={styles.doneText}>Done</Text>
+                <Text style={[styles.doneText, { color: colors.taskBlue }]}>Done</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -342,11 +342,11 @@ export default function NoteDetailScreen() {
               </View>
               <View style={styles.addTagRow}>
                 <TextInput
-                  style={styles.tagInput}
+                  style={[styles.tagInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.cardBorder }]}
                   value={newTagText}
                   onChangeText={setNewTagText}
                   placeholder="Add tag..."
-                  placeholderTextColor="#444"
+                  placeholderTextColor={colors.textMuted}
                   autoFocus
                   onSubmitEditing={() => {
                     const tag = newTagText.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -358,7 +358,7 @@ export default function NoteDetailScreen() {
                   returnKeyType="done"
                 />
                 <TouchableOpacity
-                  style={styles.addTagBtn}
+                  style={[styles.addTagBtn, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                   onPress={() => {
                     const tag = newTagText.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
                     if (tag && !editedTags.includes(tag)) {
@@ -367,7 +367,7 @@ export default function NoteDetailScreen() {
                     setNewTagText('');
                   }}
                 >
-                  <Ionicons name="add" size={20} color="#666" />
+                  <Ionicons name="add" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -386,7 +386,7 @@ export default function NoteDetailScreen() {
                   </View>
                 ))
               ) : (
-                <Text style={styles.noTagsText}>Tap to add tags</Text>
+                <Text style={[styles.noTagsText, { color: colors.textMuted }]}>Tap to add tags</Text>
               )}
             </TouchableOpacity>
           )}
@@ -396,15 +396,15 @@ export default function NoteDetailScreen() {
         {note.entry_id && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionLabel}>SOURCE</Text>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SOURCE</Text>
             </View>
             <TouchableOpacity 
-              style={styles.sourceRow}
+              style={[styles.sourceRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
               onPress={() => router.push(`/entry/${note.entry_id}`)}
             >
-              <Ionicons name="play" size={16} color="#22c55e" />
-              <Text style={styles.sourceText}>View original memo</Text>
-              <Ionicons name="chevron-forward" size={16} color="#444" />
+              <Ionicons name="play" size={16} color={colors.success} />
+              <Text style={[styles.sourceText, { color: colors.textSecondary }]}>View original memo</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         )}
@@ -412,11 +412,11 @@ export default function NoteDetailScreen() {
         {/* Metadata */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>INFO</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>INFO</Text>
           </View>
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Created</Text>
-            <Text style={styles.metaValue}>
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Created</Text>
+            <Text style={[styles.metaValue, { color: colors.textSecondary }]}>
               {new Date(note.created_at).toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
@@ -428,8 +428,8 @@ export default function NoteDetailScreen() {
           </View>
           {note.updated_at !== note.created_at && (
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>Updated</Text>
-              <Text style={styles.metaValue}>
+              <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Updated</Text>
+              <Text style={[styles.metaValue, { color: colors.textSecondary }]}>
                 {new Date(note.updated_at).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
@@ -446,20 +446,20 @@ export default function NoteDetailScreen() {
         {relatedNotes.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionLabel}>RELATED NOTES</Text>
-              <Text style={styles.relatedCount}>({relatedNotes.length})</Text>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>RELATED NOTES</Text>
+              <Text style={[styles.relatedCount, { color: colors.textSecondary }]}>({relatedNotes.length})</Text>
             </View>
             {relatedNotes.map(relatedNote => (
               <TouchableOpacity 
                 key={relatedNote.id}
-                style={styles.relatedRow}
+                style={[styles.relatedRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                 onPress={() => router.push(`/note/${relatedNote.id}`)}
               >
-                <Ionicons name="ellipse" size={10} color="#a78bfa" style={{ marginHorizontal: 3 }} />
-                <Text style={styles.relatedText} numberOfLines={1}>
+                <Ionicons name="ellipse" size={10} color={colors.notesPurple} style={{ marginHorizontal: 3 }} />
+                <Text style={[styles.relatedText, { color: colors.textSecondary }]} numberOfLines={1}>
                   {relatedNote.text}
                 </Text>
-                <Text style={styles.relatedDate}>
+                <Text style={[styles.relatedDate, { color: colors.textMuted }]}>
                   {new Date(relatedNote.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </Text>
               </TouchableOpacity>
@@ -470,12 +470,12 @@ export default function NoteDetailScreen() {
         {/* Actions */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>ACTIONS</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>ACTIONS</Text>
           </View>
-          <TouchableOpacity style={styles.convertRow} onPress={convertToTask}>
-            <Ionicons name="checkbox-outline" size={18} color="#3b82f6" />
-            <Text style={styles.convertText}>Convert to Task</Text>
-            <Ionicons name="chevron-forward" size={16} color="#444" />
+          <TouchableOpacity style={[styles.convertRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]} onPress={convertToTask}>
+            <Ionicons name="checkbox-outline" size={18} color={colors.taskBlue} />
+            <Text style={[styles.convertText, { color: colors.taskBlue }]}>Convert to Task</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
