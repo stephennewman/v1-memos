@@ -119,30 +119,17 @@ export default function CalendarScreen() {
       const allTasks = data || [];
       setTasks(allTasks);
       
-      // DEBUG: Log what we got from the database
-      console.log('[Calendar] Loaded tasks:', allTasks.length);
-      console.log('[Calendar] Tasks with due_date:', allTasks.filter(t => t.due_date).length);
-      console.log('[Calendar] Recurring tasks:', allTasks.filter(t => t.is_recurring).length);
-      
-      // Log first few tasks to see their due_dates
-      allTasks.slice(0, 5).forEach(t => {
-        console.log(`[Calendar] Task: "${t.text.substring(0, 30)}" due_date: ${t.due_date}, is_recurring: ${t.is_recurring}`);
-      });
-
-      // Group tasks by due_date (the actual scheduled date)
+      // Group tasks by due_date, falling back to created_at (same as feed)
       const byDate = new Map<string, Task[]>();
       
       allTasks.forEach(task => {
-        // Use due_date to determine which day to show the task
-        if (task.due_date) {
-          const key = getDateKey(new Date(task.due_date));
-          const existing = byDate.get(key) || [];
-          byDate.set(key, [...existing, task]);
-          console.log(`[Calendar] Grouped task "${task.text.substring(0, 20)}" under date key: ${key}`);
-        }
+        // Use due_date if available, otherwise fall back to created_at
+        const dateToUse = task.due_date || task.created_at;
+        const key = getDateKey(new Date(dateToUse));
+        const existing = byDate.get(key) || [];
+        byDate.set(key, [...existing, task]);
       });
 
-      console.log('[Calendar] Total dates with tasks:', byDate.size);
       setTasksByDate(byDate);
     } catch (error) {
       console.error('Error loading tasks:', error);
