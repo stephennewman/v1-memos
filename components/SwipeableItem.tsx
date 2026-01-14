@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/lib/theme-context';
 
 // Simple haptic feedback using Vibration API
 const triggerHaptic = () => {
@@ -62,6 +63,7 @@ export function SwipeableItem({
 }: SwipeableItemProps) {
   const swipeableRef = useRef<Swipeable>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { colors } = useTheme();
 
   const handleSwipeRight = () => {
     triggerHaptic();
@@ -158,7 +160,7 @@ export function SwipeableItem({
   };
 
   if (disabled) {
-    return <View style={[styles.content, style]}>{children}</View>;
+    return <View style={[styles.content, { backgroundColor: colors.background }, style]}>{children}</View>;
   }
 
   return (
@@ -174,7 +176,7 @@ export function SwipeableItem({
         overshootRight={false}
         friction={2}
       >
-        <View style={styles.content}>{children}</View>
+        <View style={[styles.content, { backgroundColor: colors.background }]}>{children}</View>
       </Swipeable>
     </View>
   );
