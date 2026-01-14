@@ -595,11 +595,25 @@ export default function HomeScreen() {
       }
 
       // Add tasks to days - always use created_at (feed shows when you captured it)
-      // The due_date is shown as a badge, not used for grouping
+      // For recurring tasks, only show the first instance to avoid duplicates
       const allItems: Item[] = [];
-      (tasks || []).forEach(t => {
-        const key = getDateKey(new Date(t.created_at));
-        const day = dayMap.get(key);
+      
+      // Dedupe recurring tasks - keep only first instance of each series
+      const seenRecurringTexts = new Set<string>();
+      const dedupedTasks = (tasks || []).filter(t => {
+        if (t.is_recurring && t.recurrence_pattern) {
+          const textKey = t.text.toLowerCase().trim();
+          if (seenRecurringTexts.has(textKey)) {
+            return false; // Skip duplicate instance
+          }
+          seenRecurringTexts.add(textKey);
+        }
+        return true;
+      });
+      
+      dedupedTasks.forEach(t => {
+        const dayKey = getDateKey(new Date(t.created_at));
+        const day = dayMap.get(dayKey);
         // Auto-generate tags if not stored in DB
         const tags = (t.tags && t.tags.length > 0) ? t.tags : autoGenerateTags(t.text);
         const item: Item = { 
