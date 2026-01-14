@@ -889,7 +889,7 @@ export default function EntryDetailScreen() {
                     onPress={(e) => { e.stopPropagation(); deleteNote(note.id); }}
                     style={styles.deleteTaskBtn}
                   >
-                    <Ionicons name="close" size={18} color="#666" />
+                    <Ionicons name="close" size={18} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </TouchableOpacity>
               ))}
@@ -898,21 +898,21 @@ export default function EntryDetailScreen() {
               <View style={styles.addTaskContainer}>
                 <TextInput
                   ref={noteInputRef}
-                  style={styles.addTaskInput}
+                  style={[styles.addTaskInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.cardBorder }]}
                   value={newNoteText}
                   onChangeText={setNewNoteText}
                   placeholder="Add a note..."
-                  placeholderTextColor="#444"
+                  placeholderTextColor={colors.textMuted}
                   onSubmitEditing={addNote}
                   returnKeyType="next"
                   blurOnSubmit={false}
                 />
                 <TouchableOpacity
                   onPress={addNote}
-                  style={[styles.addTaskBtn, !newNoteText.trim() && styles.addTaskBtnDisabled]}
+                  style={[styles.addTaskBtn, { backgroundColor: colors.accent }, !newNoteText.trim() && { backgroundColor: colors.cardBorder }]}
                   disabled={!newNoteText.trim()}
                 >
-                  <Ionicons name="add" size={20} color={newNoteText.trim() ? '#0a0a0a' : '#666'} />
+                  <Ionicons name="add" size={20} color={newNoteText.trim() ? (isDark ? '#0a0a0a' : '#fff') : colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             </>
@@ -922,30 +922,30 @@ export default function EntryDetailScreen() {
         {/* People Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>PEOPLE ({isProcessing ? '...' : peopleList.length})</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>PEOPLE ({isProcessing ? '...' : peopleList.length})</Text>
           </View>
 
           {isProcessing ? (
             <View style={styles.peopleSkeleton}>
-              <View style={styles.skeletonBadge} />
-              <View style={styles.skeletonBadge} />
+              <View style={[styles.skeletonBadge, { backgroundColor: colors.cardBorder }]} />
+              <View style={[styles.skeletonBadge, { backgroundColor: colors.cardBorder }]} />
             </View>
           ) : peopleList.length > 0 ? (
             <View style={styles.peopleContainer}>
               {peopleList.map((person, idx) => (
                 <TouchableOpacity
                   key={idx}
-                  style={styles.personTag}
+                  style={[styles.personTag, { backgroundColor: colors.card }]}
                   onPress={() => router.push(`/person/${encodeURIComponent(person)}`)}
                 >
-                  <Ionicons name="person" size={12} color="#c4dfc4" />
-                  <Text style={styles.personTagText}>{person}</Text>
-                  <Ionicons name="chevron-forward" size={12} color="#666" />
+                  <Ionicons name="person" size={12} color={colors.accent} />
+                  <Text style={[styles.personTagText, { color: colors.textSecondary }]}>{person}</Text>
+                  <Ionicons name="chevron-forward" size={12} color={colors.textMuted} />
                 </TouchableOpacity>
               ))}
             </View>
           ) : (
-            <Text style={styles.noPeopleText}>No people mentioned</Text>
+            <Text style={[styles.noPeopleText, { color: colors.textMuted }]}>No people mentioned</Text>
           )}
         </View>
 
@@ -953,41 +953,41 @@ export default function EntryDetailScreen() {
         {!isProcessing && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>RELATED NOTES</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>RELATED NOTES</Text>
             </View>
 
             {isLoadingRelated ? (
               <View style={styles.relatedSkeleton}>
-                <View style={styles.skeletonNote} />
-                <View style={styles.skeletonNote} />
+                <View style={[styles.skeletonNote, { backgroundColor: colors.cardBorder }]} />
+                <View style={[styles.skeletonNote, { backgroundColor: colors.cardBorder }]} />
               </View>
             ) : relatedNotes.length > 0 ? (
               <View style={styles.relatedList}>
                 {relatedNotes.map((note) => (
                   <TouchableOpacity
                     key={note.id}
-                    style={styles.relatedItem}
+                    style={[styles.relatedItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                     onPress={() => router.push(`/entry/${note.id}`)}
                   >
-                    <View style={styles.relatedIcon}>
-                      <Ionicons name="link" size={16} color="#a78bfa" />
+                    <View style={[styles.relatedIcon, { backgroundColor: isDark ? '#a78bfa15' : '#a78bfa20' }]}>
+                      <Ionicons name="link" size={16} color={colors.notesPurple} />
                     </View>
                     <View style={styles.relatedContent}>
-                      <Text style={styles.relatedTitle} numberOfLines={1}>
+                      <Text style={[styles.relatedTitle, { color: colors.text }]} numberOfLines={1}>
                         {note.title}
                       </Text>
                       {note.shared_people.length > 0 && (
-                        <Text style={styles.relatedPeople}>
+                        <Text style={[styles.relatedPeople, { color: colors.textSecondary }]}>
                           Mentions: {note.shared_people.join(', ')}
                         </Text>
                       )}
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color="#444" />
+                    <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
                   </TouchableOpacity>
                 ))}
               </View>
             ) : (
-              <Text style={styles.noRelatedText}>No related notes found</Text>
+              <Text style={[styles.noRelatedText, { color: colors.textMuted }]}>No related notes found</Text>
             )}
           </View>
         )}
