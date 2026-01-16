@@ -1,3 +1,4 @@
+import 'react-native-gesture-handler'; // MUST be first import for gestures to work
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '@/lib/auth-context';
