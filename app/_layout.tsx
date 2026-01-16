@@ -1,7 +1,5 @@
-import 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from '@/lib/auth-context';
 import { ThemeProvider, useTheme } from '@/lib/theme-context';
 import { TimezoneProvider } from '@/lib/timezone-context';
@@ -33,18 +31,16 @@ function RootStack() {
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <PostHogProvider>
-          <TimezoneProvider>
-            <ThemeProvider>
-              <OnboardingProvider>
-                <RootStack />
-              </OnboardingProvider>
-            </ThemeProvider>
-          </TimezoneProvider>
-        </PostHogProvider>
-      </AuthProvider>
-    </GestureHandlerRootView>
+    <AuthProvider>
+      <PostHogProvider>
+        <TimezoneProvider>
+          <ThemeProvider>
+            <OnboardingProvider>
+              <RootStack />
+            </OnboardingProvider>
+          </ThemeProvider>
+        </TimezoneProvider>
+      </PostHogProvider>
+    </AuthProvider>
   );
 }
