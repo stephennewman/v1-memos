@@ -12,7 +12,8 @@ const POSTHOG_KEY = 'phc_8vRoWfsC9xKRi9RRj7Clx5FvnhU4fFVUHbV3Iir1965';
 const POSTHOG_HOST = 'https://us.i.posthog.com';
 
 // Check if PostHog is configured
-const isPostHogEnabled = POSTHOG_KEY && POSTHOG_KEY.startsWith('phc_');
+// TEMPORARILY DISABLED - debugging severe lag issues (build 28)
+const isPostHogEnabled = false; // POSTHOG_KEY && POSTHOG_KEY.startsWith('phc_');
 
 /**
  * PostHog Provider wrapper for MemoTalk
