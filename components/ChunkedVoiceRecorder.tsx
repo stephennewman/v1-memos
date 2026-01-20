@@ -13,6 +13,7 @@ import {
 import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme-context';
 
@@ -320,6 +321,10 @@ export function ChunkedVoiceRecorder({
       if (recordingRef.current) {
         recordingRef.current.stopAndUnloadAsync().catch(() => {});
       }
+      // Ensure screen can sleep when component unmounts
+      try {
+        deactivateKeepAwake('voice-recording');
+      } catch (e) {}
     };
   }, []);
 
@@ -366,6 +371,14 @@ export function ChunkedVoiceRecorder({
     try {
       console.log('[ChunkedRecorder] Starting new chunk...');
       
+      // Keep screen awake during recording to prevent iOS from suspending
+      try {
+        await activateKeepAwakeAsync('voice-recording');
+        console.log('[ChunkedRecorder] Screen keep-awake activated');
+      } catch (e) {
+        console.log('[ChunkedRecorder] Keep-awake failed (non-critical):', e);
+      }
+      
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -401,8 +414,8 @@ export function ChunkedVoiceRecorder({
         setCurrentChunkDuration(d => d + 1);
       }, 1000);
 
-      // Start metering
-      meteringRef.current = setInterval(updateMetering, 50);
+      // Start metering - 100ms for better performance (was 50ms)
+      meteringRef.current = setInterval(updateMetering, 100);
 
       // Status check
       statusCheckRef.current = setInterval(async () => {
@@ -519,6 +532,14 @@ export function ChunkedVoiceRecorder({
         playsInSilentModeIOS: true,
       });
 
+      // Allow screen to sleep again
+      try {
+        deactivateKeepAwake('voice-recording');
+        console.log('[ChunkedRecorder] Screen keep-awake deactivated');
+      } catch (e) {
+        console.log('[ChunkedRecorder] Keep-awake deactivation failed (non-critical):', e);
+      }
+
       // Upload final chunk (wait for it)
       if (uri && chunkDuration > 1000) {
         console.log('[ChunkedRecorder] Uploading final chunk...');
@@ -583,6 +604,11 @@ export function ChunkedVoiceRecorder({
       allowsRecordingIOS: false,
       playsInSilentModeIOS: true,
     });
+    
+    // Allow screen to sleep again
+    try {
+      deactivateKeepAwake('voice-recording');
+    } catch (e) {}
     
     // Clean up uploaded chunks
     // Note: In production, you might want to delete the uploaded chunks from storage

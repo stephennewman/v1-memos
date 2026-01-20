@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BAR_COUNT = 40;
@@ -135,6 +136,11 @@ export function VoiceRecorder({
         playsInSilentModeIOS: true,
       });
       
+      // Allow screen to sleep again
+      try {
+        deactivateKeepAwake('voice-recording');
+      } catch (e) {}
+      
       // If we have a recording with some duration, save it
       if (uri && duration >= 1) {
         console.log('[VoiceRecorder] Saving interrupted recording:', uri);
@@ -228,6 +234,10 @@ export function VoiceRecorder({
       if (recordingRef.current) {
         recordingRef.current.stopAndUnloadAsync().catch(() => {});
       }
+      // Ensure screen can sleep when component unmounts
+      try {
+        deactivateKeepAwake('voice-recording');
+      } catch (e) {}
     };
   }, []);
 
@@ -278,6 +288,15 @@ export function VoiceRecorder({
   const startRecordingInternal = async () => {
     try {
       console.log('[VoiceRecorder] Setting audio mode...');
+      
+      // Keep screen awake during recording to prevent iOS from suspending
+      try {
+        await activateKeepAwakeAsync('voice-recording');
+        console.log('[VoiceRecorder] Screen keep-awake activated');
+      } catch (e) {
+        console.log('[VoiceRecorder] Keep-awake failed (non-critical):', e);
+      }
+      
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -308,8 +327,8 @@ export function VoiceRecorder({
         setDuration(d => d + 1);
       }, 1000);
 
-      // Start metering updates
-      meteringRef.current = setInterval(updateMetering, 50);
+      // Start metering updates - 100ms for better performance (was 50ms)
+      meteringRef.current = setInterval(updateMetering, 100);
 
       // Start recording status monitor - check every 2 seconds if recording is still active
       statusCheckRef.current = setInterval(async () => {
@@ -392,6 +411,12 @@ export function VoiceRecorder({
         playsInSilentModeIOS: true,
       });
 
+      // Allow screen to sleep again
+      try {
+        deactivateKeepAwake('voice-recording');
+        console.log('[VoiceRecorder] Screen keep-awake deactivated');
+      } catch (e) {}
+
       if (uri && duration >= 1) {
         onRecordingComplete(uri, status.durationMillis || duration * 1000);
       } else if (duration < 1) {
@@ -434,6 +459,11 @@ export function VoiceRecorder({
       allowsRecordingIOS: false,
       playsInSilentModeIOS: true,
     });
+    
+    // Allow screen to sleep again
+    try {
+      deactivateKeepAwake('voice-recording');
+    } catch (e) {}
     
     onCancel?.();
   };
