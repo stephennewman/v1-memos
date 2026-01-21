@@ -42,7 +42,7 @@ interface SwipeableItemProps {
   style?: any;
 }
 
-export function SwipeableItem({
+export const SwipeableItem = React.memo(function SwipeableItem({
   children,
   onSwipeLeft,
   onSwipeRight,
@@ -181,7 +181,7 @@ export function SwipeableItem({
       </Swipeable>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   swipeableContainer: {

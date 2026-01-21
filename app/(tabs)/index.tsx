@@ -506,9 +506,10 @@ export default function HomeScreen() {
     if (!user) return;
 
     try {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
+      // Reduced from 30 to 14 days for performance
+      const daysBack = new Date();
+      daysBack.setDate(daysBack.getDate() - 14);
+      const thirtyDaysAgoISO = daysBack.toISOString();
 
       // Parallel queries for better performance
       const [tasksResult, notesResult, entriesResult] = await Promise.all([
@@ -557,8 +558,8 @@ export default function HomeScreen() {
       const daysArray: DayData[] = [];
       const dayMap = new Map<string, DayData>();
 
-      // Future days (7 days ahead)
-      for (let i = 7; i >= 1; i--) {
+      // Future days (3 days ahead - reduced from 7 for performance)
+      for (let i = 3; i >= 1; i--) {
         const date = new Date();
         date.setDate(date.getDate() + i);
         date.setHours(0, 0, 0, 0);
@@ -575,8 +576,8 @@ export default function HomeScreen() {
         dayMap.set(day.dateKey, day);
       }
 
-      // Today + past days
-      for (let i = 0; i < 30; i++) {
+      // Today + past days (reduced from 30 to 14 for performance)
+      for (let i = 0; i < 14; i++) {
         const date = new Date();
         date.setDate(date.getDate() - i);
         date.setHours(0, 0, 0, 0);
