@@ -96,7 +96,7 @@ export default function InboxScreen() {
     
     // Open in V1 web app if reference exists
     if (item.reference_id) {
-      const baseUrl = process.env.EXPO_PUBLIC_API_URL || 'https://v1ops.com';
+      const baseUrl = process.env.EXPO_PUBLIC_API_URL || 'https://www.outcomeview.com';
       let url = baseUrl;
       
       switch (item.item_type) {
