@@ -839,19 +839,33 @@ export default function HomeScreen() {
   }, [loadData]);
 
   const toggleDayExpanded = (dateKey: string) => {
+    const todayKey = getDateKey(new Date());
     setCollapsedDays(prev => {
       const next = new Set(prev);
-      if (next.has(dateKey)) next.delete(dateKey);
-      else next.add(dateKey);
+      if (dateKey === todayKey) {
+        // Today uses original logic - collapse by adding to set
+        if (next.has(dateKey)) next.delete(dateKey);
+        else next.add(dateKey);
+      } else {
+        // Past days: expand by adding expanded- prefix, collapse by removing
+        const expandedKey = `expanded-${dateKey}`;
+        if (next.has(expandedKey)) next.delete(expandedKey);
+        else next.add(expandedKey);
+      }
       return next;
     });
   };
 
   const focusDay = useCallback((dateKey: string) => {
-    // Expand the day if collapsed
+    const todayKey = getDateKey(new Date());
+    // Expand the day
     setCollapsedDays(prev => {
       const next = new Set(prev);
-      next.delete(dateKey); // Remove from collapsed = expand it
+      if (dateKey === todayKey) {
+        next.delete(dateKey); // Today: remove from collapsed
+      } else {
+        next.add(`expanded-${dateKey}`); // Past: add expanded marker
+      }
       return next;
     });
     
@@ -1146,11 +1160,10 @@ export default function HomeScreen() {
     // Past days: expanded if has items, collapsed if empty
     const hasItems = day.items.length > 0 || day.memos.length > 0;
     const totalCount = day.items.length + day.memos.length;
+    // PERFORMANCE: Only Today expanded by default. Past days collapsed until tapped.
     const isExpanded = day.isToday 
-      ? !collapsedDays.has(day.dateKey) // Today: always expanded by default (unless user collapses)
-      : hasItems 
-        ? !collapsedDays.has(day.dateKey) // Past days with items: expanded unless explicitly collapsed
-        : false; // Past empty days: always collapsed
+      ? !collapsedDays.has(day.dateKey) // Today: expanded by default
+      : collapsedDays.has(`expanded-${day.dateKey}`); // Past days: collapsed unless explicitly expanded
     
     // Group by type
     const tasks = day.items.filter(i => i.type === 'task');
