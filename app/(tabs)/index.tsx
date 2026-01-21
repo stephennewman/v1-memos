@@ -1104,18 +1104,14 @@ export default function HomeScreen() {
       </View>
     );
 
-    // Task: SwipeableItem wraps entire row to avoid clipping
+    // PERFORMANCE: Disabled SwipeableItem - use long-press instead
     if (item.type === 'task') {
       return (
-        <SwipeableItem
+        <TouchableOpacity
           key={item.id}
-          onSwipeLeft={() => handleSwipeArchive(item)}
-          leftAction={{
-            icon: 'trash-outline',
-            color: '#fff',
-            backgroundColor: colors.error,
-            label: 'Delete',
-          }}
+          onLongPress={() => handleDeleteItem(item)}
+          delayLongPress={500}
+          activeOpacity={0.7}
         >
           <View style={styles.item}>
             <TaskCheckbox 
@@ -1125,27 +1121,23 @@ export default function HomeScreen() {
             />
             {swipeableContent}
           </View>
-        </SwipeableItem>
+        </TouchableOpacity>
       );
     }
     
-    // Note: SwipeableItem wraps entire row
+    // Note: long-press to archive
     return (
-      <SwipeableItem
+      <TouchableOpacity
         key={item.id}
-        onSwipeLeft={() => handleSwipeArchive(item)}
-        leftAction={{
-          icon: 'archive-outline',
-          color: '#fff',
-          backgroundColor: colors.error,
-          label: 'Archive',
-        }}
+        onLongPress={() => handleDeleteItem(item)}
+        delayLongPress={500}
+        activeOpacity={0.7}
       >
         <View style={styles.item}>
           <Ionicons name="ellipse" size={10} color={colors.notesPurple} style={{ marginHorizontal: 4 }} />
           {swipeableContent}
         </View>
-      </SwipeableItem>
+      </TouchableOpacity>
     );
   };
 
@@ -1342,47 +1334,40 @@ export default function HomeScreen() {
                 <Text style={[styles.typeLabel, { color: colors.memoGreen }]}>Memos</Text>
               </View>
               {memos.map(memo => (
-                <SwipeableItem
+                <TouchableOpacity
                   key={memo.id}
-                  onSwipeLeft={() => handleSwipeArchiveMemo(memo.id)}
-                  leftAction={{
-                    icon: 'archive-outline',
-                    color: '#fff',
-                    backgroundColor: colors.error,
-                    label: 'Archive',
-                  }}
+                  style={styles.item}
+                  onPress={() => router.push(`/entry/${memo.id}`)}
+                  onLongPress={() => handleSwipeArchiveMemo(memo.id)}
+                  delayLongPress={500}
+                  activeOpacity={0.7}
                 >
-                  <TouchableOpacity
-                    style={styles.item}
-                    onPress={() => router.push(`/entry/${memo.id}`)}
-                  >
-                    <Ionicons name="play" size={16} color={colors.memoGreen} />
-                    <View style={styles.itemTextWrapper}>
-                      <Text style={[styles.itemText, { color: colors.text }]} numberOfLines={1}>
-                        {memo.summary || memo.transcript?.slice(0, 50) || 'Voice memo'}
-                      </Text>
+                  <Ionicons name="play" size={16} color={colors.memoGreen} />
+                  <View style={styles.itemTextWrapper}>
+                    <Text style={[styles.itemText, { color: colors.text }]} numberOfLines={1}>
+                      {memo.summary || memo.transcript?.slice(0, 50) || 'Voice memo'}
+                    </Text>
+                  </View>
+                  {(memo.taskCount > 0 || memo.noteCount > 0) && (
+                    <View style={styles.memoCounts}>
+                      {memo.taskCount > 0 && (
+                        <View style={[styles.memoCountBadge, { backgroundColor: colors.card }]}>
+                          <Ionicons name="checkbox-outline" size={12} color={colors.taskBlue} />
+                          <Text style={[styles.memoCountText, { color: colors.textSecondary }]}>{memo.taskCount}</Text>
+                        </View>
+                      )}
+                      {memo.noteCount > 0 && (
+                        <View style={[styles.memoCountBadge, { backgroundColor: colors.card }]}>
+                          <Ionicons name="ellipse" size={8} color={colors.notesPurple} />
+                          <Text style={[styles.memoCountText, { color: colors.textSecondary }]}>{memo.noteCount}</Text>
+                        </View>
+                      )}
                     </View>
-                    {(memo.taskCount > 0 || memo.noteCount > 0) && (
-                      <View style={styles.memoCounts}>
-                        {memo.taskCount > 0 && (
-                          <View style={[styles.memoCountBadge, { backgroundColor: colors.card }]}>
-                            <Ionicons name="checkbox-outline" size={12} color={colors.taskBlue} />
-                            <Text style={[styles.memoCountText, { color: colors.textSecondary }]}>{memo.taskCount}</Text>
-                          </View>
-                        )}
-                        {memo.noteCount > 0 && (
-                          <View style={[styles.memoCountBadge, { backgroundColor: colors.card }]}>
-                            <Ionicons name="ellipse" size={8} color={colors.notesPurple} />
-                            <Text style={[styles.memoCountText, { color: colors.textSecondary }]}>{memo.noteCount}</Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                    <View style={styles.detailBtn}>
-                      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                    </View>
-                  </TouchableOpacity>
-                </SwipeableItem>
+                  )}
+                  <View style={styles.detailBtn}>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  </View>
+                </TouchableOpacity>
               ))}
               <TouchableOpacity 
                 style={styles.addLink} 
