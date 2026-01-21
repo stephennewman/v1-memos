@@ -20,7 +20,9 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["audio"],
+        "UIBackgroundModes": [
+          "audio"
+        ],
         "NSMicrophoneUsageDescription": "MemoTalk needs microphone access to record voice memos, even when the app is in the background."
       }
     },
@@ -46,7 +48,8 @@
         {
           "microphonePermission": "MemoTalk needs microphone access to record voice memos."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

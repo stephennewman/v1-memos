@@ -1,4 +1,5 @@
 import 'react-native-gesture-handler'; // MUST be first import for gestures to work
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '@/lib/auth-context';
@@ -32,16 +33,18 @@ function RootStack() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <PostHogProvider>
-        <TimezoneProvider>
-          <ThemeProvider>
-            <OnboardingProvider>
-              <RootStack />
-            </OnboardingProvider>
-          </ThemeProvider>
-        </TimezoneProvider>
-      </PostHogProvider>
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <PostHogProvider>
+          <TimezoneProvider>
+            <ThemeProvider>
+              <OnboardingProvider>
+                <RootStack />
+              </OnboardingProvider>
+            </ThemeProvider>
+          </TimezoneProvider>
+        </PostHogProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
